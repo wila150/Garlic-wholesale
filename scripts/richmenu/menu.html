@@ -2,17 +2,22 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0}
-body{width:2500px;height:1686px;font-family:'Noto Sans TC',sans-serif;display:grid;grid-template-columns:1300px 1200px;grid-template-rows:843px 843px;gap:0;background:#16291F}
-.c{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;color:#fff;border:6px solid #16291F}
+/* 2500×1686：左邊大格 1300 寬；右邊上面「拍照叫貨」，下面「我的訂單｜聯絡老闆」 */
+body{width:2500px;height:1686px;font-family:'Noto Sans TC',sans-serif;display:grid;grid-template-columns:1300px 600px 600px;grid-template-rows:843px 843px;background:#16291F}
+.c{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;color:#fff;border:6px solid #16291F}
 .big{grid-row:span 2;background:#F5D547;color:#2A2400}
-.a{background:#2F6B45}.b{background:#23523A}
+.cam{grid-column:span 2;background:#2F6B45}
+.a{background:#23523A}.b{background:#1F4A34}
 .ic{font-size:300px;line-height:1}
 .big .ic{font-size:420px}
 .t{font-size:150px;font-weight:900;letter-spacing:8px}
 .big .t{font-size:200px}
-.s{font-size:70px;font-weight:500;opacity:.85}
+.s{font-size:66px;font-weight:500;opacity:.9}
+.a .t,.b .t{font-size:104px;letter-spacing:4px}
+.a .ic,.b .ic{font-size:180px}
 </style></head><body>
 <div class="c big"><div class="ic">🧄</div><div class="t">我要叫貨</div><div class="s">點選品項，不用打字</div></div>
-<div class="c a"><div class="ic" style="font-size:220px">📋</div><div class="t" style="font-size:130px">我的訂單</div></div>
-<div class="c b"><div class="ic" style="font-size:220px">💬</div><div class="t" style="font-size:130px">聯絡老闆</div></div>
+<div class="c cam"><div class="ic" style="font-size:220px">📷</div><div class="t" style="font-size:130px">拍照叫貨</div><div class="s">拍叫貨單，AI 幫你整理</div></div>
+<div class="c a"><div class="ic">📋</div><div class="t">我的訂單</div></div>
+<div class="c b"><div class="ic">💬</div><div class="t">聯絡老闆</div></div>
 </body></html>

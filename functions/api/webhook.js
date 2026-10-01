@@ -55,6 +55,18 @@ async function handle(e, origin) {
     return;
   }
 
+  // 圖文選單「拍照叫貨」：回快速回覆按鈕，點了直接開相機或相簿（圖文選單本身不能開相機）
+  if (said === '拍照叫貨' || action === 'photo') {
+    return say({
+      type: 'text',
+      text: '請拍一張叫貨單（手寫的也可以），或從相簿選照片。\n傳過來後大約 20 秒，會整理好給您確認。',
+      quickReply: { items: [
+        { type: 'action', action: { type: 'camera', label: '📷 拍照' } },
+        { type: 'action', action: { type: 'cameraRoll', label: '🖼 從相簿選' } },
+      ] },
+    });
+  }
+
   // AI 叫貨（放在關鍵字前面，「幫我叫貨 大蒜3」才會走 AI）：直接打字（像「大蒜3、去皮15斤」）或傳手寫單照片，交給 aiOrder 函式處理
   if (process.env.AI_ORDER !== 'off') {
     if (said && looksLikeOrder(said)) return queue({ type: 'text', text: said, userId: uid, replyToken: e.replyToken, origin });

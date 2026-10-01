@@ -12,7 +12,7 @@ const api = async (url, opt = {}) => {
   return t ? JSON.parse(t) : {};
 };
 
-// 圖片 2500×1686：左邊大格 1300 寬，右邊上下兩格
+// 圖片 2500×1686：左邊大格 1300 寬；右上「拍照叫貨」；右下「我的訂單｜聯絡老闆」
 const menu = {
   size: { width: 2500, height: 1686 },
   selected: true,
@@ -20,8 +20,9 @@ const menu = {
   chatBarText: '叫貨選單',
   areas: [
     { bounds: { x: 0, y: 0, width: 1300, height: 1686 }, action: { type: 'message', label: '我要叫貨', text: '我要叫貨' } },
-    { bounds: { x: 1300, y: 0, width: 1200, height: 843 }, action: { type: 'message', label: '我的訂單', text: '我的訂單' } },
-    { bounds: { x: 1300, y: 843, width: 1200, height: 843 }, action: { type: 'message', label: '聯絡老闆', text: '聯絡老闆' } },
+    { bounds: { x: 1300, y: 0, width: 1200, height: 843 }, action: { type: 'message', label: '拍照叫貨', text: '拍照叫貨' } },
+    { bounds: { x: 1300, y: 843, width: 600, height: 843 }, action: { type: 'message', label: '我的訂單', text: '我的訂單' } },
+    { bounds: { x: 1900, y: 843, width: 600, height: 843 }, action: { type: 'message', label: '聯絡老闆', text: '聯絡老闆' } },
   ],
 };
 

@@ -17,7 +17,7 @@ async function statement(month, storeId) {
 // 這天各店的簽收紀錄（不含圖片）
 async function signaturesOf(date) {
   const snap = await getFirestore().collection('signatures').where('date', '==', date).get();
-  return Object.fromEntries(snap.docs.map((d) => { const { png, ...rest } = d.data(); return [rest.storeId, rest]; }));
+  return Object.fromEntries(snap.docs.map((d) => { const { png, ...rest } = d.data(); return [rest.key || rest.storeId, rest]; }));
 }
 
 async function pushToStore(store, messages) {
@@ -111,14 +111,21 @@ export async function POST(request) {
       case 'setQty': {
         need(me, 'editOrders');
         await store();
-        const r = await shop.setQty(b.storeId, b.date, b.pid, b.qty, me.name);
+        const r = await shop.setQty(b.storeId, b.date, b.pid, b.qty, me.name, b.seq);
         if (!can(me.role, 'prices')) r.order.items = r.order.items.map(({ price, ...i }) => i);
         return json(r);
       }
       case 'setShip': {
         need(me, 'editOrders');
         await store();
-        const r = await shop.setShip(b.storeId, b.date, b.pid, b.ship, me.name);
+        const r = await shop.setShip(b.storeId, b.date, b.pid, b.ship, me.name, b.seq);
+        if (!can(me.role, 'prices')) r.order.items = r.order.items.map(({ price, ...i }) => i);
+        return json(r);
+      }
+      case 'newSlip': {
+        need(me, 'editOrders');
+        await store();
+        const r = await shop.newSlip(b.storeId, b.date, b.pid, b.qty, me.name);
         if (!can(me.role, 'prices')) r.order.items = r.order.items.map(({ price, ...i }) => i);
         return json(r);
       }
@@ -179,11 +186,14 @@ export async function POST(request) {
         if (!isDate(b.date)) throw new UserError('日期不正確');
         const stores = (await shop.getStores()).filter((s) => b.storeIds?.includes(s.id) && s.members.length);
         const orders = await shop.ordersOfDate(b.date);
+        // 一家店有補單的話，每張各一則收據（LINE 一次最多 5 則）
         const res = await Promise.allSettled(stores.map((s) => {
-          const o = orders.find((x) => x.storeId === s.id);
-          return o ? pushToStore(s, [receiptMessage(s, b.date, o, shop.billQty)]) : Promise.reject(new Error('沒有訂單'));
+          const mine = orders.filter((x) => x.storeId === s.id).sort((a, c) => (a.seq || 1) - (c.seq || 1)).slice(0, 5);
+          return mine.length ? pushToStore(s, mine.map((o) => receiptMessage(s, b.date, o, shop.billQty))) : Promise.reject(new Error('沒有訂單'));
         }));
-        await Promise.all(stores.map((s, i) => res[i].status === 'fulfilled' && getFirestore().doc(`orders/${b.date}_${s.id}`).update({ receiptSentAt: new Date().toISOString() })));
+        const at = new Date().toISOString();
+        await Promise.all(orders.filter((o) => stores.some((s, i) => s.id === o.storeId && res[i].status === 'fulfilled'))
+          .map((o) => getFirestore().doc(`orders/${b.date}_${shop.slipKey(o.storeId, o.seq || 1)}`).update({ receiptSentAt: at })));
         return json({ sent: res.filter((r) => r.status === 'fulfilled').length, total: stores.length });
       }
       case 'sign': {
@@ -192,11 +202,13 @@ export async function POST(request) {
         const s = await store();
         const png = String(b.png || '');
         if (!/^data:image\/png;base64,/.test(png) || png.length > 300000) throw new UserError('簽名圖片不正確');
-        if ((await getFirestore().doc(`signatures/${b.date}_${s.id}`).get()).exists) throw new UserError('這張出貨單已經簽收過了，不能重簽', 409);
-        if (!(await shop.getOrder(b.date, s.id))?.items.length) throw new UserError('這家店這天沒有訂單');
+        const seq = Math.max(1, Math.floor(Number(b.seq)) || 1);
+        const key = shop.slipKey(s.id, seq);
+        if ((await getFirestore().doc(`signatures/${b.date}_${key}`).get()).exists) throw new UserError('這張出貨單已經簽收過了，不能重簽', 409);
+        if (!(await shop.getOrder(b.date, s.id, seq))?.items.length) throw new UserError('這張出貨單沒有品項');
         const signer = String(b.signer || '').trim().slice(0, 20);
-        const rec = { date: b.date, storeId: s.id, png, signer, by: me.name, at: new Date().toISOString() };
-        await getFirestore().doc(`signatures/${b.date}_${s.id}`).set(rec);
+        const rec = { date: b.date, storeId: s.id, seq, key, png, signer, by: me.name, at: new Date().toISOString() };
+        await getFirestore().doc(`signatures/${b.date}_${key}`).set(rec);
         return json({ signature: { ...rec, png: undefined } });
       }
       case 'costTypes':

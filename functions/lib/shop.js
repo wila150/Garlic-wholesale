@@ -4,9 +4,9 @@
 //   stores/{id}         店家（含路線站號、綁定的 LINE 帳號 members）
 //   members/{userId}    { storeId }：LINE 帳號屬於哪家店
 //   pending/{userId}    申請開通的人
-//   orders/{日期}_{店}   訂單（每家店每個配送日一張）
+//   orders/{日期}_{店}   訂單（每家店每個配送日一張；簽收後追加的「補單」是 {日期}_{店}-2、-3…，seq 欄位記第幾張）
 //   dayPrices/{日期}     { prices: { pid: 單價 } }：老闆確認過的當天單價
-//   monthly/{YYYY-MM}   { amounts: { "日期|店": 金額 } }：對帳用的每日金額，一次讀完一整個月
+//   monthly/{YYYY-MM}   { amounts: { "日期|店[-補單號]": 金額 } }：對帳用的每日金額，一次讀完一整個月
 //   paid/{YYYY-MM}      { stores: { 店: { at } } }：收款紀錄
 //   settings/priceGroups { items: 報價組 }：店家 groupId 對到這裡，決定拿基本價的幾折或固定價
 //   users/{uid}         後台帳號的角色（見 lib/auth.js）
@@ -126,7 +126,7 @@ async function repriceOpen() {
     }
     if (changed) {
       batch.set(d.ref, o);
-      batch.set(doc('monthly/' + o.month), { amounts: { [`${o.date}|${o.storeId}`]: amountOf(o) } }, { merge: true });
+      batch.set(doc('monthly/' + o.month), { amounts: { [monthKey(o.date, o.storeId, o.seq)]: amountOf(o) } }, { merge: true });
       n++;
     }
   }
@@ -174,8 +174,8 @@ export async function setDayPrices(date, input, costInput = {}) {
       if (it.price !== p || it.base !== prices[it.pid]) { it.price = p; it.base = prices[it.pid]; changed = true; }
     }
     if (changed) {
-      batch.set(orderDoc(date, o.storeId), o);
-      batch.set(doc('monthly/' + date.slice(0, 7)), { amounts: { [`${date}|${o.storeId}`]: amountOf(o) } }, { merge: true });
+      batch.set(orderDoc(date, o.storeId, o.seq), o);
+      batch.set(doc('monthly/' + date.slice(0, 7)), { amounts: { [monthKey(date, o.storeId, o.seq)]: amountOf(o) } }, { merge: true });
     }
   }
   // 記成最近的單價，之後的新訂單先帶這個
@@ -283,12 +283,15 @@ export async function unbind(userId) {
 }
 
 /* ---------- 訂單 ---------- */
-const orderDoc = (date, sid) => doc(`orders/${date}_${sid}`);
-// 簽收後出貨單就鎖住，數量和品項都不能再改（單價還是可以補）
-async function assertNotSigned(date, sid) {
-  if ((await doc(`signatures/${date}_${sid}`).get()).exists) throw new UserError('這張出貨單已經簽收，不能再修改數量或品項', 409);
+// seq：第幾張單（1 是原本的叫貨單，2 以後是簽收後開的補單）
+export const slipKey = (sid, seq = 1) => (seq > 1 ? `${sid}-${seq}` : sid);
+const orderDoc = (date, sid, seq = 1) => doc(`orders/${date}_${slipKey(sid, seq)}`);
+const monthKey = (date, sid, seq = 1) => `${date}|${slipKey(sid, seq)}`;
+// 簽收後出貨單就鎖住，數量和品項都不能再改（單價還是可以補）；要追加就開補單
+async function assertNotSigned(date, sid, seq = 1) {
+  if ((await doc(`signatures/${date}_${slipKey(sid, seq)}`).get()).exists) throw new UserError('這張出貨單已經簽收，不能再修改；要追加請開補單', 409);
 }
-export const getOrder = async (date, sid) => (await orderDoc(date, sid).get()).data() ?? null;
+export const getOrder = async (date, sid, seq = 1) => (await orderDoc(date, sid, seq).get()).data() ?? null;
 
 export async function ordersOfDate(date) {
   const snap = await db().collection('orders').where('date', '==', date).get();
@@ -304,20 +307,27 @@ export async function lastOrder(sid, date) {
 // 一整個月每家店每天的金額（讀一份文件）
 export async function monthAmounts(month) {
   const amounts = (await data('monthly/' + month))?.amounts || {};
-  return Object.entries(amounts).map(([k, amount]) => {
-    const [date, storeId] = k.split('|');
-    return { date, storeId, amount };
-  });
+  // 同一天的補單併成一筆
+  const m = new Map();
+  for (const [k, amount] of Object.entries(amounts)) {
+    const [date, key] = k.split('|');
+    const storeId = key.replace(/-\d+$/, '');
+    const r = m.get(date + '|' + storeId) || { date, storeId, amount: 0 };
+    r.amount += amount;
+    m.set(date + '|' + storeId, r);
+  }
+  return [...m.values()];
 }
 
 // 整張訂單覆蓋。by：'店家' 或 '後台'；who：後台是誰改的
-export async function saveOrder(sid, date, items, by, who = '') {
+export async function saveOrder(sid, date, items, by, who = '', seq = 1) {
   if (!isDate(date)) throw new UserError('配送日不正確');
   if (by === '店家' && date !== openDate()) throw new UserError('這一天已經截單了，請重新整理後再叫貨', 409);
-  await assertNotSigned(date, sid);
+  seq = Math.max(1, Math.floor(Number(seq)) || 1);
+  await assertNotSigned(date, sid, seq);
   const products = await getProducts();
   const pm = new Map(products.map((p) => [p.id, p]));
-  const old = await getOrder(date, sid);
+  const old = await getOrder(date, sid, seq);
   const dayPrices = await getDayPrices(date);
   const [storeDoc, groups] = await Promise.all([data('stores/' + sid), getPriceGroups()]);
   const group = groups.find((g) => g.id === storeDoc?.groupId);
@@ -359,6 +369,7 @@ export async function saveOrder(sid, date, items, by, who = '') {
     date,
     month: date.slice(0, 7),
     storeId: sid,
+    seq,
     items: next,
     createdAt: old?.items.length ? old.createdAt : at,
     updatedAt: at,
@@ -370,19 +381,30 @@ export async function saveOrder(sid, date, items, by, who = '') {
     ],
   };
   const batch = db().batch();
-  batch.set(orderDoc(date, sid), order);
-  batch.set(doc('monthly/' + order.month), { amounts: { [`${date}|${sid}`]: next.length ? amountOf(order) : FieldValue.delete() } }, { merge: true });
+  batch.set(orderDoc(date, sid, seq), order);
+  batch.set(doc('monthly/' + order.month), { amounts: { [monthKey(date, sid, seq)]: next.length ? amountOf(order) : FieldValue.delete() } }, { merge: true });
   await batch.commit();
   return { order, had: !!old?.items.length, changes };
 }
 
-export async function setQty(sid, date, pid, qty, who) {
-  const old = await getOrder(date, sid);
+export async function setQty(sid, date, pid, qty, who, seq = 1) {
+  const old = await getOrder(date, sid, seq);
   const items = (old?.items || []).filter((i) => i.pid !== pid);
   const at = (old?.items || []).findIndex((i) => i.pid === pid);
   const it = { pid, qty: Math.max(0, roundQty(qty) || 0) };
   if (at >= 0) items.splice(at, 0, it); else items.push(it);
-  return saveOrder(sid, date, items, '後台', who);
+  return saveOrder(sid, date, items, '後台', who, seq);
+}
+
+// 簽收後還要追加：開一張新的補單（前面每張都簽收了才能開）
+export async function newSlip(sid, date, pid, qty, who) {
+  const snap = await db().collection('orders').where('date', '==', date).where('storeId', '==', sid).get();
+  const seqs = snap.docs.map((d) => d.data()).filter((o) => o.items.length).map((o) => o.seq || 1);
+  if (!seqs.length) throw new UserError('這家店這天還沒有出貨單，直接加品項就好');
+  for (const n of seqs) {
+    if (!(await doc(`signatures/${date}_${slipKey(sid, n)}`).get()).exists) throw new UserError('還有沒簽收的出貨單，直接在那張加品項就好');
+  }
+  return saveOrder(sid, date, [{ pid, qty }], '後台', who, Math.max(...seqs) + 1);
 }
 
 // 計價用的數量：理貨秤過就用實出量，沒秤就用叫貨量
@@ -390,9 +412,9 @@ export const billQty = (i) => i.ship ?? i.qty;
 export const amountOf = (o) => Math.round(o.items.reduce((a, i) => a + billQty(i) * i.price, 0));
 
 // 理貨填實際秤出的量（0＝缺貨，不出貨也不計價）
-export async function setShip(sid, date, pid, ship, who) {
-  await assertNotSigned(date, sid);
-  const o = await getOrder(date, sid);
+export async function setShip(sid, date, pid, ship, who, seq = 1) {
+  await assertNotSigned(date, sid, seq);
+  const o = await getOrder(date, sid, seq);
   const it = o?.items.find((i) => i.pid === pid);
   if (!it) throw new UserError('這家店這天沒有叫這個品項');
   ship = Math.max(0, roundQty(ship) || 0);
@@ -404,8 +426,8 @@ export async function setShip(sid, date, pid, ship, who) {
   o.updatedAt = at;
   o.log = [...(o.log || []), { at, by: '後台', who, text: `實出 ${it.name} ${qtyText(before, it.unit)} → ${ship ? qtyText(ship, it.unit) : '缺貨'}` }];
   const batch = db().batch();
-  batch.set(orderDoc(date, sid), o);
-  batch.set(doc('monthly/' + o.month), { amounts: { [`${date}|${sid}`]: amountOf(o) } }, { merge: true });
+  batch.set(orderDoc(date, sid, seq), o);
+  batch.set(doc('monthly/' + o.month), { amounts: { [monthKey(date, sid, seq)]: amountOf(o) } }, { merge: true });
   await batch.commit();
   return { order: o };
 }

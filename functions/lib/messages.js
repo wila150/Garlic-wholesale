@@ -96,7 +96,8 @@ export function receiptMessage(store, date, order, billQty) {
       ],
     };
   });
-  return flex(`${md(date)} 收據 ${money(total)}`, bubble(`${md(date)} 出貨收據`, `${store.name}・${label(date)}`, [
+  const slip = order.seq > 1 ? ` 補單 #${order.seq}` : '';
+  return flex(`${md(date)}${slip} 收據 ${money(total)}`, bubble(`${md(date)} 出貨收據${slip}`, `${store.name}・${label(date)}`, [
     ...body,
     sep,
     row('合計', money(total), { weight: 'bold', size: 'md', margin: 'md' }),

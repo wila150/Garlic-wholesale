@@ -1062,7 +1062,7 @@ document.addEventListener('click',async e=>{
   }
   if(b.id==='linkCopy'){try{await navigator.clipboard.writeText($('linkBox').dataset.text);toast('已複製，貼到 LINE 聊天室就好')}catch{$('linkUrl').select();toast('請手動複製')}}
   // 複製後打開 LINE 官方帳號的聊天後台，用官方帳號身分貼給店家
-  if(b.id==='linkShare'){const w=window.open('https://chat.line.biz/','lineoa');try{await navigator.clipboard.writeText($('linkBox').dataset.text);toast('已複製，在聊天室點這家店，貼上送出')}catch{$('linkUrl').select();toast('請手動複製連結')}w?.focus()}
+  if(b.id==='linkShare'){let ok=true;try{await navigator.clipboard.writeText($('linkBox').dataset.text)}catch{ok=false;$('linkUrl').select()}window.open('https://chat.line.biz/','lineoa');toast(ok?'已複製，在聊天室點這家店，貼上送出':'複製失敗，請先手動複製連結')}
   if(b.id==='linkClose')$('linkBox').classList.remove('on');
   if(b.id==='xlsDay')xlsDay().catch?.(()=>{});
   if(b.id==='xlsBills')xlsBills();

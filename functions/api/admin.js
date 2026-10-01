@@ -192,6 +192,8 @@ export async function POST(request) {
         const s = await store();
         const png = String(b.png || '');
         if (!/^data:image\/png;base64,/.test(png) || png.length > 300000) throw new UserError('簽名圖片不正確');
+        if ((await getFirestore().doc(`signatures/${b.date}_${s.id}`).get()).exists) throw new UserError('這張出貨單已經簽收過了，不能重簽', 409);
+        if (!(await shop.getOrder(b.date, s.id))?.items.length) throw new UserError('這家店這天沒有訂單');
         const signer = String(b.signer || '').trim().slice(0, 20);
         const rec = { date: b.date, storeId: s.id, png, signer, by: me.name, at: new Date().toISOString() };
         await getFirestore().doc(`signatures/${b.date}_${s.id}`).set(rec);

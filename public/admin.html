@@ -41,7 +41,9 @@ header.top p{margin:0;color:var(--muted);font-size:.9rem}
 .users select,.users input{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:5px 8px;font-size:.92rem;min-width:0}
 .users .ua{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
 .users .ua button{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:4px 10px;font-size:.85rem}
-.ro .stepper button,.ro .add{display:none}
+.ro .stepper button,.ro .add,.slip.locked .stepper button,.slip.locked .add{display:none}
+.slip.locked .stepper input{border-color:transparent;background:transparent}
+.slip.locked .lockhint{font-size:.78rem;color:var(--muted);margin-top:4px}
 .cutoff{background:var(--tag);color:#2A2400;font-weight:700;font-size:.85rem;padding:4px 10px;border-radius:4px;white-space:nowrap}
 nav.tabs{position:sticky;top:0;z-index:5;background:var(--bg);display:flex;gap:4px;padding:8px 0;border-bottom:2px solid var(--line);overflow-x:auto}
 nav.tabs button{flex:1 0 auto;border:0;background:transparent;padding:8px 12px;border-radius:6px;font-weight:700;color:var(--muted);white-space:nowrap}
@@ -584,7 +586,7 @@ async function saveDayPrices(){
 function slipActs(s,o){
   const sig=D.signatures?.[s.id];
   return `<div class="sacts">
-    ${sig?`<span class="signed">✅ 已簽收 ${hm(sig.at)}${sig.signer?`（${esc(sig.signer)}）`:''}<button data-sigview="${s.id}">看簽名</button></span>`:may('sign')?`<button class="ok" data-sign="${s.id}">簽收</button>`:''}
+    ${sig?`<span class="signed">✅ 已簽收 ${hm(sig.at)}${sig.signer?`（${esc(sig.signer)}）`:''}<button data-sigview="${s.id}">看簽名</button></span><div class="lockhint" style="flex-basis:100%">已簽收，數量不能再改</div>`:may('sign')?`<button class="ok" data-sign="${s.id}">簽收</button>`:''}
     ${may('statement')&&s.members?.length?`<button class="send" data-receipt="${s.id}">${o.receiptSentAt?'再傳一次收據':'LINE 傳收據'}</button>`:''}
     <button class="pbtn" data-print="slip" data-store="${s.id}">列印</button></div>`;
 }
@@ -596,6 +598,7 @@ async function sendReceipts(ids){
 /* 簽名板 */
 let sigStore=null;
 function openSign(sid){
+  if(!confirm(`簽收後「${SM()[sid].name}」這張出貨單就不能再改數量，確定都秤好了嗎？`))return;
   sigStore=sid;$('sigTitle').textContent=`${SM()[sid].name} 簽收`;$('sigName').value='';
   $('sigBox').classList.add('on'); // 先顯示，才量得到簽名框的大小
   const c=$('sigPad'),ctx=c.getContext('2d');c.width=c.clientWidth*2;c.height=c.clientHeight*2;
@@ -651,13 +654,13 @@ function renderSlips(){
   const opts=D.categories.map(c=>{const ps=onProducts.filter(p=>p.cat===c);return ps.length?`<optgroup label="${esc(c)}">${ps.map(p=>`<option value="${p.id}">${esc(p.name)}（${esc(p.unit)}）</option>`).join('')}</optgroup>`:''}).join('');
   const stores=[...activeStores(),...D.stores.filter(s=>!s.on&&orderOf(s.id))];
   $('slipBox').innerHTML=stores.map(s=>{
-    const o=orderOf(s.id);
+    const o=orderOf(s.id),locked=!!D.signatures?.[s.id],ro=locked||!may('editOrders');
     const items=o?sortItems(o.items).map(i=>{
       const q=billQty(i),diff=i.ship!=null&&i.ship!==i.qty;
       return `<div class="it ${q===0?'short':''}"><span>${esc(i.name)}${diff?`<small class="ord">叫 ${esc(qtyText(i.qty,i.unit))}</small>`:''}${q===0?'<small class="ord">缺貨</small>':''}</span>
-      <span class="stepper"><button data-step="-1" data-sid="${s.id}" data-pid="${i.pid}" aria-label="${esc(i.name)}實出減少">−</button><input type="text" inputmode="decimal" ${may('editOrders')?'':'readonly'} value="${esc(editText(q,i.unit))}" data-sqin="${s.id}" data-pid="${i.pid}" aria-label="${esc(i.name)}實出量，可以直接打">${/斤|兩/.test(editText(q,i.unit))?'':`<span class="u">${esc(i.unit)}</span>`}<button data-step="1" data-sid="${s.id}" data-pid="${i.pid}" aria-label="${esc(i.name)}實出增加">+</button></span></div>`;
+      <span class="stepper"><button data-step="-1" data-sid="${s.id}" data-pid="${i.pid}" aria-label="${esc(i.name)}實出減少">−</button><input type="text" inputmode="decimal" ${ro?'readonly':''} value="${esc(editText(q,i.unit))}" data-sqin="${s.id}" data-pid="${i.pid}" aria-label="${esc(i.name)}實出量，可以直接打">${/斤|兩/.test(editText(q,i.unit))?'':`<span class="u">${esc(i.unit)}</span>`}<button data-step="1" data-sid="${s.id}" data-pid="${i.pid}" aria-label="${esc(i.name)}實出增加">+</button></span></div>`;
     }).join(''):`<div class="empty">還沒叫貨</div>`;
-    return `<div class="slip ${o?'':'none'}"><div class="slip-h"><b>${esc(s.name)}</b><span class="stop">第 ${s.route} 站</span></div>${items}
+    return `<div class="slip ${o?'':'none'} ${locked?'locked':''}"><div class="slip-h"><b>${esc(s.name)}</b><span class="stop">第 ${s.route} 站</span></div>${items}
       <div class="add"><select id="add-${s.id}" aria-label="幫${esc(s.name)}加品項"><option value="">＋ 加品項</option>${opts}</select><input id="addq-${s.id}" type="text" placeholder="如 2斤4兩" aria-label="數量，可以打 2斤4兩"><button data-additem="${s.id}">加入</button></div>
       ${o?slipActs(s,o):''}</div>`;
   }).join('')||'<div class="empty">還沒有店家，到「店家」新增。</div>';
@@ -1023,7 +1026,7 @@ document.addEventListener('click',async e=>{
   if(b.dataset.sigview){const png=await sigImg(b.dataset.sigview);if(png){$('paper').innerHTML=`<div class="doc"><h3>${esc(SM()[b.dataset.sigview].name)} 簽收</h3><p style="text-align:center"><img src="${png}" style="max-width:100%;border:1px solid #ccc" alt="簽名"></p></div>`;$('pv').classList.add('on')}}
   if(b.id==='sigOk')saveSign();
   if(b.id==='sigCancel')$('sigBox').classList.remove('on');
-  if(b.id==='sigClear')openSign(sigStore);
+  if(b.id==='sigClear'){const c=$('sigPad'),ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);c.dataset.drawn=''}
   if(b.id==='xlsDay')xlsDay().catch?.(()=>{});
   if(b.id==='xlsBills')xlsBills();
   if(b.id==='xlsReport')xlsReport();

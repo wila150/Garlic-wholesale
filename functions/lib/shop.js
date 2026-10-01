@@ -284,6 +284,10 @@ export async function unbind(userId) {
 
 /* ---------- 訂單 ---------- */
 const orderDoc = (date, sid) => doc(`orders/${date}_${sid}`);
+// 簽收後出貨單就鎖住，數量和品項都不能再改（單價還是可以補）
+async function assertNotSigned(date, sid) {
+  if ((await doc(`signatures/${date}_${sid}`).get()).exists) throw new UserError('這張出貨單已經簽收，不能再修改數量或品項', 409);
+}
 export const getOrder = async (date, sid) => (await orderDoc(date, sid).get()).data() ?? null;
 
 export async function ordersOfDate(date) {
@@ -310,6 +314,7 @@ export async function monthAmounts(month) {
 export async function saveOrder(sid, date, items, by, who = '') {
   if (!isDate(date)) throw new UserError('配送日不正確');
   if (by === '店家' && date !== openDate()) throw new UserError('這一天已經截單了，請重新整理後再叫貨', 409);
+  await assertNotSigned(date, sid);
   const products = await getProducts();
   const pm = new Map(products.map((p) => [p.id, p]));
   const old = await getOrder(date, sid);
@@ -386,6 +391,7 @@ export const amountOf = (o) => Math.round(o.items.reduce((a, i) => a + billQty(i
 
 // 理貨填實際秤出的量（0＝缺貨，不出貨也不計價）
 export async function setShip(sid, date, pid, ship, who) {
+  await assertNotSigned(date, sid);
   const o = await getOrder(date, sid);
   const it = o?.items.find((i) => i.pid === pid);
   if (!it) throw new UserError('這家店這天沒有叫這個品項');

@@ -17,7 +17,11 @@ export const CLOSED_WEEKDAYS = (process.env.CLOSED_WEEKDAYS || '').split(',').fi
 
 export const CATEGORIES = ['蒜頭', '蒜仁蒜末', '其他辛香', '加工品'];
 // 預設單位，之後在後台「品項」可以自己新增、刪除
-export const DEFAULT_UNITS = ['斤', '公斤', '兩', '包', '箱', '袋', '盒', '罐', '把', '顆'];
+// 斤＝台斤（600g，可以叫幾斤幾兩）；件／箱／籃／袋／綑／紮／簍是批發市場常用的包裝單位
+export const DEFAULT_UNITS = ['斤', '兩', '公斤', '件', '箱', '籃', '袋', '包', '綑', '紮', '簍', '盒', '罐', '把', '顆'];
+// 後來才加進預設的單位：已經存過單位清單的，第一次讀取時自動補上一次（之後刪掉就不會再補）
+export const UNITS_VERSION = 2;
+export const UNITS_ADDED = { 2: ['件', '籃', '綑', '紮', '簍'] };
 
 // 第一次啟動時寫入的品項（價格是示範用），之後在後台「品項」修改
 export const DEFAULT_PRODUCTS = [

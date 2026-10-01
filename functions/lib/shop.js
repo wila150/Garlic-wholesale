@@ -11,7 +11,7 @@
 //   settings/priceGroups { items: 報價組 }：店家 groupId 對到這裡，決定拿基本價的幾折或固定價
 //   users/{uid}         後台帳號的角色（見 lib/auth.js）
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { DEFAULT_PRODUCTS, CATEGORIES, DEFAULT_UNITS } from './config.js';
+import { DEFAULT_PRODUCTS, CATEGORIES, DEFAULT_UNITS, UNITS_VERSION, UNITS_ADDED } from './config.js';
 import { qtyText, roundQty } from './qty.js';
 import { UserError } from './http.js';
 import { openDate, isDate, today } from './dates.js';
@@ -30,7 +30,13 @@ export async function getProducts() {
 
 /* ---------- 單位 ---------- */
 export async function getUnits() {
-  return (await data('settings/units'))?.items ?? DEFAULT_UNITS;
+  const saved = await data('settings/units');
+  if (!saved?.items) return DEFAULT_UNITS;
+  if ((saved.v || 1) >= UNITS_VERSION) return saved.items;
+  const add = Object.entries(UNITS_ADDED).filter(([v]) => +v > (saved.v || 1)).flatMap(([, u]) => u);
+  const items = [...new Set([...saved.items, ...add])];
+  await doc('settings/units').set({ items, v: UNITS_VERSION });
+  return items;
 }
 
 export async function saveUnits(input) {
@@ -39,7 +45,7 @@ export async function saveUnits(input) {
   if (!list.length) throw new UserError('至少要有一個單位');
   const used = (await getProducts()).filter((p) => !list.includes(p.unit));
   if (used.length) throw new UserError(`「${used[0].unit}」還有品項在用（${used[0].name}），先把品項改成別的單位`);
-  await doc('settings/units').set({ items: list });
+  await doc('settings/units').set({ items: list, v: UNITS_VERSION });
   return list;
 }
 

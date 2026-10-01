@@ -970,8 +970,12 @@ async function openPrint(kind,sid){
   if((kind==='slips'||kind==='daily'||kind==='buy')&&!withOrder.length){toast('這天沒有訂單');return}
   const html={buy:docBuy,daily:docDaily,month:docMonth,slip:()=>docSlip(sid),stmt:()=>docStmt(s),slips:()=>allSlips.map(docSlip).join('')}[kind]();
   $('paper').innerHTML=html;$('pv').classList.add('on');
+  let k='a4';try{k=localStorage.getItem('paper')==='r80'?'r80':'a4'}catch{}
+  setPaper(k);
 }
+// 記住這台裝置上次選的紙張（倉庫電腦選一次 80mm 就好）
 function setPaper(k){
+  try{localStorage.setItem('paper',k)}catch{}
   $('paper').className='paper '+k;
   document.querySelectorAll('[data-paper]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.paper===k));
   fitPage();

@@ -10,6 +10,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { signSlipToken } from '../lib/token.js';
 import { originOf } from '../lib/http.js';
 import * as report from '../lib/report.js';
+import { resetTestData } from '../lib/reset.js';
 
 async function statement(month, storeId) {
   const rows = (await shop.monthAmounts(month)).filter((r) => r.storeId === storeId).sort((a, b) => a.date.localeCompare(b.date));
@@ -125,6 +126,11 @@ export async function POST(request) {
         const r = await shop.setShip(b.storeId, b.date, b.pid, b.ship, me.name, b.seq);
         if (!can(me.role, 'prices')) r.order.items = r.order.items.map(({ price, ...i }) => i);
         return json(r);
+      }
+      case 'resetTestData': {
+        if (!me.engineer) throw new UserError('沒有這個權限', 403);
+        if (b.confirm !== '重置') throw new UserError('請輸入「重置」確認');
+        return json({ deleted: await resetTestData() });
       }
       case 'deleteSlip': {
         need(me, 'deleteOrders');

@@ -21,6 +21,8 @@ const CAN = {
 export const can = (role, what) => !!CAN[role] && (CAN[role].includes('*') || CAN[role].includes(what));
 
 const ownerEmails = () => (process.env.OWNER_EMAILS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+// 工程師：測試期間可以用「重置測試資料」，在 ENGINEER_EMAILS 指定，其他人看不到
+const engineerEmails = () => (process.env.ENGINEER_EMAILS || '').split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
 const userDoc = (email) => getFirestore().doc('users/' + email);
 const normEmail = (e) => String(e || '').trim().toLowerCase();
 
@@ -35,7 +37,7 @@ export async function signedIn(request) {
   const doc = (await userDoc(email).get()).data();
   const role = ownerEmails().includes(email) ? 'owner' : doc?.disabled ? null : doc?.role;
   if (!role) throw new UserError(`${email} 沒有後台權限，請老闆到「帳號」加入這個 Email`, 403);
-  return { email, name: doc?.name || user.name || email, role };
+  return { email, name: doc?.name || user.name || email, role, engineer: engineerEmails().includes(email) };
 }
 
 export function need(me, what) {

@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>叫貨系統使用說明書</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#F2F5F1; --surface:#FFFFFF; --surface-2:#E8EEE7; --ink:#17251D; --ink-2:#4A5B50; --line:#D3DDD2;
+  --forest:#1F4A35;
+  --store:#2F7D4F; --store-soft:#E0F0E5;
+  --owner:#A86A0C; --owner-soft:#F7EAD2;
+  --acct:#5B4B8A; --acct-soft:#E7E2F3;
+  --wh:#2B6CB0; --wh-soft:#DDE9F6;
+  --alert:#C53030; --alert-soft:#FBE3E1;
+  --bubble-me:#8FDC7A; --bubble-me-ink:#10310A; --bubble-bot:#FFFFFF; --chat-bg:#DFE6EC;
+  --shadow:0 1px 2px rgba(23,37,29,.08),0 6px 20px rgba(23,37,29,.06);
+  --role:var(--store); --role-soft:var(--store-soft);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#101A14; --surface:#17241C; --surface-2:#1F3026; --ink:#E6EFE8; --ink-2:#A3B5A9; --line:#2D4234;
+    --forest:#A9DCBC;
+    --store:#63C088; --store-soft:#1B3325;
+    --owner:#E2A94A; --owner-soft:#3A2C12;
+    --acct:#B6A4EE; --acct-soft:#2A2444;
+    --wh:#7FB3EC; --wh-soft:#182C44;
+    --alert:#F07A72; --alert-soft:#3F1F1D;
+    --bubble-me:#4FAE4B; --bubble-me-ink:#06200A; --bubble-bot:#22332A; --chat-bg:#0F1A22;
+    --shadow:none;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#101A14; --surface:#17241C; --surface-2:#1F3026; --ink:#E6EFE8; --ink-2:#A3B5A9; --line:#2D4234;
+  --forest:#A9DCBC;
+  --store:#63C088; --store-soft:#1B3325;
+  --owner:#E2A94A; --owner-soft:#3A2C12;
+  --acct:#B6A4EE; --acct-soft:#2A2444;
+  --wh:#7FB3EC; --wh-soft:#182C44;
+  --alert:#F07A72; --alert-soft:#3F1F1D;
+  --bubble-me:#4FAE4B; --bubble-me-ink:#06200A; --bubble-bot:#22332A; --chat-bg:#0F1A22;
+  --shadow:none;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth;scroll-padding-top:70px}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",system-ui,sans-serif;font-size:16px;line-height:1.75;padding:0 16px 64px;-webkit-text-size-adjust:100%}
+.wrap{max-width:880px;margin-inline:auto}
+h1,h2,h3,h4{line-height:1.35;text-wrap:balance;margin:0}
+p{margin:0}
+ul,ol{margin:0;padding:0}
+a{color:var(--store)}
+:focus-visible{outline:3px solid var(--wh);outline-offset:2px;border-radius:4px}
+
+.hero{padding-block:36px 24px}
+.hero .eyebrow{font-size:13px;letter-spacing:.14em;color:var(--ink-2);font-weight:500}
+.hero h1{font-size:clamp(28px,6.4vw,44px);font-weight:900;color:var(--forest);margin-top:6px}
+.hero .sub{color:var(--ink-2);margin-top:10px;max-width:36em}
+.back{display:inline-block;margin-top:14px;font-size:14px;font-weight:700}
+
+.nav{position:sticky;top:0;z-index:10;background:var(--bg);margin-inline:-16px;padding:10px 16px;border-bottom:1px solid var(--line)}
+.nav ul{list-style:none;display:flex;gap:8px;overflow-x:auto;max-width:880px;margin-inline:auto;scrollbar-width:none}
+.nav ul::-webkit-scrollbar{display:none}
+.nav a{display:block;white-space:nowrap;text-decoration:none;color:var(--ink);font-weight:700;font-size:14px;padding:6px 14px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface)}
+.nav a[data-r="store"]{border-color:var(--store);color:var(--store)}
+.nav a[data-r="owner"]{border-color:var(--owner);color:var(--owner)}
+.nav a[data-r="acct"]{border-color:var(--acct);color:var(--acct)}
+.nav a[data-r="wh"]{border-color:var(--wh);color:var(--wh)}
+.nav a[data-r="alert"]{border-color:var(--alert);color:var(--alert)}
+
+section{padding-block:40px 8px}
+.role-head{background:var(--role-soft);border-radius:14px;padding:20px 20px 18px;border-left:8px solid var(--role);margin-bottom:22px}
+.role-head .who{font-size:13px;font-weight:700;letter-spacing:.12em;color:var(--role)}
+.role-head h2{font-size:clamp(24px,5vw,32px);font-weight:900;margin-top:2px}
+.role-head p{color:var(--ink-2);margin-top:6px}
+.s-store{--role:var(--store);--role-soft:var(--store-soft)}
+.s-owner{--role:var(--owner);--role-soft:var(--owner-soft)}
+.s-acct{--role:var(--acct);--role-soft:var(--acct-soft)}
+.s-wh{--role:var(--wh);--role-soft:var(--wh-soft)}
+.s-alert{--role:var(--alert);--role-soft:var(--alert-soft)}
+h3{font-size:20px;font-weight:700;margin-top:32px;margin-bottom:10px}
+h3::before{content:"";display:inline-block;width:6px;height:1em;background:var(--role);border-radius:2px;margin-right:10px;vertical-align:-2px}
+.lead{color:var(--ink-2)}
+.body>p+p,.body p+ul,.body ul+p{margin-top:10px}
+.body ul{padding-left:1.3em}
+.body li{margin-top:4px}
+.body li::marker{color:var(--role)}
+
+.cmd{display:inline-block;font-weight:700;font-size:.92em;line-height:1.45;background:var(--bubble-me);color:var(--bubble-me-ink);padding:1px 10px;border-radius:12px 12px 3px 12px;white-space:nowrap;margin-block:1px}
+.btn{display:inline-block;font-weight:700;font-size:.9em;line-height:1.45;padding:0 9px;border-radius:6px;border:1.5px solid var(--role);color:var(--role);background:var(--surface);white-space:nowrap}
+
+.steps{list-style:none;counter-reset:st;display:grid;gap:14px;margin-top:8px;padding:0!important}
+.steps>li{counter-increment:st;position:relative;padding-left:46px;margin:0}
+.steps>li::before{content:counter(st);position:absolute;left:0;top:1px;width:32px;height:32px;border-radius:50%;background:var(--role);color:var(--surface);font-weight:900;font-size:15px;display:grid;place-items:center}
+.steps b{display:block;font-size:17px}
+.steps span{color:var(--ink-2);display:block}
+
+.chat{background:var(--chat-bg);border-radius:14px;padding:14px;margin-top:12px;display:flex;flex-direction:column;gap:8px;max-width:460px}
+.chat .cap{font-size:12px;color:var(--ink-2);letter-spacing:.08em}
+.b{padding:8px 12px;border-radius:16px;max-width:86%;font-size:15px;line-height:1.55;white-space:pre-line}
+.b.me{align-self:flex-end;background:var(--bubble-me);color:var(--bubble-me-ink);border-bottom-right-radius:4px;font-weight:500}
+.b.bot{align-self:flex-start;background:var(--bubble-bot);color:var(--ink);border-bottom-left-radius:4px}
+.b.btns{background:transparent;padding:0;display:flex;gap:6px;flex-wrap:wrap;align-self:flex-start}
+.b.btns i{font-style:normal;font-size:13px;font-weight:700;padding:4px 12px;border-radius:999px;background:var(--surface);border:1.5px solid var(--role);color:var(--role)}
+
+.trio{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px;margin-top:12px}
+.kind{background:var(--surface);border-radius:12px;padding:14px 16px;border:1px solid var(--line);box-shadow:var(--shadow)}
+.kind h4{font-size:17px}
+.kind p{font-size:15px;color:var(--ink-2);margin-top:6px}
+.note{margin-top:14px;padding:12px 16px;border-radius:10px;background:var(--surface-2);font-size:15px;border-left:4px solid var(--role)}
+.note.warn{background:var(--alert-soft);border-left-color:var(--alert)}
+.note strong:first-child{color:var(--role)}
+.note.warn strong:first-child{color:var(--alert)}
+
+.cl{list-style:none;margin-top:8px;border-top:1px solid var(--line);padding:0!important}
+.cl>li{display:grid;grid-template-columns:minmax(140px,200px) 1fr;gap:6px 18px;padding:10px 0;border-bottom:1px solid var(--line);margin:0}
+.cl .d{color:var(--ink-2);font-size:15px}
+.cl .d b{color:var(--ink)}
+@media (max-width:560px){.cl>li{grid-template-columns:1fr;gap:2px}}
+
+.tw{overflow-x:auto;margin-top:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:560px;font-size:14.5px}
+th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+th{background:var(--surface-2);font-size:13px;letter-spacing:.06em}
+tr:last-child td{border-bottom:0}
+.yes{color:var(--store);font-weight:700}
+.no{color:var(--ink-2)}
+
+.check{list-style:none;display:grid;gap:8px;margin-top:8px;padding:0!important}
+.check li{position:relative;padding:10px 14px 10px 44px;background:var(--surface);border:1px solid var(--line);border-radius:10px;margin:0;font-size:15px}
+.check li::before{content:"";position:absolute;left:14px;top:13px;width:18px;height:18px;border:2px solid var(--role);border-radius:5px}
+details{margin-top:8px;background:var(--surface);border:1px solid var(--line);border-radius:10px}
+summary{cursor:pointer;padding:12px 16px;font-weight:700}
+details>div{padding:0 16px 14px;color:var(--ink-2);font-size:15px}
+details>div p+p{margin-top:8px}
+
+.foot{margin-top:56px;padding-top:18px;border-top:1px solid var(--line);color:var(--ink-2);font-size:13px}
+@media print{
+  body{background:#fff;color:#000;font-size:12pt}
+  .nav,.back{display:none}
+  section{break-before:page;padding-top:0}
+  section.first{break-before:auto}
+  .kind,.chat,.note,.cl>li,.check li{break-inside:avoid}
+}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <p class="eyebrow">蒜頭行・LINE 叫貨系統</p>
+  <h1>叫貨系統<br>使用說明書</h1>
+  <p class="sub">店家在 LINE 官方帳號叫貨，看不到價格；後台負責採買、配貨、出貨單和月結對帳。先找到自己的身分，看那一章就好。</p>
+  <a class="back" href="/admin">← 回後台</a>
+</header>
+
+<nav class="nav" aria-label="章節">
+  <ul>
+    <li><a href="#day">📅 每天的流程</a></li>
+    <li><a href="#store" data-r="store">🏪 店家（LINE）</a></li>
+    <li><a href="#owner" data-r="owner">👑 老闆</a></li>
+    <li><a href="#acct" data-r="acct">🧾 會計</a></li>
+    <li><a href="#wh" data-r="wh">📦 理貨／司機</a></li>
+    <li><a href="#roles">權限一覽</a></li>
+    <li><a href="#faq" data-r="alert">❓ 出問題怎麼辦</a></li>
+  </ul>
+</nav>
+
+<!-- ═══════════ 每天的流程 ═══════════ -->
+<section id="day" class="s-store first">
+  <div class="role-head">
+    <p class="who">所有人先看這裡</p>
+    <h2>📅 每天的流程</h2>
+    <p>每家店每個配送日一張單。<b>配送日前一天晚上 22:00 截單</b>，截單後店家就不能改，叫貨頁會自動換到下一個配送日。</p>
+  </div>
+  <div class="body">
+    <ol class="steps">
+      <li><b>店家叫貨（截單前）</b><span>店家在 LINE 點「我要叫貨」填單，或直接打字、拍叫貨單照片給 AI 整理。截單前都能自己改。</span></li>
+      <li><b>看採買總表、提醒沒叫的店</b><span>後台「採買總表」把所有店的量加起來，照這個去採買。還沒叫貨的店會列出來，可以一鍵用 LINE 提醒。</span></li>
+      <li><b>填當天單價</b><span>「單價」分頁只列出當天有人叫的品項，填<b>基本價</b>和<b>進價</b>，按儲存。出貨單和對帳的金額會一起更新。</span></li>
+      <li><b>配貨、填實出量</b><span>「出貨單」依配送路線排好。秤完把<b>實際出的量</b>填進去（0＝缺貨），金額照實出量算。</span></li>
+      <li><b>傳確認連結給店家</b><span>配好後按 <span class="btn">傳確認連結</span>，貼到官方帳號聊天室給店家。店家核對完按「確認」，這張單就鎖住。也可以自己按 <span class="btn">直接確認</span>。</span></li>
+      <li><b>列印、出車</b><span>按 <span class="btn">列印</span> 印出出貨單（A4 或 80mm 出單機），交給店家用筆簽，或免簽。</span></li>
+      <li><b>月底對帳</b><span>「對帳」分頁有每家店的月結明細，可以用 LINE 傳對帳單、勾選已收款、匯出 Excel。</span></li>
+    </ol>
+    <div class="note"><strong>確認後就不能改　</strong>配送單確認後，數量和品項都鎖住。要追加東西，用 <span class="btn">開補單</span> 另開一張，對帳時會自動合併到同一天。</div>
+  </div>
+</section>
+
+<!-- ═══════════ 店家 ═══════════ -->
+<section id="store" class="s-store">
+  <div class="role-head">
+    <p class="who">給叫貨的店家（可以轉傳這段給店家看）</p>
+    <h2>🏪 店家使用說明</h2>
+    <p>全部在 LINE 裡完成，不用下載 App。看不到價格，金額在收據和對帳單上通知。</p>
+  </div>
+  <div class="body">
+    <h3>第一次使用：開通</h3>
+    <ol class="steps">
+      <li><b>加官方帳號好友</b><span>加入後聊天室下方會出現選單。</span></li>
+      <li><b>點「我要叫貨」</b><span>還沒開通的話，機器人會請你回覆<b>店名</b>，同時通知老闆。</span></li>
+      <li><b>等老闆開通</b><span>老闆在後台開通後，你會收到通知，之後就能叫貨。同一家店可以綁好幾個 LINE 帳號（老闆、員工都可以）。</span></li>
+    </ol>
+
+    <h3>三種叫貨方式</h3>
+    <div class="trio">
+      <div class="kind">
+        <h4>📝 叫貨單</h4>
+        <p>點選單「我要叫貨」，打開叫貨單，選品項、填數量就好。「斤」的品項可以填幾斤幾兩。送出後會收到訂單卡。</p>
+      </div>
+      <div class="kind">
+        <h4>💬 直接打字</h4>
+        <p>像 <span class="cmd">大蒜3斤、去皮15斤</span> 這樣打給機器人，AI 會整理成訂單，你按「確認送出」才算數。</p>
+      </div>
+      <div class="kind">
+        <h4>📷 拍照叫貨</h4>
+        <p>點選單「拍照叫貨」→ 拍照或從相簿選。手寫單也可以。大約 20 秒後整理好，一樣按「確認送出」。</p>
+      </div>
+    </div>
+
+    <div class="chat" aria-label="打字叫貨示意">
+      <span class="cap">示意：打字叫貨</span>
+      <div class="b me">大蒜3斤、去皮15斤</div>
+      <div class="b bot">幫您整理好了：
+雲林蒜頭 3 斤
+去皮蒜仁 15 斤
+沒問題請按「確認送出」</div>
+      <div class="b btns"><i>確認送出</i><i>用叫貨單修改</i></div>
+    </div>
+    <div class="note"><strong>AI 看錯了？　</strong>不要按確認送出，按「用叫貨單修改」，AI 整理的內容會先帶進叫貨單，改好再送出。</div>
+
+    <h3>確認配送單</h3>
+    <p>貨配好後，老闆會在聊天室傳一個「確認配送單」連結：</p>
+    <ul>
+      <li>打開會看到「幫您配好的貨」，核對品項和數量。</li>
+      <li>沒問題就勾「品項和數量正確」，按「確認」。再按「回傳給老闆」，聊天室會帶好一句話，按送出就好。</li>
+      <li>數量不對就按「數量不對？告訴老闆」，聊天室會帶好開頭，補上哪裡不對。</li>
+    </ul>
+
+    <h3>聊天室可以打的字</h3>
+    <ul class="cl">
+      <li><span><em class="cmd">我要叫貨</em></span><span class="d">打開這次配送日的叫貨單</span></li>
+      <li><span><em class="cmd">拍照叫貨</em></span><span class="d">拍叫貨單照片給 AI 整理</span></li>
+      <li><span><em class="cmd">我的訂單</em></span><span class="d">看這次叫了什麼；已截單、還沒送的也會列出來</span></li>
+      <li><span><em class="cmd">聯絡老闆</em></span><span class="d">直接在聊天室留言，老闆看到會回</span></li>
+    </ul>
+    <div class="note"><strong>截單時間　</strong>配送日前一天 22:00。截單後要改請直接留言給老闆。</div>
+  </div>
+</section>
+
+<!-- ═══════════ 老闆 ═══════════ -->
+<section id="owner" class="s-owner">
+  <div class="role-head">
+    <p class="who">給老闆</p>
+    <h2>👑 老闆使用說明</h2>
+    <p>老闆有全部權限。除了每天的流程，另外負責開通店家、設定品項和報價、管理員工帳號。</p>
+  </div>
+  <div class="body">
+    <h3>登入後台</h3>
+    <p>網址 <code>https://garlic-wholesale.web.app/admin</code>，用 <b>Google 帳號</b>登入。員工也用自己的 Google 帳號，你在「設定」加入他們的 Email 就好，不用設密碼。</p>
+
+    <h3>開通店家</h3>
+    <ol class="steps">
+      <li><b>收到申請通知</b><span>有人在 LINE 點「我要叫貨」但還沒開通時，你的 LINE 會收到通知，「店家」分頁旁邊會出現紅點。</span></li>
+      <li><b>到「店家」分頁開通</b><span>選要綁到哪一家店（或新增一家），按開通。對方會收到開通通知。</span></li>
+      <li><b>設定站號</b><span>站號就是送貨順序，出貨單和採買明細都照這個排。</span></li>
+    </ol>
+
+    <h3>品項和單位</h3>
+    <ul>
+      <li>「品項」分頁：新增、改名、分類、上下架。下架的店家就看不到。</li>
+      <li>單位可以自己新增（斤、箱、包…）。「斤」的品項店家可以叫幾斤幾兩（1 斤＝16 兩）。</li>
+    </ul>
+
+    <h3>報價組（不同店不同價）</h3>
+    <p>所有店預設用同一個基本價。要給某些店優惠，在「店家」分頁的<b>報價組</b>設定，再把店家歸到那一組：</p>
+    <ul>
+      <li><b>打折</b>：例如全部 95 折。</li>
+      <li><b>每單位減</b>：例如每斤少 5 元。</li>
+      <li><b>個別固定價</b>：某個品項固定一個價錢，不跟基本價。</li>
+    </ul>
+
+    <h3>員工帳號</h3>
+    <p>「設定」分頁 → 填員工的 Gmail、名字、角色 → 加入。可以隨時改角色、停用或刪除。各角色能做什麼，看下面的<a href="#roles">權限一覽</a>。</p>
+
+    <h3>報表</h3>
+    <p>「報表」分頁看每個月的營收、進貨成本、毛利、出貨重量，以及自己新增的成本項目（每天或每月，例如油錢、工錢、租金）。也有<b>應收帳齡</b>，可以用 LINE 催款。</p>
+
+    <div class="note warn"><strong>推播會用掉訊息額度　</strong>LINE 免費方案每月 200 則。<b>提醒叫貨、傳收據、傳對帳單、催款</b>每個綁定的帳號各用 1 則。你自己在官方帳號聊天室手動傳的訊息（例如貼確認連結）<b>不算額度</b>，機器人的回覆也不算。</div>
+  </div>
+</section>
+
+<!-- ═══════════ 會計 ═══════════ -->
+<section id="acct" class="s-acct">
+  <div class="role-head">
+    <p class="who">給會計</p>
+    <h2>🧾 會計使用說明</h2>
+    <p>你負責單價、對帳、收款和報表，也可以改出貨數量、刪掉還沒確認的單。</p>
+  </div>
+  <div class="body">
+    <h3>每天填單價</h3>
+    <ol class="steps">
+      <li><b>打開「單價」分頁</b><span>只會列出這天有人叫的品項，不用一個一個找。會先帶入上次的價錢。</span></li>
+      <li><b>填基本價和進價</b><span>基本價是賣給店家的價錢（報價組的優惠會自動算），進價是你買進的成本，用來算毛利。</span></li>
+      <li><b>按儲存</b><span>這天所有出貨單和對帳金額會一起更新。還沒填單價的品項，分頁上會有紅點提醒。</span></li>
+    </ol>
+
+    <h3>傳收據給店家</h3>
+    <p>出貨單上按 <span class="btn">LINE 傳收據</span>，店家會收到這張單的品項和金額。每個綁定的帳號用掉 1 則額度。</p>
+
+    <h3>月結對帳</h3>
+    <ul>
+      <li>「對帳」分頁選月份，看每家店每天的金額和月合計。補單會自動合併。</li>
+      <li>收到錢就勾「已收款」。</li>
+      <li><span class="btn">LINE 傳對帳單</span> 傳整個月的明細給店家。</li>
+      <li><span class="btn">匯出 Excel</span> 下載明細，給記帳用。</li>
+    </ul>
+
+    <h3>刪單</h3>
+    <p>還沒確認的出貨單，最下面有紅字 <span class="btn" style="--role:var(--alert)">刪除這張單</span>。刪掉後對帳金額會一起扣掉，改單紀錄會留下是誰刪的。<b>已確認的單不能刪。</b></p>
+  </div>
+</section>
+
+<!-- ═══════════ 理貨／司機 ═══════════ -->
+<section id="wh" class="s-wh">
+  <div class="role-head">
+    <p class="who">給理貨和司機</p>
+    <h2>📦 理貨／司機使用說明</h2>
+    <p>理貨看不到價格，負責配貨、填實出量、讓店家確認配送單。司機看出貨單、幫店家確認。</p>
+  </div>
+  <div class="body">
+    <h3>配貨（理貨）</h3>
+    <ol class="steps">
+      <li><b>看採買總表</b><span>這天每個品項總共要多少，點開可以看每家店各要多少。</span></li>
+      <li><b>照出貨單配貨</b><span>「出貨單」依路線排序。框裡填<b>實際秤出的量</b>，跟叫的不一樣也沒關係，0 就是缺貨。</span></li>
+      <li><b>傳確認連結</b><span>按 <span class="btn">傳確認連結</span> → 複製或用 LINE 傳，貼到官方帳號聊天室給店家。</span></li>
+    </ol>
+
+    <h3>確認配送單</h3>
+    <div class="trio">
+      <div class="kind">
+        <h4>📲 店家線上確認</h4>
+        <p>店家打開連結核對、按確認。出貨單會顯示「✅ 店家已確認」和確認人。</p>
+      </div>
+      <div class="kind">
+        <h4>✅ 直接確認</h4>
+        <p>店家當面點過、或不需要店家確認時，自己按 <span class="btn">直接確認</span>，顯示「✅ 後台確認」。</p>
+      </div>
+      <div class="kind">
+        <h4>🖊 紙本簽收</h4>
+        <p>列印的出貨單下面有「簽收：＿＿＿」，交貨時讓店家用筆簽，或免簽。</p>
+      </div>
+    </div>
+    <div class="note"><strong>確認後要追加？　</strong>確認過的單不能再改。在這家店最後一張單下面按 <span class="btn">開補單</span>，另開一張補單出貨。</div>
+
+    <h3>提醒叫貨</h3>
+    <p>「採買總表」下面會列出還沒叫貨的店，按 LINE 提醒。每個綁定的帳號用 1 則額度。</p>
+  </div>
+</section>
+
+<!-- ═══════════ 權限 ═══════════ -->
+<section id="roles" class="s-owner">
+  <div class="role-head">
+    <p class="who">誰可以做什麼</p>
+    <h2>權限一覽</h2>
+    <p>老闆在「設定」分頁幫員工選角色。</p>
+  </div>
+  <div class="body">
+    <div class="tw"><table>
+      <thead><tr><th>可以做的事</th><th>老闆</th><th>會計</th><th>理貨</th><th>司機</th></tr></thead>
+      <tbody>
+        <tr><td>看採買總表、出貨單</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>確認配送單（傳連結、直接確認）</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td></tr>
+        <tr><td>改實出量、開補單、看 AI 紀錄</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
+        <tr><td>提醒店家叫貨</td><td class="yes">✓</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td></tr>
+        <tr><td>看價格、填單價</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td></tr>
+        <tr><td>對帳、報表、傳收據／對帳單、催款</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td></tr>
+        <tr><td>品項和單位</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td></tr>
+        <tr><td>刪除還沒確認的單</td><td class="yes">✓</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td></tr>
+        <tr><td>店家開通、報價組、員工帳號</td><td class="yes">✓</td><td class="no">—</td><td class="no">—</td><td class="no">—</td></tr>
+      </tbody>
+    </table></div>
+
+    <h3>後台分頁</h3>
+    <div class="tw"><table>
+      <thead><tr><th>分頁</th><th>用途</th></tr></thead>
+      <tbody>
+        <tr><td><b>採買總表</b></td><td>這天所有店的加總、還沒叫貨的店（一鍵提醒）、列印採買單</td></tr>
+        <tr><td><b>單價</b></td><td>當天有人叫的品項，填基本價和進價</td></tr>
+        <tr><td><b>出貨單</b></td><td>依路線排序；填實出量、確認配送單、開補單、刪單、傳收據、列印、匯出 Excel</td></tr>
+        <tr><td><b>對帳</b></td><td>月結明細、已收款、LINE 傳對帳單、匯出 Excel</td></tr>
+        <tr><td><b>AI 紀錄</b></td><td>店家傳來的文字和照片、AI 整理的結果、店家有沒有確認</td></tr>
+        <tr><td><b>報表</b></td><td>營收、進貨成本、毛利、出貨重量、自訂成本、應收帳齡</td></tr>
+        <tr><td><b>品項</b></td><td>品名、分類、單位、上下架</td></tr>
+        <tr><td><b>店家</b></td><td>店家資料、站號、開通申請、LINE 綁定、報價組</td></tr>
+        <tr><td><b>設定</b></td><td>這份說明書、員工帳號（老闆）</td></tr>
+      </tbody>
+    </table></div>
+  </div>
+</section>
+
+<!-- ═══════════ FAQ ═══════════ -->
+<section id="faq" class="s-alert">
+  <div class="role-head">
+    <p class="who">先看這裡</p>
+    <h2>❓ 出問題怎麼辦</h2>
+    <p>大部分是權限、截單時間，或單子已經確認鎖住。</p>
+  </div>
+  <div class="body">
+    <details open><summary>出貨單看不到「刪除這張單」</summary><div>
+      <p>只有<b>還沒確認</b>的單能刪，而且只有老闆和會計看得到。單子下面有「✅ 已確認」的，就不能刪也不能改。</p>
+    </div></details>
+    <details><summary>店家說截單後還要加東西</summary><div>
+      <p>截單後店家自己不能改。可以在後台出貨單直接改數量；如果已經確認，用「開補單」。</p>
+    </div></details>
+    <details><summary>店家說點「我要叫貨」叫他回覆店名</summary><div>
+      <p>代表他的 LINE 還沒開通。到「店家」分頁的開通申請，把他綁到對的店。</p>
+    </div></details>
+    <details><summary>AI 整理錯了</summary><div>
+      <p>店家沒按「確認送出」就不會變成訂單。可以在「AI 紀錄」看店家傳了什麼、AI 怎麼讀的。照片只留小縮圖，店家確認後就刪掉，沒確認的 14 天後自動清掉。</p>
+    </div></details>
+    <details><summary>員工登入說「沒有後台權限」</summary><div>
+      <p>老闆到「設定」加入他登入用的那個 Gmail。如果加過了，看看是不是被停用，或他用了另一個 Google 帳號。</p>
+    </div></details>
+    <details><summary>單價改了，之前的單會跟著變嗎？</summary><div>
+      <p>今天和之後還沒送的單會用新價錢重算；已經過去的日子不會變。</p>
+    </div></details>
+    <details><summary>資料會不會不見？</summary><div>
+      <p>資料永久保存，不會自動刪除，每天自動備份一次（保留 14 週）。出貨單、對帳、報表都可以匯出 Excel 自己留一份。</p>
+    </div></details>
+  </div>
+</section>
+
+<footer class="foot">蒜頭行 LINE 叫貨系統使用說明書。內容依系統目前的功能整理，功能有調整時會一起更新。</footer>
+
+</div>
+</body>
+</html>

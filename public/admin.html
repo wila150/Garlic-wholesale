@@ -181,6 +181,8 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .sacts button{border-radius:6px;padding:6px 10px;font-weight:700;font-size:.85rem}
 .sacts .ok{border:0;background:var(--leaf);color:#fff}
 .sacts .pbtn{margin:0;width:auto}
+.manual{display:block;text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--leaf);border-radius:10px;padding:12px 14px;margin-bottom:22px}.manual b{font-size:1.05rem}.manual small{display:block;color:var(--muted)}.manual:hover{border-color:var(--leaf)}
+.devbox{margin-top:28px;border-top:1px dashed var(--line);padding-top:10px;color:var(--muted)}.devbox summary{cursor:pointer;font-size:.85rem}.devbox .danger{border:1px solid var(--alert);background:transparent;color:var(--alert);font-weight:700;border-radius:8px;padding:8px 14px}
 .sacts .delslip{border:0;background:transparent;color:var(--alert);font-weight:700;margin-left:auto}
 .signed{font-size:.85rem;color:var(--leaf);font-weight:700}
 .signed button{border:0;background:transparent;color:var(--leaf);text-decoration:underline;padding:0 4px;font-size:.85rem}
@@ -300,7 +302,7 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
     <button role="tab" data-tab="report" aria-selected="false">報表</button>
     <button role="tab" data-tab="admin" aria-selected="false">品項</button>
     <button role="tab" data-tab="stores" aria-selected="false">店家<span class="dot" id="pendDot" hidden></span></button>
-    <button role="tab" data-tab="users" aria-selected="false">帳號</button>
+    <button role="tab" data-tab="users" aria-selected="false">設定</button>
   </nav>
 
   <div class="datebar" id="datebar">
@@ -375,6 +377,8 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
   </section>
 
   <section id="users" hidden>
+    <a class="manual" href="/manual" target="_blank" rel="noopener"><b>📖 使用說明書</b><small>每天的流程、店家怎麼叫貨、各角色怎麼用、出問題怎麼辦。可以印出來或轉傳給員工。</small></a>
+    <div id="userBox">
     <h2>後台帳號</h2>
     <p class="sub">員工用自己的 Google 帳號登入，在這裡加入他的 Gmail 並選角色就好，不用設密碼。<b>老闆</b>：全部；<b>會計</b>：單價、對帳、品項、改單；<b>理貨</b>：採買總表、出貨單、改數量（看不到單價）；<b>司機</b>：只看出貨單。</p>
     <form class="addform" id="userForm" onsubmit="return false">
@@ -384,6 +388,12 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
       <button id="addUser" type="button">加入</button>
     </form>
     <div class="users" id="userList"></div>
+    </div>
+    <details id="devBox" class="devbox" hidden>
+      <summary>工程師</summary>
+      <p class="sub">測試期間用。<b>重置測試資料</b>會刪掉所有訂單、配送單確認、單價、對帳、成本和 AI 紀錄；品項、店家、LINE 綁定和帳號會保留。刪掉就救不回來（除了每日備份）。</p>
+      <button id="resetData" type="button" class="danger">重置測試資料</button>
+    </details>
   </section>
 
   <section id="stores" hidden>
@@ -508,7 +518,7 @@ const amount=o=>Math.round(o.items.reduce((a,i)=>a+billQty(i)*i.price,0));
 
 function renderAll(){
   $('meInfo').textContent=`${D.me.name}（${D.me.roleName}）`;
-  const tabs={prices:may('prices'),bills:may('bills'),report:may('bills'),ai:may('editOrders'),admin:may('products'),stores:may('stores'),users:may('users')};
+  const tabs={prices:may('prices'),bills:may('bills'),report:may('bills'),ai:may('editOrders'),admin:may('products'),stores:may('stores'),};
   document.querySelectorAll('nav.tabs button').forEach(b=>{b.hidden=tabs[b.dataset.tab]===false});
   if(tabs[tab]===false)showTab('board');
   document.querySelector('[data-print="daily"]').hidden=!hasPrice();
@@ -531,7 +541,9 @@ function renderAll(){
   if(may('bills'))renderBills();
   if(may('products')){renderUnits();renderProducts()}
   if(may('stores'))renderStores();
+  $('userBox').hidden=!may('users');
   if(may('users'))renderUsers();
+  $('devBox').hidden=!D.me.engineer;
 }
 
 /* ---------- 採買總表 ---------- */
@@ -864,6 +876,12 @@ async function approve(uid){
 }
 
 /* ---------- 帳號 ---------- */
+async function resetData(){
+  const t=prompt('會刪掉所有訂單、配送單確認、單價、對帳、成本和 AI 紀錄（品項、店家、帳號保留），救不回來。\n\n確定的話請輸入「重置」：');
+  if(t===null)return;
+  if(t.trim()!=='重置'){toast('沒有輸入「重置」，已取消');return}
+  try{const j=await api('POST',{action:'resetTestData',confirm:'重置'});await load();toast(`已重置，刪掉 ${j.deleted.orders} 張訂單`)}catch(e){toast(e.message)}
+}
 function renderUsers(){
   if(!$('uRole').options.length)$('uRole').innerHTML=Object.entries(D.roles).filter(([k])=>k!=='owner').map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
   $('userList').innerHTML=D.users.map(u=>`<div class="urow ${u.disabled?'off':''}">
@@ -1088,6 +1106,7 @@ document.addEventListener('keydown',e=>{
 });
 document.addEventListener('focusin',e=>{if(e.target.dataset?.sqin||e.target.dataset?.dp)e.target.select()});
 window.addEventListener('beforeunload',e=>{if(pDirty||sDirty||gDirty||rDirty||$('dpInfo').textContent==='有尚未儲存的修改')e.preventDefault()});
+$('resetData').addEventListener('click',resetData);
 initAuth().catch(e=>{$('login').hidden=false;$('loginErr').textContent='登入元件載入失敗，請重新整理'});
 </script>
 </body>

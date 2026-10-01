@@ -89,13 +89,18 @@ async function handle(e, origin) {
   if (wantsMine) {
     const D = openDate();
     const cards = [];
-    // 已截單、還沒送的（例如今晚截單後問明天的貨）
-    for (let d = addDays(today(), 1); d < D; d = addDays(d, 1)) {
-      const o = await shop.getOrder(d, store.id);
-      if (o?.items.length) cards.push(orderCard('已截單', store, d, o, url, false));
+    // 今天要送的、已截單還沒送的（例如今晚截單後問明天的貨），連補單一起列
+    for (let d = today(); d <= D; d = addDays(d, 1)) {
+      // 叫貨中的那張可以修改，沒叫貨也要顯示（按鈕是「我要叫貨」）
+      if (d === D) cards.push(orderCard('我的訂單', store, D, await shop.getOrder(D, store.id), url));
+      for (const o of await shop.slipsOfDay(store.id, d)) {
+        const seq = o.seq || 1;
+        if (d === D && seq === 1) continue;
+        const title = seq > 1 ? `補單 #${seq}` : d === today() ? '今天配送' : '已截單';
+        cards.push(orderCard(title, store, d, o, url, false));
+      }
     }
-    cards.push(orderCard('我的訂單', store, D, await shop.getOrder(D, store.id), url));
-    return say(myOrders(store, cards));
+    return say(myOrders(store, cards.slice(-12)));
   }
   // AI 叫貨：店家按「確認送出」
   if (action === 'aiok') return say(await confirmDraft(uid, pb.get('id'), origin));

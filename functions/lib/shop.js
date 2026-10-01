@@ -403,6 +403,12 @@ export async function deleteSlip(sid, date, who, seq = 1) {
   return saveOrder(sid, date, [], '後台', who ? `${who}・整張刪除` : '整張刪除', seq);
 }
 
+// 這家店這天所有有品項的單（含補單），依序號排
+export async function slipsOfDay(sid, date) {
+  const snap = await db().collection('orders').where('date', '==', date).where('storeId', '==', sid).get();
+  return snap.docs.map((d) => d.data()).filter((o) => o.items.length).sort((a, b) => (a.seq || 1) - (b.seq || 1));
+}
+
 // 簽收後還要追加：開一張新的補單（前面每張都簽收了才能開）
 export async function newSlip(sid, date, pid, qty, who) {
   const snap = await db().collection('orders').where('date', '==', date).where('storeId', '==', sid).get();

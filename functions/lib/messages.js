@@ -46,7 +46,7 @@ export function orderCard(title, store, date, order, url, editable = true) {
   const body = items.length
     ? items.map((i) => row(i.name, qtyText(i.qty, i.unit), { weight: 'bold' }))
     : [text('還沒叫貨', { color: C.muted })];
-  const foot = editable ? `共 ${items.length} 項，${cutoffLabel(date)} 前可以修改` : `共 ${items.length} 項，已截單`;
+  const foot = editable ? `共 ${items.length} 項，${cutoffLabel(date)} 前可以修改` : `共 ${items.length} 項，${title.startsWith('補單') ? '老闆幫您追加的' : '已截單'}`;
   return bubble(title, `${store.name}・${label(date)} 配送`, [...body, sep, text(foot, { size: 'xs', color: C.muted, margin: 'md' })],
     editable ? [button(items.length ? '修改訂單' : '我要叫貨', url)] : null);
 }

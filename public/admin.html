@@ -412,9 +412,9 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 
 <div class="sheetbg" id="linkBox" role="dialog" aria-modal="true" aria-labelledby="linkTitle"><div class="sigin">
   <h3 id="linkTitle">確認配送單連結</h3>
-  <p class="sub">配貨完，把連結貼到 LINE 官方帳號的聊天室給店家（你自己傳不算推播額度）。店家點開核對品項和數量，按「確認」就好；數量不對可以直接回報。確認後這裡會變成「店家已確認」並鎖住。連結 7 天有效。</p>
+  <p class="sub">按「複製並開聊天室」→ 在 LINE 官方帳號的聊天列表點這家店 → 貼上送出（你自己傳不算推播額度）。店家點開核對品項和數量，按「確認」再簽名；數量不對可以直接回報。確認後這裡會變成「店家已確認」並鎖住。連結 7 天有效。</p>
   <input id="linkUrl" readonly aria-label="確認配送單連結" style="width:100%;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:8px;font-size:.85rem">
-  <div class="sa"><button id="linkCopy">複製連結</button><button class="go" id="linkShare">用 LINE 傳</button><button id="linkClose">關閉</button></div>
+  <div class="sa"><button id="linkCopy">複製連結</button><button class="go" id="linkShare">複製並開聊天室</button><button id="linkClose">關閉</button></div>
 </div></div>
 <div class="toast" id="toast" role="status"></div>
 <div id="pv" role="dialog" aria-modal="true" aria-label="列印預覽">
@@ -1061,7 +1061,8 @@ document.addEventListener('click',async e=>{
     }catch(err){toast(err.message)}
   }
   if(b.id==='linkCopy'){try{await navigator.clipboard.writeText($('linkBox').dataset.text);toast('已複製，貼到 LINE 聊天室就好')}catch{$('linkUrl').select();toast('請手動複製')}}
-  if(b.id==='linkShare'){const text=$('linkBox').dataset.text;if(navigator.share){navigator.share({text}).catch(()=>{})}else window.open('https://line.me/R/share?text='+encodeURIComponent(text),'_blank')}
+  // 複製後打開 LINE 官方帳號的聊天後台，用官方帳號身分貼給店家
+  if(b.id==='linkShare'){const w=window.open('https://chat.line.biz/','lineoa');try{await navigator.clipboard.writeText($('linkBox').dataset.text);toast('已複製，在聊天室點這家店，貼上送出')}catch{$('linkUrl').select();toast('請手動複製連結')}w?.focus()}
   if(b.id==='linkClose')$('linkBox').classList.remove('on');
   if(b.id==='xlsDay')xlsDay().catch?.(()=>{});
   if(b.id==='xlsBills')xlsBills();

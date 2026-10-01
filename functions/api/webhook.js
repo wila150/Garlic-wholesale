@@ -6,6 +6,8 @@ import { originOf } from '../lib/http.js';
 import { openDate, today, addDays } from '../lib/dates.js';
 import * as shop from '../lib/shop.js';
 import { welcome, orderMessage, orderCard, myOrders } from '../lib/messages.js';
+import { looksLikeOrder } from '../lib/ai.js';
+import { queue, confirmDraft } from '../lib/aiorder.js';
 
 export async function POST(request) {
   const raw = await request.text();
@@ -28,7 +30,8 @@ async function handle(e, origin) {
   if (e.type === 'follow') return say(welcome(!!store));
 
   const said = e.type === 'message' && e.message.type === 'text' ? e.message.text.trim() : '';
-  const action = e.type === 'postback' ? new URLSearchParams(e.postback.data).get('action') : '';
+  const pb = e.type === 'postback' ? new URLSearchParams(e.postback.data) : new URLSearchParams();
+  const action = pb.get('action') || '';
   const wantsOrder = action === 'order' || /叫貨|叫菜|訂貨|下單|訂購/.test(said);
   const wantsMine = action === 'mine' || /^(我的訂單|查訂單|訂單查詢)$/.test(said);
 
@@ -52,6 +55,12 @@ async function handle(e, origin) {
     return;
   }
 
+  // AI 叫貨（放在關鍵字前面，「幫我叫貨 大蒜3」才會走 AI）：直接打字（像「大蒜3、去皮15斤」）或傳手寫單照片，交給 aiOrder 函式處理
+  if (process.env.AI_ORDER !== 'off') {
+    if (said && looksLikeOrder(said)) return queue({ type: 'text', text: said, userId: uid, replyToken: e.replyToken, origin });
+    if (e.type === 'message' && e.message.type === 'image') return queue({ type: 'image', messageId: e.message.id, userId: uid, replyToken: e.replyToken, origin });
+  }
+
   // 叫貨頁送出後，LIFF 會用店家的身分傳這幾句話進來，這裡回訂單卡（回覆不算訊息額度）
   const fromLiff = said.match(/^(訂單已送出|訂單已更新|取消今天的訂單)$/);
   if (fromLiff || wantsOrder) {
@@ -73,5 +82,8 @@ async function handle(e, origin) {
     cards.push(orderCard('我的訂單', store, D, await shop.getOrder(D, store.id), url));
     return say(myOrders(store, cards));
   }
+  // AI 叫貨：店家按「確認送出」
+  if (action === 'aiok') return say(await confirmDraft(uid, pb.get('id'), origin));
+
   // 其他訊息不自動回覆，讓老闆在 LINE 官方帳號後台手動回
 }

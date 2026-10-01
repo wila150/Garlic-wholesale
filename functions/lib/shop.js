@@ -262,7 +262,12 @@ export async function saveOrder(sid, date, items, by, who = '') {
     items: next,
     createdAt: old?.items.length ? old.createdAt : at,
     updatedAt: at,
-    log: [...(old?.log || []), ...(changes.length ? [{ at, by, who, text: changes.join('、') }] : [])],
+    log: [
+      ...(old?.log || []),
+      ...(changes.length ? [{ at, by, who, text: changes.join('、') }] : []),
+      // 新訂單只在有特別來源（例如 AI 叫貨）時記一筆
+      ...(!old?.items.length && who ? [{ at, by, who, text: '新叫貨：' + next.map((i) => `${i.name} ${qtyText(i.qty, i.unit)}`).join('、') }] : []),
+    ],
   };
   const batch = db().batch();
   batch.set(orderDoc(date, sid), order);

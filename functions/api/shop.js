@@ -6,12 +6,14 @@ import { push } from '../lib/line.js';
 import { openDate, label, cutoffLabel } from '../lib/dates.js';
 import * as shop from '../lib/shop.js';
 import { orderMessage } from '../lib/messages.js';
+import { draftFor, markDraftUsed } from '../lib/aiorder.js';
 
 const noPrice = (o) => o && { date: o.date, items: o.items.map(({ price, ...i }) => i) };
 
 export async function GET(request) {
   try {
-    const t = new URL(request.url).searchParams.get('t');
+    const q = new URL(request.url).searchParams;
+    const t = q.get('t');
     const uid = verify(t);
     if (!uid) return json({ error: t ? '這個叫貨連結過期了，請回到 LINE 再點一次「我要叫貨」' : '請從 LINE 點「我要叫貨」開啟這個頁面', shopName: SHOP.name }, 401);
     const store = await shop.storeOfUser(uid);
@@ -29,6 +31,7 @@ export async function GET(request) {
       products: products.map(({ price, ...p }) => p),
       order: order?.items.length ? noPrice(order) : null,
       last: last ? noPrice(last) : null,
+      draft: q.get('d') ? await draftFor(uid, q.get('d')) : null,
     });
   } catch (e) {
     return fail(e);
@@ -42,7 +45,8 @@ export async function POST(request) {
     if (!uid) throw new UserError('這個叫貨連結過期了，請回到 LINE 再點一次「我要叫貨」', 401);
     const store = await shop.storeOfUser(uid);
     if (!store) throw new UserError('您的帳號還沒開通', 403);
-    const { order, had, changes } = await shop.saveOrder(store.id, body.date, body.items, '店家');
+    const { order, had, changes } = await shop.saveOrder(store.id, body.date, body.items, '店家', body.draftId ? 'AI 整理後修改' : '');
+    if (body.draftId) await markDraftUsed(String(body.draftId));
 
     // 沒有用 LIFF 的話，叫貨頁沒辦法替店家在聊天室發訊息；有設定 PUSH_ORDER_CONFIRM 才主動推播（會用掉訊息額度）
     if (process.env.PUSH_ORDER_CONFIRM === '1' && !body.viaLiff) {

@@ -35,6 +35,14 @@ export async function displayName(userId) {
   return r.ok ? (await r.json()).displayName || '' : '';
 }
 
+// 店家傳來的照片原檔
+export async function getContent(messageId) {
+  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  const r = await fetch(`https://api-data.line.me/v2/bot/message/${encodeURIComponent(messageId)}/content`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new Error(`LINE content ${r.status}`);
+  return Buffer.from(await r.arrayBuffer());
+}
+
 export function adminIds() {
   return (process.env.ADMIN_LINE_USER_IDS || '').split(',').map((s) => s.trim()).filter(Boolean);
 }

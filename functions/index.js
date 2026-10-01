@@ -3,18 +3,21 @@
 //   /api/shop     店家叫貨頁
 //   /api/admin    後台
 import { onRequest } from 'firebase-functions/v2/https';
+import { onDocumentCreated } from 'firebase-functions/v2/firestore';
 import { setGlobalOptions } from 'firebase-functions/v2';
 import { defineSecret } from 'firebase-functions/params';
 import { initializeApp } from 'firebase-admin/app';
 import * as webhook from './api/webhook.js';
 import * as shop from './api/shop.js';
 import * as admin from './api/admin.js';
+import { processJob } from './lib/aiorder.js';
 
 initializeApp();
 setGlobalOptions({ region: 'asia-east1', maxInstances: 5 });
 
 // 金鑰放在 Secret Manager：firebase functions:secrets:set LINE_CHANNEL_SECRET
 const secrets = [defineSecret('LINE_CHANNEL_SECRET'), defineSecret('LINE_CHANNEL_ACCESS_TOKEN')];
+const aiSecrets = [...secrets, defineSecret('NVIDIA_API_KEY')];
 const routes = { webhook, shop, admin };
 
 export const api = onRequest({ secrets, cors: false }, async (req, res) => {
@@ -36,4 +39,15 @@ export const api = onRequest({ secrets, cors: false }, async (req, res) => {
   const r = await fn(request);
   r.headers.forEach((v, k) => res.set(k, v));
   res.status(r.status).send(Buffer.from(await r.arrayBuffer()));
+});
+
+// AI 叫貨：webhook 把店家的文字／照片存進 aiJobs，這裡接手辨識，再回卡片請店家確認
+export const aiOrder = onDocumentCreated({ document: 'aiJobs/{id}', secrets: aiSecrets, timeoutSeconds: 120, memory: '512MiB' }, async (event) => {
+  const job = event.data?.data();
+  if (!job) return;
+  try {
+    await processJob(job, event.params.id);
+  } finally {
+    await event.data.ref.delete(); // 處理完就刪，replyToken 這類東西不留著
+  }
 });

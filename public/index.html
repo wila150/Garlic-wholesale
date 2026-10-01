@@ -124,7 +124,10 @@ async function load(){
   // 訂單裡有、但已經下架的品項，也要顯示出來
   (D.order?.items||[]).forEach(i=>{if(!PM()[i.pid])D.products.push({id:i.pid,name:i.name,unit:i.unit,cat:'',on:false})});
   cat=frequent().size?'常叫':'全部';
+  // 從 LINE「用叫貨單修改」進來：把 AI 整理的品項加進去
+  if(D.draft){D.draft.items.forEach(i=>{cart[i.pid]=Math.round(((cart[i.pid]||0)+i.qty)*10000)/10000});cat='全部'}
   render();
+  if(D.draft)toast(D.draft.unknown.length?`已帶入 AI 整理的品項。看不懂的：${D.draft.unknown.join('、')}`:'已帶入 AI 整理的品項，確認後按送出');
   if(D.liffId)initLiff();
 }
 function initLiff(){
@@ -199,11 +202,11 @@ async function submit(){
   const btn=$('submit');btn.disabled=true;btn.textContent='送出中…';
   try{
     const items=Object.entries(cart).filter(([,q])=>q>0).map(([pid,qty])=>({pid,qty}));
-    const r=await fetch('/api/shop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:T,date:D.date,items,viaLiff:liffReady})});
+    const r=await fetch('/api/shop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:T,date:D.date,items,viaLiff:liffReady,draftId:D.draft?.id})});
     const j=await r.json();
     if(!r.ok)throw new Error(j.error||'送出失敗');
     const wasHad=had();
-    D.order=j.order.items.length?j.order:null;
+    D.order=j.order.items.length?j.order:null;D.draft=null;
     $('sheet').classList.remove('on');
     const word=!j.order.items.length?'取消今天的訂單':wasHad?'訂單已更新':'訂單已送出';
     if(liffReady){

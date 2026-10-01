@@ -500,7 +500,7 @@ function renderSlips(){
   }).join('')||'<div class="empty">還沒有店家，到「店家」新增。</div>';
   const sm=SM();
   const logs=D.orders.flatMap(o=>(o.log||[]).map(l=>({...l,store:sm[o.storeId]?.name||''}))).sort((a,b)=>b.at.localeCompare(a.at));
-  $('logBox').innerHTML=`<h3>改單紀錄</h3>`+(logs.length?`<ol>${logs.map(l=>`<li>${hm(l.at)} ${esc(l.store)}（${l.by==='後台'?`後台改${l.who?'・'+esc(l.who):''}`:'店家自己改'}）：${esc(l.text)}</li>`).join('')}</ol>`:`<div class="empty">這天沒有修改紀錄。</div>`);
+  $('logBox').innerHTML=`<h3>改單紀錄</h3>`+(logs.length?`<ol>${logs.map(l=>`<li>${hm(l.at)} ${esc(l.store)}（${l.by==='後台'?`後台改${l.who?'・'+esc(l.who):''}`:l.who?'店家・'+esc(l.who):'店家自己改'}）：${esc(l.text)}</li>`).join('')}</ol>`:`<div class="empty">這天沒有修改紀錄。</div>`);
 }
 // undo=false 是按「復原」時用的，不再跳復原
 async function setQty(sid,pid,qty,undo=true){

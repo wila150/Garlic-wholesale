@@ -70,6 +70,20 @@ export function statementMessage(store, month, rows, total) {
   ]));
 }
 
+// AI 整理好的叫貨單，請店家確認
+export function draftMessage(store, date, draft, existingCount, editUrl) {
+  const body = draft.items.map((i) => row(i.name, qtyText(i.qty, i.unit), { weight: 'bold' }));
+  if (draft.unknown.length) {
+    body.push(sep, text('看不懂、沒有加進來的：', { size: 'xs', color: C.muted, margin: 'md' }), text(draft.unknown.join('、'), { size: 'sm', color: '#B23A2E' }));
+  }
+  if (draft.note) body.push(text(`備註：${draft.note}`, { size: 'xs', color: C.muted }));
+  body.push(sep, text(existingCount ? `按「確認送出」會加進您這次已叫的 ${existingCount} 項。${cutoffLabel(date)} 截單。` : `按「確認送出」才會成立訂單。${cutoffLabel(date)} 截單。`, { size: 'xs', color: C.muted, margin: 'md', wrap: true }));
+  return flex('幫您整理的叫貨單，請確認', bubble('幫您整理的叫貨單', `${store.name}・${label(date)} 配送`, body, [
+    ...(draft.items.length ? [{ type: 'button', style: 'primary', color: C.green, height: 'sm', action: { type: 'postback', label: '確認送出', data: `action=aiok&id=${draft.id}`, displayText: '確認送出' } }] : []),
+    { type: 'button', style: 'secondary', height: 'sm', action: { type: 'uri', label: '用叫貨單修改', uri: editUrl } },
+  ]));
+}
+
 export function approvedText(store) {
   return { type: 'text', text: `已幫您開通「${store.name}」的叫貨帳號！\n點下方「我要叫貨」就可以開始叫貨。` };
 }

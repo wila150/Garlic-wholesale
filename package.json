@@ -1,0 +1,11 @@
+{
+  "name": "garlic-wholesale",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "emulators": "firebase emulators:start",
+    "seed": "node scripts/seed.js",
+    "link": "node scripts/link.js",
+    "deploy": "firebase deploy"
+  }
+}

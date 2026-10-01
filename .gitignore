@@ -1,0 +1,9 @@
+node_modules/
+.env
+.env.*
+!.env.example
+.secret.local
+.data/
+.firebase/
+*-debug.log
+.DS_Store

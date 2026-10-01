@@ -263,6 +263,7 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .doc .sign{margin-top:14px;display:flex;justify-content:space-between;gap:12px}
 .doc .foot{margin-top:8px;color:#555;font-size:.9em}
 .r80 .doc .meta{display:block}
+.r80 .doc .meta>*{display:block}
 .r80 .doc .sign{display:block}
 .r80 .doc .sign div{margin-top:10px}
 .pv-hint{color:#fff;font-size:.82rem;text-align:center;margin:10px 0 0}
@@ -274,6 +275,9 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
   .paper{width:auto!important;padding:0!important}
   .doc.break{break-after:page}
   .doc+.doc{border-top:0;margin-top:0;padding-top:0}
+  /* 80mm 是一張長紙，不分頁，單和單之間用虛線隔開 */
+  .r80 .doc.break{break-after:auto}
+  .r80 .doc+.doc{border-top:1px dashed #999;margin-top:6mm;padding-top:6mm}
 }
 @media (max-width:520px){.arow{grid-template-columns:1fr 60px 56px 24px;padding:6px}.prow2{grid-template-columns:1fr 1fr}.prow2 .q{grid-column:1}}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
@@ -970,7 +974,13 @@ async function openPrint(kind,sid){
 function setPaper(k){
   $('paper').className='paper '+k;
   document.querySelectorAll('[data-paper]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.paper===k));
-  $('pageSize').textContent=k==='a4'?'@page{size:A4;margin:12mm}':'@page{size:80mm auto;margin:3mm}';
+  fitPage();
+}
+// 80mm：Chrome 不吃「80mm auto」，要給實際長度，量內容高度當成一張長紙
+function fitPage(){
+  const r80=$('paper').classList.contains('r80');
+  const h=Math.ceil($('paper').scrollHeight*25.4/96)+10;
+  $('pageSize').textContent=r80?`@page{size:80mm ${h}mm;margin:2mm}`:'@page{size:A4;margin:12mm}';
 }
 
 /* ---------- 事件 ---------- */
@@ -1029,7 +1039,7 @@ document.addEventListener('click',async e=>{
   if(b.dataset.print)openPrint(b.dataset.print,b.dataset.store);
   if(b.dataset.paper)setPaper(b.dataset.paper);
   if(b.dataset.close)$('pv').classList.remove('on');
-  if(b.dataset.doprint){try{window.print()}catch{toast('請用瀏覽器選單的列印')}}
+  if(b.dataset.doprint){fitPage();try{window.print()}catch{toast('請用瀏覽器選單的列印')}}
   if(b.id==='addUnit'){const u=$('newUnit').value.trim();if(!u){toast('請先填單位');$('newUnit').focus();return}if(D.units.includes(u)){toast(`「${u}」已經有了`);return}saveUnits([...D.units,u],`已新增單位「${u}」`)}
   if(b.dataset.udel){const u=b.dataset.udel;if(P.some(p=>p.unit===u)){toast(`還有品項用「${u}」，先改成別的單位`);return}if(confirm(`刪除單位「${u}」？`))saveUnits(D.units.filter(x=>x!==u),`已刪除單位「${u}」`)}
   if(b.dataset.pdel){const i=+b.dataset.pdel;if(confirm(`刪除「${P[i].name}」？舊訂單紀錄不受影響。`)){P.splice(i,1);pDirty=true;renderProducts()}}

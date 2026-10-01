@@ -107,13 +107,15 @@ const fmtQ=q=>Number.isInteger(q)?q:(+q.toFixed(2));
 function qtyText(q,unit){q=Number(q)||0;if(unit==='斤'&&!Number.isInteger(q)){let j=Math.floor(q),l=Math.round((q-j)*16);if(l===16){j++;l=0}if(Math.abs(j+l/16-q)<0.001)return `${j?j+'斤':''}${l?l+'兩':''}`||'0斤'}return `${Number.isInteger(q)?q:+q.toFixed(2)} ${unit}`}
 const jinOf=q=>Math.floor(q+1e-9),liangOf=q=>Math.round((q-jinOf(q))*16)%16;
 function toast(t){const el=$('toast');el.textContent=t;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),2600)}
-const T=new URLSearchParams(location.search).get('t')||'';
+// 從 LIFF（liff.line.me/…?t=…）打開時，參數先包在 liff.state 裡
+const Q=(()=>{const q=new URLSearchParams(location.search),st=q.get('liff.state');return st?new URLSearchParams(st.replace(/^[^?]*\?/,'')):q})();
+const T=Q.get('t')||'',DRAFT=Q.get('d')||'';
 let D=null,cart={},cat='常叫',liffReady=false;
 const PM=()=>Object.fromEntries(D.products.map(p=>[p.id,p]));
 
 async function load(){
   let r;
-  try{r=await fetch('/api/shop?t='+encodeURIComponent(T));D=await r.json()}catch{D={error:'載入失敗，請重新整理'}}
+  try{r=await fetch('/api/shop?t='+encodeURIComponent(T)+(DRAFT?'&d='+encodeURIComponent(DRAFT):''));D=await r.json()}catch{D={error:'載入失敗，請重新整理'}}
   if(D.shopName){$('title').textContent=D.shopName}
   if(!r?.ok){$('subtitle').textContent='';$('msg').hidden=false;$('msg').textContent=D.error;return}
   document.title=D.store.name+' 叫貨單';

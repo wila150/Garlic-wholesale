@@ -27,25 +27,34 @@ export async function processJob(job, jobId) {
   const store = await shop.storeOfUser(job.userId);
   if (!store) return;
   const products = await shop.getProducts();
-  let image;
-  if (job.type === 'image') {
-    // 縮小再送，AI 比較快，也不會超過大小限制
-    const buf = await sharp(await getContent(job.messageId)).rotate().resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 75 }).toBuffer();
-    image = 'data:image/jpeg;base64,' + buf.toString('base64');
-  }
-  let parsed;
-  try {
-    parsed = await parseOrder({ text: job.text, image, products });
-  } catch (e) {
-    console.error('AI 辨識失敗', e);
-    return answer(job, [{ type: 'text', text: '抱歉，這次沒辦法自動整理，請點下方「我要叫貨」用叫貨單叫，或直接留言給老闆。' }]);
-  }
-  // 什麼都看不出來（多半是聊天或別的照片），就不打擾
-  if (!parsed.items.length && !parsed.unknown.length) return;
-
   const date = openDate();
   const ref = db().collection('aiDrafts').doc(jobId);
-  const draft = { id: ref.id, storeId: store.id, userId: job.userId, date, type: job.type, text: job.text || '', ...parsed, status: 'pending', createdAt: new Date().toISOString() };
+  // 每一筆都留紀錄（含失敗），後台「AI 紀錄」看得到
+  const base = { id: ref.id, storeId: store.id, storeName: store.name, userId: job.userId, date, type: job.type, text: job.text || '', items: [], unknown: [], note: '', createdAt: new Date().toISOString() };
+  let image, thumb = '';
+  let parsed;
+  try {
+    if (job.type === 'image') {
+      // 縮小再送，AI 比較快，也不會超過大小限制；另外存一張小縮圖給後台看
+      const raw = await getContent(job.messageId);
+      const buf = await sharp(raw).rotate().resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 75 }).toBuffer();
+      image = 'data:image/jpeg;base64,' + buf.toString('base64');
+      thumb = 'data:image/jpeg;base64,' + (await sharp(raw).rotate().resize({ width: 700, height: 700, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 60 }).toBuffer()).toString('base64');
+    }
+    const t = Date.now();
+    parsed = await parseOrder({ text: job.text, image, products });
+    console.log('AI 叫貨', JSON.stringify({ store: store.name, type: job.type, ms: Date.now() - t, items: parsed.items.length, unknown: parsed.unknown }));
+  } catch (e) {
+    console.error('AI 辨識失敗', store.name, job.type, e);
+    await ref.set({ ...base, thumb, status: 'error', error: String(e.message || e).slice(0, 300) });
+    return answer(job, [{ type: 'text', text: '抱歉，這次沒辦法自動整理，請點下方「我要叫貨」用叫貨單叫，或直接留言給老闆。' }]);
+  }
+  // 什麼都看不出來（多半是聊天或別的照片），就不打擾店家，但留紀錄
+  if (!parsed.items.length && !parsed.unknown.length) {
+    await ref.set({ ...base, ...parsed, thumb, status: 'empty' });
+    return;
+  }
+  const draft = { ...base, ...parsed, thumb, status: 'pending' };
   await ref.set(draft);
   const existing = await shop.getOrder(date, store.id);
   const editUrl = `${orderLink(job.origin, job.userId)}&d=${ref.id}`;

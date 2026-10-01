@@ -40,6 +40,12 @@ export async function GET(request) {
       const s = (await getFirestore().doc('signatures/' + q.get('sig').replace(/[^\w-]/g, '')).get()).data();
       return json({ signature: s || null });
     }
+    // AI 叫貨紀錄（最近 30 筆）
+    if (q.get('ai')) {
+      need(me, 'editOrders');
+      const snap = await getFirestore().collection('aiDrafts').orderBy('createdAt', 'desc').limit(30).get();
+      return json({ drafts: snap.docs.map((d) => d.data()) });
+    }
     // 報表分頁另外載（要讀整個月的訂單）
     if (q.get('report')) {
       need(me, 'bills');

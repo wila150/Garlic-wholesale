@@ -186,6 +186,15 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .sigin .sa button{flex:1;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:9px;font-weight:700}
 .sigin .sa .go{background:var(--leaf);border-color:var(--leaf);color:#fff}
 .doc .sigimg{height:60px;vertical-align:middle}
+.aid{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px;display:grid;grid-template-columns:auto 1fr;gap:12px}
+.aid img{width:140px;max-height:180px;object-fit:contain;border-radius:6px;background:#fff;cursor:zoom-in}
+.aid .txt{max-width:140px;font-size:.85rem;background:var(--bg);border-radius:6px;padding:6px 8px;white-space:pre-wrap;word-break:break-all}
+.aid .st{font-size:.78rem;font-weight:700;border-radius:10px;padding:1px 8px;margin-left:6px}
+.aid .st.pending{background:var(--tag);color:#2A2400}.aid .st.confirmed,.aid .st.edited{background:var(--leaf-soft);color:var(--leaf)}
+.aid .st.error,.aid .st.empty,.aid .st.expired{background:var(--line);color:var(--muted)}
+.aid ul{margin:6px 0;padding-left:1.1em}
+.aid .unk{color:var(--alert);font-size:.88rem}
+@media (max-width:520px){.aid{grid-template-columns:1fr}.aid img,.aid .txt{width:100%;max-width:none}}
 .pend{background:var(--surface);border:1px solid var(--tag);border-left:6px solid var(--tag);border-radius:8px;padding:12px 14px;margin-bottom:10px}
 .pend .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .pend select,.pend input{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:5px 8px;font-size:.92rem;min-width:0}
@@ -279,6 +288,7 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
     <button role="tab" data-tab="prices" aria-selected="false">單價<span class="dot" id="priceDot" hidden></span></button>
     <button role="tab" data-tab="slips" aria-selected="false">出貨單</button>
     <button role="tab" data-tab="bills" aria-selected="false">對帳</button>
+    <button role="tab" data-tab="ai" aria-selected="false">AI 紀錄</button>
     <button role="tab" data-tab="report" aria-selected="false">報表</button>
     <button role="tab" data-tab="admin" aria-selected="false">品項</button>
     <button role="tab" data-tab="stores" aria-selected="false">店家<span class="dot" id="pendDot" hidden></span></button>
@@ -323,6 +333,13 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
     <div class="bar"><button class="pbtn" data-print="month">列印應收總表</button><button class="pbtn" id="xlsBills">匯出 Excel</button></div>
     <div class="sumline" id="billSum"></div>
     <div id="billBox"></div>
+  </section>
+
+  <section id="ai" hidden>
+    <h2>AI 叫貨紀錄</h2>
+    <p class="sub">店家在 LINE 直接打字或傳照片叫貨時，AI 讀到的內容。最近 30 筆。<b>待確認</b>＝店家還沒按「確認送出」；<b>沒看到品項</b>＝AI 判斷不是叫貨，所以沒回覆店家。</p>
+    <div class="bar"><button class="pbtn" id="aiReload">重新整理</button></div>
+    <div id="aiBox"><div class="empty">載入中…</div></div>
   </section>
 
   <section id="report" hidden>
@@ -478,7 +495,7 @@ const amount=o=>Math.round(o.items.reduce((a,i)=>a+billQty(i)*i.price,0));
 
 function renderAll(){
   $('meInfo').textContent=`${D.me.name}（${D.me.roleName}）`;
-  const tabs={prices:may('prices'),bills:may('bills'),report:may('bills'),admin:may('products'),stores:may('stores'),users:may('users')};
+  const tabs={prices:may('prices'),bills:may('bills'),report:may('bills'),ai:may('editOrders'),admin:may('products'),stores:may('stores'),users:may('users')};
   document.querySelectorAll('nav.tabs button').forEach(b=>{b.hidden=tabs[b.dataset.tab]===false});
   if(tabs[tab]===false)showTab('board');
   document.querySelector('[data-print="daily"]').hidden=!hasPrice();
@@ -743,6 +760,24 @@ function renderStores(){
   $('saveS').disabled=!sDirty;$('sDirty').textContent=sDirty?'有尚未儲存的修改':'';
   renderGroups();
 }
+/* ---------- AI 紀錄 ---------- */
+const AIST={pending:'待確認',confirmed:'已確認送出',edited:'改用叫貨單送出',expired:'已截單沒送出',empty:'沒看到品項',error:'辨識失敗'};
+async function loadAI(){
+  $('aiBox').innerHTML='<div class="empty">載入中…</div>';
+  try{
+    const j=await api('GET',null,'?ai=1');
+    $('aiBox').innerHTML=j.drafts.length?j.drafts.map(d=>`<div class="aid">
+      ${d.thumb?`<img src="${d.thumb}" alt="店家傳的照片" data-zoom="1">`:`<div class="txt">${esc(d.text||'（照片）')}</div>`}
+      <div><b>${esc(d.storeName||SM()[d.storeId]?.name||'')}</b><span class="st ${d.status}">${AIST[d.status]||d.status}</span>
+        <div class="meta">${new Date(d.createdAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}・${d.type==='image'?'照片':'文字'}・${md(d.date)} 配送</div>
+        ${d.items.length?`<ul>${d.items.map(i=>`<li>${esc(i.name)} <b>${esc(qtyText(i.qty,i.unit))}</b>${i.raw?` <span class="meta">（${esc(i.raw)}）</span>`:''}</li>`).join('')}</ul>`:''}
+        ${d.unknown.length?`<div class="unk">看不懂：${esc(d.unknown.join('、'))}</div>`:''}
+        ${d.note?`<div class="meta">備註：${esc(d.note)}</div>`:''}
+        ${d.error?`<div class="unk">原因：${esc(d.error)}</div>`:''}
+      </div></div>`).join(''):'<div class="empty">還沒有店家用 LINE 打字或傳照片叫貨</div>';
+  }catch(e){$('aiBox').innerHTML=`<div class="empty">${esc(e.message)}</div>`}
+}
+
 /* ---------- 報表 ---------- */
 let R=null,rmonth='',rDirty=false;
 async function loadReport(){
@@ -921,6 +956,7 @@ function setPaper(k){
 function showTab(t){
   tab=t;
   if(t==='report'&&(!R||R.month!==(rmonth||D.month)))loadReport();
+  if(t==='ai')loadAI();
   document.querySelectorAll('nav.tabs button').forEach(x=>x.setAttribute('aria-selected',x.dataset.tab===t));
   document.querySelectorAll('section').forEach(sec=>sec.hidden=sec.id!==t);
   $('datebar').hidden=!(t==='board'||t==='slips'||t==='prices');
@@ -980,6 +1016,7 @@ document.addEventListener('click',async e=>{
   if(b.id==='ctAdd'){const name=$('ctName').value.trim();if(!name){toast('請填成本項目名稱');$('ctName').focus();return}saveCostTypes([...R.costTypes,{name,period:$('ctPeriod').value}],`已新增「${name}」`)}
   if(b.dataset.ctdel){const t=R.costTypes.find(x=>x.id===b.dataset.ctdel);if(confirm(`刪除成本項目「${t.name}」？已經填的金額不會再算進報表。`))saveCostTypes(R.costTypes.filter(x=>x.id!==t.id),'已刪除')}
   if(b.dataset.dun){const s=SM()[b.dataset.dun];if(confirm(`用 LINE 傳催款通知給「${s.name}」？`)){try{await api('POST',{action:'dunning',storeId:s.id});toast(`已傳給 ${s.name}`)}catch(err){toast(err.message)}}}
+  if(b.id==='aiReload')loadAI();
   if(b.dataset.receipt)sendReceipts([b.dataset.receipt]);
   if(b.id==='receiptAll')sendReceipts(D.orders.map(o=>o.storeId).filter(id=>SM()[id]?.members?.length));
   if(b.dataset.sign)openSign(b.dataset.sign);
@@ -1022,6 +1059,7 @@ document.addEventListener('change',async e=>{
   if(t.dataset.urole){userAction({action:'updateUser',email:t.dataset.urole,role:t.value},'角色已更新')}
   if(t.dataset.paid){try{const j=await api('POST',{action:'paid',month:D.month,storeId:t.dataset.paid,paid:t.checked});D.paid=j.paid;renderBills()}catch(err){toast(err.message);t.checked=!t.checked}}
 });
+document.addEventListener('click',e=>{const im=e.target.closest('img[data-zoom]');if(im){$('paper').innerHTML=`<div class="doc"><img src="${im.src}" style="width:100%" alt="店家傳的照片"></div>`;$('pv').classList.add('on')}});
 document.addEventListener('keydown',e=>{
   if(e.key==='Escape')$('pv').classList.remove('on');
   if(e.key==='Enter'&&!e.isComposing&&e.target.dataset?.sqin)e.target.blur();

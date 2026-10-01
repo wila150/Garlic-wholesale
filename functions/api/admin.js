@@ -7,6 +7,8 @@ import * as shop from '../lib/shop.js';
 import { signedIn, need, can, ROLES, listUsers, addUser, updateUser, removeUser } from '../lib/auth.js';
 import { remindText, statementMessage, approvedText, dunningText, receiptMessage } from '../lib/messages.js';
 import { getFirestore } from 'firebase-admin/firestore';
+import { signSlipToken } from '../lib/token.js';
+import { originOf } from '../lib/http.js';
 import * as report from '../lib/report.js';
 
 async function statement(month, storeId) {
@@ -17,7 +19,7 @@ async function statement(month, storeId) {
 // 這天各店的簽收紀錄（不含圖片）
 async function signaturesOf(date) {
   const snap = await getFirestore().collection('signatures').where('date', '==', date).get();
-  return Object.fromEntries(snap.docs.map((d) => { const { png, ...rest } = d.data(); return [rest.key || rest.storeId, rest]; }));
+  return Object.fromEntries(snap.docs.map((d) => { const { png, ...rest } = d.data(); return [rest.key || rest.storeId, { ...rest, hasPng: !!png }]; }));
 }
 
 async function pushToStore(store, messages) {
@@ -61,7 +63,7 @@ export async function GET(request) {
       can(me.role, 'stores') ? shop.listPending() : [],
       bills ? shop.monthAmounts(month) : [],
       bills ? shop.getPaid(month) : {},
-      shop.ordersOfDate(date),
+      shop.ordersOfDate(date, { withEmpty: true }),
       shop.getDayPrices(date),
       shop.getUnits(),
       can(me.role, 'users') ? listUsers() : [],
@@ -69,7 +71,7 @@ export async function GET(request) {
     ]);
     const showPrices = can(me.role, 'prices') || bills;
     return json({
-      me: { ...me, roleName: ROLES[me.role], can: ['bills', 'prices', 'editOrders', 'products', 'stores', 'remind', 'statement', 'users', 'sign'].filter((w) => can(me.role, w)) },
+      me: { ...me, roleName: ROLES[me.role], can: ['bills', 'prices', 'editOrders', 'products', 'stores', 'remind', 'statement', 'users', 'sign', 'deleteOrders'].filter((w) => can(me.role, w)) },
       roles: ROLES,
       shop: { name: SHOP.name, phone: SHOP.phone, payTerms: SHOP.payTerms },
       categories: CATEGORIES,
@@ -83,7 +85,9 @@ export async function GET(request) {
       // 理貨、司機看不到單價
       products: showPrices ? products : products.map(({ price, ...p }) => p),
       pending,
-      orders: showPrices ? dayOrders : dayOrders.map((o) => ({ ...o, items: o.items.map(({ price, ...i }) => i) })),
+      orders: (showPrices ? dayOrders : dayOrders.map((o) => ({ ...o, items: o.items.map(({ price, ...i }) => i) }))).filter((o) => o.items.length),
+      // 被取消／刪除的單只留紀錄
+      emptyLogs: dayOrders.filter((o) => !o.items.length).map((o) => ({ storeId: o.storeId, seq: o.seq || 1, log: o.log || [] })),
       signatures: await signaturesOf(date),
       dayPrices: showPrices ? dayPrices : {},
       dayCosts: can(me.role, 'prices') ? await shop.getDayCosts(date) : {},
@@ -121,6 +125,11 @@ export async function POST(request) {
         const r = await shop.setShip(b.storeId, b.date, b.pid, b.ship, me.name, b.seq);
         if (!can(me.role, 'prices')) r.order.items = r.order.items.map(({ price, ...i }) => i);
         return json(r);
+      }
+      case 'deleteSlip': {
+        need(me, 'deleteOrders');
+        await store();
+        return json(await shop.deleteSlip(b.storeId, b.date, me.name, b.seq));
       }
       case 'newSlip': {
         need(me, 'editOrders');
@@ -196,20 +205,29 @@ export async function POST(request) {
           .map((o) => getFirestore().doc(`orders/${b.date}_${shop.slipKey(o.storeId, o.seq || 1)}`).update({ receiptSentAt: at })));
         return json({ sent: res.filter((r) => r.status === 'fulfilled').length, total: stores.length });
       }
+      case 'signLink': {
+        need(me, 'sign');
+        if (!isDate(b.date)) throw new UserError('日期不正確');
+        const s = await store();
+        const seq = Math.max(1, Math.floor(Number(b.seq)) || 1);
+        if (!(await shop.getOrder(b.date, s.id, seq))?.items.length) throw new UserError('這張出貨單沒有品項');
+        return json({ url: `${originOf(request)}/sign?t=${signSlipToken(b.date, shop.slipKey(s.id, seq))}` });
+      }
       case 'sign': {
         need(me, 'sign');
         if (!isDate(b.date)) throw new UserError('日期不正確');
         const s = await store();
+        // 後台「直接確認」不用簽名圖
         const png = String(b.png || '');
-        if (!/^data:image\/png;base64,/.test(png) || png.length > 300000) throw new UserError('簽名圖片不正確');
+        if (png && (!/^data:image\/png;base64,/.test(png) || png.length > 300000)) throw new UserError('簽名圖片不正確');
         const seq = Math.max(1, Math.floor(Number(b.seq)) || 1);
         const key = shop.slipKey(s.id, seq);
-        if ((await getFirestore().doc(`signatures/${b.date}_${key}`).get()).exists) throw new UserError('這張出貨單已經簽收過了，不能重簽', 409);
+        if ((await getFirestore().doc(`signatures/${b.date}_${key}`).get()).exists) throw new UserError('這張配送單已經確認過了', 409);
         if (!(await shop.getOrder(b.date, s.id, seq))?.items.length) throw new UserError('這張出貨單沒有品項');
         const signer = String(b.signer || '').trim().slice(0, 20);
-        const rec = { date: b.date, storeId: s.id, seq, key, png, signer, by: me.name, at: new Date().toISOString() };
+        const rec = { date: b.date, storeId: s.id, seq, key, ...(png ? { png } : {}), signer, by: me.name, at: new Date().toISOString() };
         await getFirestore().doc(`signatures/${b.date}_${key}`).set(rec);
-        return json({ signature: { ...rec, png: undefined } });
+        return json({ signature: { ...rec, png: undefined, hasPng: !!png } });
       }
       case 'costTypes':
         need(me, 'bills');

@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>確認配送單</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#EEF3EA; --surface:#FFFFFF; --ink:#1B2A21; --muted:#5B6B60; --line:#D6E0D0;
+  --leaf:#2F6B45; --leaf-soft:#DCEBDD; --tag:#F5D547; --alert:#B23A2E; --line-green:#06C755;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#111915; --surface:#1A241E; --ink:#E4ECE5; --muted:#98A99E; --line:#2B3A31;
+    --leaf:#78C093; --leaf-soft:#22362A; --alert:#E0776B;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#111915; --surface:#1A241E; --ink:#E4ECE5; --muted:#98A99E; --line:#2B3A31;
+  --leaf:#78C093; --leaf-soft:#22362A; --alert:#E0776B;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;font-size:16px;line-height:1.6;font-variant-numeric:tabular-nums}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--tag);outline-offset:2px}
+.head{background:var(--line-green);color:#fff;padding:calc(12px + env(safe-area-inset-top,0px)) 16px 12px}
+.head b{display:block;font-size:1.15rem}
+.head small{opacity:.95}
+.wrap{max-width:560px;margin:0 auto;padding:16px 16px calc(32px + env(safe-area-inset-bottom,0px))}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:14px}
+.card h2{margin:0 0 6px;font-size:1.05rem}
+.row{display:flex;justify-content:space-between;gap:10px;padding:7px 0;border-bottom:1px dashed var(--line)}
+.row:last-child{border-bottom:0}
+.row small{display:block;color:var(--muted);font-size:.8rem}
+.row b{white-space:nowrap}
+.total{display:flex;justify-content:space-between;font-weight:900;font-size:1.15rem;padding-top:8px;border-top:2px solid var(--ink);margin-top:4px}
+.note{color:var(--muted);font-size:.88rem}
+#signer{width:100%;margin-top:8px;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:9px 11px}
+.acts{display:flex;gap:8px;margin-top:10px}
+.acts button{flex:1;border:1px solid var(--line);background:var(--bg);border-radius:22px;padding:11px;font-weight:700}
+.acts .go{background:var(--line-green);border-color:var(--line-green);color:#fff}
+.acts .go:disabled{opacity:.6}
+.err{color:var(--alert);font-weight:700}
+.chk{display:flex;align-items:center;gap:8px;font-weight:700;margin:4px 0 10px;padding:10px 12px;background:var(--leaf-soft);border-radius:8px;cursor:pointer}
+.chk input{width:20px;height:20px;accent-color:var(--leaf)}
+.plink{color:var(--alert);font-weight:700}
+.done{text-align:center;padding:24px 8px}
+.done .ok{font-size:3rem;line-height:1}
+.done a{display:inline-block;margin-top:14px;background:var(--line-green);color:#fff;text-decoration:none;font-weight:700;border-radius:24px;padding:12px 24px}
+.msg{text-align:center;color:var(--muted);padding:40px 16px}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<div class="head"><b id="title">確認配送單</b><small id="sub"></small></div>
+<div class="wrap">
+  <div class="msg" id="msg">載入中…</div>
+  <div id="main" hidden>
+    <div class="card"><h2>幫您配好的貨</h2><div id="items"></div><div class="total" id="total" hidden></div><p class="note" id="pnote" hidden>單價確認後，金額會在收據或對帳單上通知您。</p></div>
+    <div class="card" id="signCard">
+      <h2>請核對品項和數量</h2>
+      <label class="chk"><input type="checkbox" id="received"> 品項和數量正確</label>
+      <input id="signer" placeholder="確認人姓名（選填）" maxlength="20" aria-label="確認人姓名">
+      <p class="err" id="err" role="alert"></p>
+      <div class="acts"><button class="go" id="ok">確認</button></div>
+    </div>
+    <p style="text-align:center"><a id="problem" class="plink" hidden>數量不對？告訴老闆</a></p>
+  </div>
+  <div class="done" id="done" hidden></div>
+</div>
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const money=n=>'$'+Math.round(n).toLocaleString('en-US');
+// 和 functions/lib/qty.js 的 qtyText 一樣：斤用「幾斤幾兩」
+function qtyText(q,unit){q=Number(q)||0;if(unit==='斤'&&!Number.isInteger(q)){let j=Math.floor(q),l=Math.round((q-j)*16);if(l===16){j++;l=0}if(Math.abs(j+l/16-q)<0.001)return `${j?j+'斤':''}${l?l+'兩':''}`||'0斤'}return `${Number.isInteger(q)?q:+q.toFixed(2)} ${unit}`}
+const T=new URLSearchParams(location.search).get('t')||'';
+let D=null;
+
+async function load(){
+  let r;
+  try{r=await fetch('/api/sign?t='+encodeURIComponent(T));D=await r.json()}catch{D={error:'載入失敗，請重新整理'}}
+  if(!r?.ok){$('msg').textContent=D.error;return}
+  document.title=`${D.store} 確認配送單`;
+  $('title').textContent=`${D.store}・確認配送單`;
+  $('sub').textContent=`${D.shopName}　${D.dateLabel} 配送${D.seq>1?`（補單 #${D.seq}）`:''}`;
+  $('items').innerHTML=D.items.map(i=>`<div class="row"><span>${esc(i.name)}${i.qty!==i.ordered?`<small>叫 ${esc(qtyText(i.ordered,i.unit))}</small>`:''}${i.price!=null&&i.qty?`<small>${esc(qtyText(i.qty,i.unit))} × ${money(i.price)}</small>`:''}</span>
+    <b>${i.qty?(i.amount!=null?money(i.amount):esc(qtyText(i.qty,i.unit))):'缺貨'}</b></div>`).join('');
+  if(D.total!=null){$('total').hidden=false;$('total').innerHTML=`<span>合計</span><span>${money(D.total)}</span>`}else $('pnote').hidden=false;
+  $('msg').hidden=true;$('main').hidden=false;
+  // 「數量不對」：打開聊天室帶好開頭，店家補上哪裡不對
+  if(D.basicId&&!D.confirmed){$('problem').hidden=false;$('problem').href=`https://line.me/R/oaMessage/${encodeURIComponent(D.basicId)}/?${encodeURIComponent(`${D.dateLabel} 配送單${D.seq>1?` 補單#${D.seq}`:''}有問題：`)}`}
+  if(D.confirmed)showDone(D.confirmed,true);
+}
+
+async function submit(){
+  if(!$('received').checked){$('err').textContent='請先核對，勾選「品項和數量正確」';return}
+  $('ok').disabled=true;$('ok').textContent='送出中…';$('err').textContent='';
+  try{
+    const r=await fetch('/api/sign',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:T,signer:$('signer').value.trim(),confirmed:true})});
+    const j=await r.json();if(!r.ok)throw new Error(j.error||'送出失敗');
+    showDone(j.confirmed,false);
+  }catch(e){$('err').textContent=e.message;$('ok').disabled=false;$('ok').textContent='確認'}
+}
+function showDone(s,already){
+  $('signCard').hidden=true;$('problem').hidden=true;
+  const at=new Date(s.at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});
+  // 「回傳給老闆」：打開官方帳號聊天室並帶好一句話，店家按送出就好（不花推播額度）
+  const text=`已確認 ${D.dateLabel} 配送單${D.seq>1?` 補單#${D.seq}`:''}`;
+  const back=D.basicId?`https://line.me/R/oaMessage/${encodeURIComponent(D.basicId)}/?${encodeURIComponent(text)}`:'';
+  $('done').hidden=false;
+  $('done').innerHTML=`<div class="ok" aria-hidden="true">✅</div><h2 style="margin:8px 0 4px">${already?'這張配送單已經確認過了':'已確認，謝謝！'}</h2>
+    <p class="note">${at}${s.signer?`・${esc(s.signer)}`:''}</p>${!already&&back?`<a href="${back}">回傳給老闆</a><p class="note">按了會打開 LINE 聊天室，再按送出就好</p>`:''}`;
+}
+$('ok').addEventListener('click',submit);
+load();
+</script>
+</body>
+</html>

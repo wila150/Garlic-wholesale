@@ -39,7 +39,8 @@ export async function processJob(job, jobId) {
       const raw = await getContent(job.messageId);
       const buf = await sharp(raw).rotate().resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 75 }).toBuffer();
       image = 'data:image/jpeg;base64,' + buf.toString('base64');
-      thumb = 'data:image/jpeg;base64,' + (await sharp(raw).rotate().resize({ width: 700, height: 700, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 60 }).toBuffer()).toString('base64');
+      // 原圖不留（在 LINE 那邊）；縮圖約 20～40KB，店家確認後就刪，其他的 14 天後自動清掉
+      thumb = 'data:image/jpeg;base64,' + (await sharp(raw).rotate().resize({ width: 600, height: 600, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 55, mozjpeg: true }).toBuffer()).toString('base64');
     }
     const t = Date.now();
     parsed = await parseOrder({ text: job.text, image, products });
@@ -80,7 +81,7 @@ export async function confirmDraft(userId, id, origin) {
     if (same) same.qty = roundQty(same.qty + it.qty); else items.push({ pid: it.pid, qty: it.qty });
   }
   const { order, had } = await shop.saveOrder(store.id, d.date, items, '店家', d.type === 'image' ? 'LINE 照片叫貨' : 'LINE 文字叫貨');
-  await ref.update({ status: 'confirmed', confirmedAt: FieldValue.serverTimestamp() });
+  await ref.update({ status: 'confirmed', confirmedAt: FieldValue.serverTimestamp(), thumb: FieldValue.delete() });
   return orderMessage(had ? '訂單已更新' : '訂單已收到', store, d.date, order, orderLink(origin, userId));
 }
 
@@ -92,4 +93,17 @@ export async function draftFor(userId, id) {
   return { id: d.id, items: d.items.map(({ pid, qty }) => ({ pid, qty })), unknown: d.unknown };
 }
 
-export const markDraftUsed = (id) => db().collection('aiDrafts').doc(id).update({ status: 'edited' }).catch(() => {});
+export const markDraftUsed = (id) => db().collection('aiDrafts').doc(id).update({ status: 'edited', thumb: FieldValue.delete() }).catch(() => {});
+
+// 每天清一次：14 天前的照片縮圖刪掉（文字紀錄留著）
+export async function cleanOldPhotos(days = 14) {
+  const before = new Date(Date.now() - days * 86400e3).toISOString();
+  const snap = await db().collection('aiDrafts').where('createdAt', '<', before).get();
+  const old = snap.docs.filter((d) => d.data().thumb);
+  for (let i = 0; i < old.length; i += 400) {
+    const b = db().batch();
+    old.slice(i, i + 400).forEach((d) => b.update(d.ref, { thumb: FieldValue.delete() }));
+    await b.commit();
+  }
+  console.log(`清掉 ${old.length} 張 AI 叫貨照片縮圖`);
+}

@@ -14,7 +14,7 @@ export const ROLES = {
 // 每個角色能做的事
 const CAN = {
   owner: ['*'],
-  accounting: ['view', 'bills', 'prices', 'editOrders', 'products', 'remind', 'statement', 'sign'],
+  accounting: ['view', 'bills', 'prices', 'editOrders', 'deleteOrders', 'products', 'remind', 'statement', 'sign'],
   warehouse: ['view', 'editOrders', 'remind', 'sign'],
   driver: ['view', 'sign'],
 };

@@ -55,6 +55,9 @@ async function handle(e, origin) {
     return;
   }
 
+  // 店家確認配送單後按「回傳給老闆」帶過來的訊息
+  if (/^已(確認|簽收)/.test(said)) return say({ type: 'text', text: '收到您的確認，謝謝！' });
+
   // 圖文選單「拍照叫貨」：回快速回覆按鈕，點了直接開相機或相簿（圖文選單本身不能開相機）
   if (said === '拍照叫貨' || action === 'photo') {
     return say({

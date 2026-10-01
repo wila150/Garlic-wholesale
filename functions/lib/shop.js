@@ -289,13 +289,13 @@ const orderDoc = (date, sid, seq = 1) => doc(`orders/${date}_${slipKey(sid, seq)
 const monthKey = (date, sid, seq = 1) => `${date}|${slipKey(sid, seq)}`;
 // 簽收後出貨單就鎖住，數量和品項都不能再改（單價還是可以補）；要追加就開補單
 async function assertNotSigned(date, sid, seq = 1) {
-  if ((await doc(`signatures/${date}_${slipKey(sid, seq)}`).get()).exists) throw new UserError('這張出貨單已經簽收，不能再修改；要追加請開補單', 409);
+  if ((await doc(`signatures/${date}_${slipKey(sid, seq)}`).get()).exists) throw new UserError('這張配送單已經確認，不能再修改；要追加請開補單', 409);
 }
 export const getOrder = async (date, sid, seq = 1) => (await orderDoc(date, sid, seq).get()).data() ?? null;
 
-export async function ordersOfDate(date) {
+export async function ordersOfDate(date, { withEmpty = false } = {}) {
   const snap = await db().collection('orders').where('date', '==', date).get();
-  return snap.docs.map((d) => d.data()).filter((o) => o.items.length);
+  return snap.docs.map((d) => d.data()).filter((o) => withEmpty || o.items.length);
 }
 
 // 這家店最近一張（配送日早於 date 的）訂單，用來「照上次叫」
@@ -396,13 +396,20 @@ export async function setQty(sid, date, pid, qty, who, seq = 1) {
   return saveOrder(sid, date, items, '後台', who, seq);
 }
 
+// 整張刪除（還沒簽收的才可以）：品項清空、對帳金額移除，改單紀錄會留下刪了什麼
+export async function deleteSlip(sid, date, who, seq = 1) {
+  const o = await getOrder(date, sid, seq);
+  if (!o?.items.length) throw new UserError('這張出貨單已經是空的');
+  return saveOrder(sid, date, [], '後台', who ? `${who}・整張刪除` : '整張刪除', seq);
+}
+
 // 簽收後還要追加：開一張新的補單（前面每張都簽收了才能開）
 export async function newSlip(sid, date, pid, qty, who) {
   const snap = await db().collection('orders').where('date', '==', date).where('storeId', '==', sid).get();
   const seqs = snap.docs.map((d) => d.data()).filter((o) => o.items.length).map((o) => o.seq || 1);
   if (!seqs.length) throw new UserError('這家店這天還沒有出貨單，直接加品項就好');
   for (const n of seqs) {
-    if (!(await doc(`signatures/${date}_${slipKey(sid, n)}`).get()).exists) throw new UserError('還有沒簽收的出貨單，直接在那張加品項就好');
+    if (!(await doc(`signatures/${date}_${slipKey(sid, n)}`).get()).exists) throw new UserError('還有沒確認的配送單，直接在那張加品項就好');
   }
   return saveOrder(sid, date, [{ pid, qty }], '後台', who, Math.max(...seqs) + 1);
 }

@@ -181,6 +181,7 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .sacts button{border-radius:6px;padding:6px 10px;font-weight:700;font-size:.85rem}
 .sacts .ok{border:0;background:var(--leaf);color:#fff}
 .sacts .pbtn{margin:0;width:auto}
+.sacts .delslip{border:0;background:transparent;color:var(--alert);font-weight:700;margin-left:auto}
 .signed{font-size:.85rem;color:var(--leaf);font-weight:700}
 .signed button{border:0;background:transparent;color:var(--leaf);text-decoration:underline;padding:0 4px;font-size:.85rem}
 .sheetbg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:25;padding:16px}
@@ -344,7 +345,7 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 
   <section id="ai" hidden>
     <h2>AI 叫貨紀錄</h2>
-    <p class="sub">店家在 LINE 直接打字或傳照片叫貨時，AI 讀到的內容。最近 30 筆。<b>待確認</b>＝店家還沒按「確認送出」；<b>沒看到品項</b>＝AI 判斷不是叫貨，所以沒回覆店家。</p>
+    <p class="sub">店家在 LINE 直接打字或傳照片叫貨時，AI 讀到的內容。最近 30 筆。<b>待確認</b>＝店家還沒按「確認送出」；<b>沒看到品項</b>＝AI 判斷不是叫貨，所以沒回覆店家。照片只存小縮圖，店家確認後就刪除，其他的 14 天後自動刪除，不佔空間。</p>
     <div class="bar"><button class="pbtn" id="aiReload">重新整理</button></div>
     <div id="aiBox"><div class="empty">載入中…</div></div>
   </section>
@@ -399,11 +400,11 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
   </section>
 </div>
 
-<div class="sheetbg" id="sigBox" role="dialog" aria-modal="true" aria-labelledby="sigTitle"><div class="sigin">
-  <h3 id="sigTitle">簽收</h3><p class="sub">請客人在框裡簽名</p>
-  <canvas id="sigPad" aria-label="簽名區"></canvas>
-  <input id="sigName" placeholder="簽收人姓名（選填）" maxlength="20" aria-label="簽收人姓名">
-  <div class="sa"><button id="sigClear">重簽</button><button id="sigCancel">取消</button><button class="go" id="sigOk">確認簽收</button></div>
+<div class="sheetbg" id="linkBox" role="dialog" aria-modal="true" aria-labelledby="linkTitle"><div class="sigin">
+  <h3 id="linkTitle">確認配送單連結</h3>
+  <p class="sub">配貨完，把連結貼到 LINE 官方帳號的聊天室給店家（你自己傳不算推播額度）。店家點開核對品項和數量，按「確認」就好；數量不對可以直接回報。確認後這裡會變成「店家已確認」並鎖住。連結 7 天有效。</p>
+  <input id="linkUrl" readonly aria-label="確認配送單連結" style="width:100%;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:8px;font-size:.85rem">
+  <div class="sa"><button id="linkCopy">複製連結</button><button class="go" id="linkShare">用 LINE 傳</button><button id="linkClose">關閉</button></div>
 </div></div>
 <div class="toast" id="toast" role="status"></div>
 <div id="pv" role="dialog" aria-modal="true" aria-label="列印預覽">
@@ -495,7 +496,7 @@ const activeStores=()=>D.stores.filter(s=>s.on);
 const catIdx=pid=>{const p=PM()[pid];return p?D.categories.indexOf(p.cat):99};
 const prodIdx=pid=>D.products.findIndex(p=>p.id===pid);
 const sortItems=items=>[...items].sort((a,b)=>catIdx(a.pid)-catIdx(b.pid)||prodIdx(a.pid)-prodIdx(b.pid));
-// 出貨單的代號：原本的單是店家 id，簽收後開的補單是「店家id-2」「-3」…
+// 出貨單的代號：原本的單是店家 id，配送單確認後開的補單是「店家id-2」「-3」…
 const okey=o=>o.storeId+((o.seq||1)>1?'-'+o.seq:'');
 const sidOf=k=>k.replace(/-\d+$/,''),seqOf=k=>+(k.match(/-(\d+)$/)?.[1]||1);
 const orderOf=k=>D.orders.find(o=>okey(o)===k);
@@ -592,41 +593,21 @@ async function saveDayPrices(){
   }catch(e){toast(e.message)}
 }
 
-/* ---------- 出貨單：收據、簽收 ---------- */
+/* ---------- 出貨單：收據、確認配送單 ---------- */
 function slipActs(s,o,k){
   const sig=D.signatures?.[k];
+  const who=sig&&(sig.by==='店家線上確認'||sig.by==='店家線上簽收'?'店家已確認':'後台確認');
   return `<div class="sacts">
-    ${sig?`<span class="signed">✅ 已簽收 ${hm(sig.at)}${sig.signer?`（${esc(sig.signer)}）`:''}<button data-sigview="${k}">看簽名</button></span><div class="lockhint" style="flex-basis:100%">已簽收，數量不能再改${may('editOrders')&&k===okey(slipsOf(s.id).at(-1))?'；要追加請用下面的「開補單」':''}</div>`:may('sign')?`<button class="ok" data-sign="${k}">簽收</button>`:''}
+    ${sig?`<span class="signed">✅ ${who} ${hm(sig.at)}${sig.signer?`（${esc(sig.signer)}）`:''}${sig.hasPng?`<button data-sigview="${k}">看簽名</button>`:''}</span><div class="lockhint" style="flex-basis:100%">配送單已確認，數量不能再改${may('editOrders')&&k===okey(slipsOf(s.id).at(-1))?'；要追加請用下面的「開補單」':''}</div>`
+      :may('sign')?`<button class="ok" data-signlink="${k}">傳確認連結</button><button class="pbtn" data-confirm="${k}">直接確認</button>`:''}
     ${may('statement')&&s.members?.length&&k===s.id?`<button class="send" data-receipt="${s.id}">${o.receiptSentAt?'再傳一次收據':'LINE 傳收據'}</button>`:''}
-    <button class="pbtn" data-print="slip" data-store="${k}">列印</button></div>`;
+    <button class="pbtn" data-print="slip" data-store="${k}">列印</button>
+    ${!sig&&may('deleteOrders')?`<button class="delslip" data-delslip="${k}">刪除這張單</button>`:''}</div>`;
 }
 async function sendReceipts(ids){
   const n=ids.length;if(!n){toast('沒有可以傳的店家（要有訂單、綁定 LINE）');return}
   if(!confirm(`用 LINE 傳 ${md(D.date)} 的收據給 ${n} 家店？每個綁定的帳號用掉 1 則訊息額度。${D.orders.some(o=>o.items.some(i=>!(i.pid in D.dayPrices)))?'\n\n注意：還有品項的單價沒確認。':''}`))return;
   try{const j=await api('POST',{action:'receipt',date:D.date,storeIds:ids});toast(`已傳 ${j.sent}/${j.total} 家`);load()}catch(e){toast(e.message)}
-}
-/* 簽名板 */
-let sigStore=null;
-function openSign(k){
-  if(!confirm(`簽收後「${slipName(k)}」這張出貨單就不能再改數量，確定都秤好了嗎？`))return;
-  sigStore=k;$('sigTitle').textContent=`${slipName(k)} 簽收`;$('sigName').value='';
-  $('sigBox').classList.add('on'); // 先顯示，才量得到簽名框的大小
-  const c=$('sigPad'),ctx=c.getContext('2d');c.width=c.clientWidth*2;c.height=c.clientHeight*2;
-  ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.lineWidth=5;ctx.lineCap='round';ctx.strokeStyle='#111';c.dataset.drawn='';
-}
-(function(){
-  const c=document.getElementById('sigPad');let down=false;
-  const pt=e=>{const r=c.getBoundingClientRect();return [(e.clientX-r.left)*c.width/r.width,(e.clientY-r.top)*c.height/r.height]};
-  c.addEventListener('pointerdown',e=>{down=true;c.setPointerCapture(e.pointerId);const ctx=c.getContext('2d');ctx.beginPath();ctx.moveTo(...pt(e))});
-  c.addEventListener('pointermove',e=>{if(!down)return;const ctx=c.getContext('2d');ctx.lineTo(...pt(e));ctx.stroke();c.dataset.drawn='1'});
-  c.addEventListener('pointerup',()=>down=false);
-})();
-async function saveSign(){
-  const c=$('sigPad');if(!c.dataset.drawn){toast('請客人先簽名');return}
-  // 縮小再存
-  const t=document.createElement('canvas');t.width=600;t.height=Math.round(600*c.height/c.width);t.getContext('2d').drawImage(c,0,0,t.width,t.height);
-  try{const j=await api('POST',{action:'sign',date:D.date,storeId:sidOf(sigStore),seq:seqOf(sigStore),png:t.toDataURL('image/png'),signer:$('sigName').value.trim()});
-    (D.signatures||={})[sigStore]=j.signature;$('sigBox').classList.remove('on');renderSlips();toast('已簽收')}catch(e){toast(e.message)}
 }
 async function sigImg(sid){try{return (await api('GET',null,`?sig=${D.date}_${sid}`)).signature?.png||''}catch{return ''}}
 
@@ -679,7 +660,7 @@ function renderSlips(){
     });
   }).join('')||'<div class="empty">還沒有店家，到「店家」新增。</div>';
   const sm=SM();
-  const logs=D.orders.flatMap(o=>(o.log||[]).map(l=>({...l,store:(sm[o.storeId]?.name||'')+((o.seq||1)>1?` 補單#${o.seq}`:'')}))).sort((a,b)=>b.at.localeCompare(a.at));
+  const logs=[...D.orders,...(D.emptyLogs||[])].flatMap(o=>(o.log||[]).map(l=>({...l,store:(sm[o.storeId]?.name||'')+((o.seq||1)>1?` 補單#${o.seq}`:'')}))).sort((a,b)=>b.at.localeCompare(a.at));
   $('logBox').innerHTML=`<h3>改單紀錄</h3>`+(logs.length?`<ol>${logs.map(l=>`<li>${hm(l.at)} ${esc(l.store)}（${l.by==='後台'?`後台改${l.who?'・'+esc(l.who):''}`:l.who?'店家・'+esc(l.who):'店家自己改'}）：${esc(l.text)}</li>`).join('')}</ol>`:`<div class="empty">這天沒有修改紀錄。</div>`);
 }
 // undo=false 是按「復原」時用的，不再跳復原
@@ -786,7 +767,7 @@ async function loadAI(){
   try{
     const j=await api('GET',null,'?ai=1');
     $('aiBox').innerHTML=j.drafts.length?j.drafts.map(d=>`<div class="aid">
-      ${d.thumb?`<img src="${d.thumb}" alt="店家傳的照片" data-zoom="1">`:`<div class="txt">${esc(d.text||'（照片）')}</div>`}
+      ${d.thumb?`<img src="${d.thumb}" alt="店家傳的照片" data-zoom="1">`:`<div class="txt">${d.type==='image'?'📷 照片已刪除<br><span class="meta">（確認後或 14 天後自動刪除）</span>':esc(d.text)}</div>`}
       <div><b>${esc(d.storeName||SM()[d.storeId]?.name||'')}</b><span class="st ${d.status}">${AIST[d.status]||d.status}</span>
         <div class="meta">${new Date(d.createdAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}・${d.type==='image'?'照片':'文字'}・${md(d.date)} 配送</div>
         ${d.items.length?`<ul>${d.items.map(i=>`<li>${esc(i.name)} <b>${esc(qtyText(i.qty,i.unit))}</b>${i.raw?` <span class="meta">（${esc(i.raw)}）</span>`:''}</li>`).join('')}</ul>`:''}
@@ -898,7 +879,8 @@ async function userAction(body,msg){
 const SHOPN=()=>D.shop.name;
 const ymdSlash=d=>d.replaceAll('-','/');
 let SIGS={};
-const signLine=k=>SIGS[k]?`<div>簽收：<img class="sigimg" src="${SIGS[k]}" alt="簽名">${D.signatures[k].signer?`（${esc(D.signatures[k].signer)}）`:''} ${hm(D.signatures[k].at)}</div>`:'<div>簽收：＿＿＿＿＿＿</div>';
+// 紙本給客戶用筆簽；有線上確認的話註明一下（舊的電子簽名也照樣印）
+const signLine=k=>{const g=D.signatures?.[k];const note=g?`<div style="font-size:.9em">${g.by==='店家線上確認'||g.by==='店家線上簽收'?'店家已線上確認':'已確認'} ${hm(g.at)}${g.signer?`（${esc(g.signer)}）`:''}</div>`:'';return SIGS[k]?`<div>簽收：<img class="sigimg" src="${SIGS[k]}" alt="簽名">${note}</div>`:`<div>簽收：＿＿＿＿＿＿${note}</div>`};
 function docSlip(k){
   const s=SM()[sidOf(k)],supp=seqOf(k)>1?` 補單 #${seqOf(k)}`:'';
   const o=orderOf(k);const items=sortItems(o.items);
@@ -959,8 +941,8 @@ function docMonth(){
 }
 async function openPrint(kind,sid){
   const s=sid&&SM()[sidOf(sid)];
-  // 有簽收的出貨單，先把簽名圖抓下來
-  if(kind==='slip'||kind==='slips'){SIGS={};const ids=kind==='slip'?[sid]:Object.keys(D.signatures||{});await Promise.all(ids.filter(x=>D.signatures?.[x]).map(async x=>SIGS[x]=await sigImg(x)))}
+  // 舊的電子簽名圖（有的話）一起印
+  if(kind==='slip'||kind==='slips'){SIGS={};const ids=kind==='slip'?[sid]:Object.keys(D.signatures||{});await Promise.all(ids.filter(x=>D.signatures?.[x]?.hasPng).map(async x=>SIGS[x]=await sigImg(x)))}
   const withOrder=D.stores.filter(x=>slipsOf(x.id).length).sort((a,b)=>a.route-b.route);
   const allSlips=withOrder.flatMap(x=>slipsOf(x.id).map(okey));
   if((kind==='slips'||kind==='daily'||kind==='buy')&&!withOrder.length){toast('這天沒有訂單');return}
@@ -1041,11 +1023,28 @@ document.addEventListener('click',async e=>{
   if(b.id==='aiReload')loadAI();
   if(b.dataset.receipt)sendReceipts([b.dataset.receipt]);
   if(b.id==='receiptAll')sendReceipts([...new Set(D.orders.map(o=>o.storeId))].filter(id=>SM()[id]?.members?.length));
-  if(b.dataset.sign)openSign(b.dataset.sign);
+  if(b.dataset.confirm){
+    const k=b.dataset.confirm;
+    if(!confirm(`確認「${slipName(k)}」這張配送單？確認後數量就不能再改（要追加請開補單）。`))return;
+    try{const j=await api('POST',{action:'sign',date:D.date,storeId:sidOf(k),seq:seqOf(k)});(D.signatures||={})[k]=j.signature;renderSlips();toast('已確認配送單')}catch(err){toast(err.message)}
+  }
   if(b.dataset.sigview){const png=await sigImg(b.dataset.sigview);if(png){$('paper').innerHTML=`<div class="doc"><h3>${esc(SM()[b.dataset.sigview].name)} 簽收</h3><p style="text-align:center"><img src="${png}" style="max-width:100%;border:1px solid #ccc" alt="簽名"></p></div>`;$('pv').classList.add('on')}}
-  if(b.id==='sigOk')saveSign();
-  if(b.id==='sigCancel')$('sigBox').classList.remove('on');
-  if(b.id==='sigClear'){const c=$('sigPad'),ctx=c.getContext('2d');ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);c.dataset.drawn=''}
+  if(b.dataset.delslip){
+    const k=b.dataset.delslip,o=orderOf(k);
+    if(!confirm(`確定刪除「${slipName(k)}」${md(D.date)} 這張出貨單？\n${o.items.map(i=>`${i.name} ${qtyText(i.qty,i.unit)}`).join('、')}\n\n刪除後對帳金額會一起扣掉，改單紀錄會留下來。`))return;
+    try{const r=await api('POST',{action:'deleteSlip',date:D.date,storeId:sidOf(k),seq:seqOf(k)});D.orders=D.orders.filter(x=>okey(x)!==k);renderAll();toast(`已刪除「${slipName(k)}」的出貨單`)}catch(err){toast(err.message)}
+  }
+  if(b.dataset.signlink){
+    const k=b.dataset.signlink;
+    try{const j=await api('POST',{action:'signLink',date:D.date,storeId:sidOf(k),seq:seqOf(k)});
+      $('linkTitle').textContent=`${slipName(k)} 確認配送單`;$('linkUrl').value=j.url;
+      $('linkBox').dataset.text=`${slipName(k)} 您好，${md(D.date)} 的貨已經配好了，請點連結核對品項和數量，沒問題按「確認」：\n${j.url}`;
+      $('linkBox').classList.add('on');$('linkUrl').select();
+    }catch(err){toast(err.message)}
+  }
+  if(b.id==='linkCopy'){try{await navigator.clipboard.writeText($('linkBox').dataset.text);toast('已複製，貼到 LINE 聊天室就好')}catch{$('linkUrl').select();toast('請手動複製')}}
+  if(b.id==='linkShare'){const text=$('linkBox').dataset.text;if(navigator.share){navigator.share({text}).catch(()=>{})}else window.open('https://line.me/R/share?text='+encodeURIComponent(text),'_blank')}
+  if(b.id==='linkClose')$('linkBox').classList.remove('on');
   if(b.id==='xlsDay')xlsDay().catch?.(()=>{});
   if(b.id==='xlsBills')xlsBills();
   if(b.id==='xlsReport')xlsReport();

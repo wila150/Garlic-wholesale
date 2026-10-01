@@ -5,6 +5,8 @@ export const SHOP = {
   phone: process.env.SHOP_PHONE || '',
   payTerms: process.env.PAY_TERMS || '款項月結，每月 10 日前付清上月貨款。',
   lineUrl: process.env.LINE_ADD_FRIEND_URL || '',
+  // 官方帳號 ID（@開頭），從加好友網址取出，用來做「回傳給老闆」的聊天室連結
+  basicId: (process.env.LINE_ADD_FRIEND_URL || '').match(/@[\w.-]+/)?.[0] || '',
   liffId: process.env.LIFF_ID || '',
 };
 

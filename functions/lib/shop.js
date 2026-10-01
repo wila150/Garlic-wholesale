@@ -8,12 +8,13 @@
 //   dayPrices/{日期}     { prices: { pid: 單價 } }：老闆確認過的當天單價
 //   monthly/{YYYY-MM}   { amounts: { "日期|店": 金額 } }：對帳用的每日金額，一次讀完一整個月
 //   paid/{YYYY-MM}      { stores: { 店: { at } } }：收款紀錄
+//   settings/priceGroups { items: 報價組 }：店家 groupId 對到這裡，決定拿基本價的幾折或固定價
 //   users/{uid}         後台帳號的角色（見 lib/auth.js）
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { DEFAULT_PRODUCTS, CATEGORIES, DEFAULT_UNITS } from './config.js';
 import { qtyText, roundQty } from './qty.js';
 import { UserError } from './http.js';
-import { openDate, isDate } from './dates.js';
+import { openDate, isDate, today } from './dates.js';
 
 const db = () => getFirestore();
 const doc = (path) => db().doc(path);
@@ -60,6 +61,7 @@ export async function saveProducts(input) {
       name,
       unit: units.includes(p.unit) ? p.unit : units[0],
       price: old.get(id)?.price ?? 0, // 最近一次輸入的單價，新訂單先用這個
+      cost: old.get(id)?.cost ?? null, // 最近一次輸入的進價
       on: !!p.on,
     };
   });
@@ -67,12 +69,80 @@ export async function saveProducts(input) {
   return list;
 }
 
+/* ---------- 報價組 ---------- */
+// type：none 照基本價、percent 打折（value＝90 是 9 折）、minus 每單位減 value 元；fixed 是個別品項的固定價
+export async function getPriceGroups() {
+  return (await data('settings/priceGroups'))?.items ?? [];
+}
+
+export function priceFor(base, pid, group) {
+  if (!group) return base;
+  if (group.fixed?.[pid] != null) return group.fixed[pid];
+  if (group.type === 'percent') return Math.round((base * group.value) / 100);
+  if (group.type === 'minus') return Math.max(0, base - group.value);
+  return base;
+}
+
+export async function savePriceGroups(input) {
+  if (!Array.isArray(input)) throw new UserError('報價組格式錯誤');
+  const names = new Set();
+  const list = input.map((g) => {
+    const name = clean(g.name, 20);
+    if (!name) throw new UserError('有報價組沒有填名稱');
+    if (names.has(name)) throw new UserError(`報價組「${name}」重複了`);
+    names.add(name);
+    const type = ['none', 'percent', 'minus'].includes(g.type) ? g.type : 'none';
+    const value = Number(g.value) || 0;
+    if (type === 'percent' && !(value > 0 && value <= 200)) throw new UserError(`「${name}」的折數不正確（例如 9 折填 90）`);
+    if (type === 'minus' && !(value >= 0)) throw new UserError(`「${name}」每單位減的金額不正確`);
+    const fixed = {};
+    for (const [pid, v] of Object.entries(g.fixed || {})) {
+      if (v === '' || v == null) continue;
+      const n = Math.round(Number(v));
+      if (!(n >= 0)) throw new UserError(`「${name}」有固定價不正確`);
+      fixed[pid] = n;
+    }
+    return { id: clean(g.id, 30) || rid('g'), name, type, value, fixed };
+  });
+  await doc('settings/priceGroups').set({ items: list });
+  await repriceOpen();
+  return list;
+}
+
+// 店家換組、報價組改規則後，今天（含）以後還沒送的訂單重算
+async function repriceOpen() {
+  const [stores, groups] = await Promise.all([getStores(), getPriceGroups()]);
+  const gOf = (sid) => groups.find((g) => g.id === stores.find((s) => s.id === sid)?.groupId);
+  const snap = await db().collection('orders').where('date', '>=', today()).get();
+  const batch = db().batch();
+  let n = 0;
+  for (const d of snap.docs) {
+    const o = d.data();
+    let changed = false;
+    for (const it of o.items) {
+      const base = it.base ?? it.price;
+      const p = priceFor(base, it.pid, gOf(o.storeId));
+      if (p !== it.price || it.base !== base) { it.price = p; it.base = base; changed = true; }
+    }
+    if (changed) {
+      batch.set(d.ref, o);
+      batch.set(doc('monthly/' + o.month), { amounts: { [`${o.date}|${o.storeId}`]: amountOf(o) } }, { merge: true });
+      n++;
+    }
+  }
+  if (n) await batch.commit();
+}
+
 /* ---------- 每日單價 ---------- */
 export async function getDayPrices(date) {
   return (await data('dayPrices/' + date))?.prices || {};
 }
+export async function getDayCosts(date) {
+  return (await data('dayPrices/' + date))?.costs || {};
+}
 
-export async function setDayPrices(date, input) {
+// input：{ pid: 基本價 }；costInput：{ pid: 進價 }（選填，算毛利用）
+export async function setDayPrices(date, input, costInput = {}) {
   if (!isDate(date)) throw new UserError('配送日不正確');
   const prices = {};
   for (const [pid, v] of Object.entries(input || {})) {
@@ -80,14 +150,29 @@ export async function setDayPrices(date, input) {
     if (v === '' || v == null || !(n >= 0)) throw new UserError('有單價沒填或不正確');
     prices[pid] = n;
   }
-  const day = { ...(await getDayPrices(date)), ...prices };
+  const costs = {};
+  for (const [pid, v] of Object.entries(costInput || {})) {
+    if (v === '' || v == null) continue;
+    const n = Math.round(Number(v) * 100) / 100;
+    if (!(n >= 0)) throw new UserError('有進價不正確');
+    costs[pid] = n;
+  }
+  const cur = (await data('dayPrices/' + date)) || {};
+  const day = { ...(cur.prices || {}), ...prices };
+  const dayCosts = { ...(cur.costs || {}), ...costs };
   const batch = db().batch();
-  batch.set(doc('dayPrices/' + date), { date, prices: day });
+  batch.set(doc('dayPrices/' + date), { date, prices: day, costs: dayCosts });
 
-  // 套用到這天所有訂單
+  // 套用到這天所有訂單（各店照報價組換算）
+  const [stores, groups] = await Promise.all([getStores(), getPriceGroups()]);
   for (const o of await ordersOfDate(date)) {
+    const g = groups.find((x) => x.id === stores.find((s) => s.id === o.storeId)?.groupId);
     let changed = false;
-    for (const it of o.items) if (it.pid in prices && it.price !== prices[it.pid]) { it.price = prices[it.pid]; changed = true; }
+    for (const it of o.items) {
+      if (!(it.pid in prices)) continue;
+      const p = priceFor(prices[it.pid], it.pid, g);
+      if (it.price !== p || it.base !== prices[it.pid]) { it.price = p; it.base = prices[it.pid]; changed = true; }
+    }
     if (changed) {
       batch.set(orderDoc(date, o.storeId), o);
       batch.set(doc('monthly/' + date.slice(0, 7)), { amounts: { [`${date}|${o.storeId}`]: amountOf(o) } }, { merge: true });
@@ -96,7 +181,10 @@ export async function setDayPrices(date, input) {
   // 記成最近的單價，之後的新訂單先帶這個
   const products = await getProducts();
   let changed = false;
-  for (const p of products) if (p.id in prices && p.price !== prices[p.id]) { p.price = prices[p.id]; changed = true; }
+  for (const p of products) {
+    if (p.id in prices && p.price !== prices[p.id]) { p.price = prices[p.id]; changed = true; }
+    if (p.id in costs && p.cost !== costs[p.id]) { p.cost = costs[p.id]; changed = true; }
+  }
   if (changed) batch.set(doc('settings/products'), { items: products });
   await batch.commit();
   return day;
@@ -122,6 +210,7 @@ export async function saveStores(input) {
       phone: clean(s.phone, 20),
       address: clean(s.address, 80),
       on: s.on !== false,
+      groupId: clean(s.groupId, 30),
       members: old.get(s.id)?.members || [], // 綁定的 LINE 帳號只能用開通／解除改
     };
   });
@@ -135,6 +224,7 @@ export async function saveStores(input) {
     for (const m of s.members) batch.delete(doc('members/' + m.userId));
   }
   await batch.commit();
+  if (list.some((s) => (old.get(s.id)?.groupId || '') !== s.groupId)) await repriceOpen();
   return getStores();
 }
 
@@ -224,6 +314,8 @@ export async function saveOrder(sid, date, items, by, who = '') {
   const pm = new Map(products.map((p) => [p.id, p]));
   const old = await getOrder(date, sid);
   const dayPrices = await getDayPrices(date);
+  const [storeDoc, groups] = await Promise.all([data('stores/' + sid), getPriceGroups()]);
+  const group = groups.find((g) => g.id === storeDoc?.groupId);
   const oldMap = new Map((old?.items || []).map((i) => [i.pid, i]));
 
   const next = [];
@@ -238,7 +330,10 @@ export async function saveOrder(sid, date, items, by, who = '') {
     if (p && !p.on && !was && by === '店家') throw new UserError(`「${p.name}」暫時沒有供貨`);
     seen.add(it.pid);
     const src = p || was;
-    next.push({ pid: it.pid, name: src.name, unit: src.unit, price: dayPrices[it.pid] ?? src.price, qty });
+    // 叫貨量沒變的話，保留理貨已經秤好的實出量
+    const keepShip = was && was.qty === qty && was.ship != null ? { ship: was.ship } : {};
+    const base = p ? dayPrices[it.pid] ?? p.price : was.base ?? was.price;
+    next.push({ pid: it.pid, name: src.name, unit: src.unit, base, price: p ? priceFor(base, it.pid, group) : was.price, qty, ...keepShip });
   }
   if (!next.length && !old?.items.length) throw new UserError('還沒選任何品項');
   const idx = (pid) => { const i = products.findIndex((p) => p.id === pid); return i < 0 ? 1e9 : i; };
@@ -285,7 +380,29 @@ export async function setQty(sid, date, pid, qty, who) {
   return saveOrder(sid, date, items, '後台', who);
 }
 
-export const amountOf = (o) => Math.round(o.items.reduce((a, i) => a + i.qty * i.price, 0));
+// 計價用的數量：理貨秤過就用實出量，沒秤就用叫貨量
+export const billQty = (i) => i.ship ?? i.qty;
+export const amountOf = (o) => Math.round(o.items.reduce((a, i) => a + billQty(i) * i.price, 0));
+
+// 理貨填實際秤出的量（0＝缺貨，不出貨也不計價）
+export async function setShip(sid, date, pid, ship, who) {
+  const o = await getOrder(date, sid);
+  const it = o?.items.find((i) => i.pid === pid);
+  if (!it) throw new UserError('這家店這天沒有叫這個品項');
+  ship = Math.max(0, roundQty(ship) || 0);
+  if (ship > 999) throw new UserError('數量太大了');
+  const before = billQty(it);
+  if (before === ship) return { order: o };
+  if (ship === it.qty) delete it.ship; else it.ship = ship;
+  const at = new Date().toISOString();
+  o.updatedAt = at;
+  o.log = [...(o.log || []), { at, by: '後台', who, text: `實出 ${it.name} ${qtyText(before, it.unit)} → ${ship ? qtyText(ship, it.unit) : '缺貨'}` }];
+  const batch = db().batch();
+  batch.set(orderDoc(date, sid), o);
+  batch.set(doc('monthly/' + o.month), { amounts: { [`${date}|${sid}`]: amountOf(o) } }, { merge: true });
+  await batch.commit();
+  return { order: o };
+}
 
 /* ---------- 收款 ---------- */
 export const getPaid = async (month) => (await data('paid/' + month))?.stores || {};

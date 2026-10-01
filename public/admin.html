@@ -59,6 +59,7 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .datebar b{font-size:1.05rem}
 .datebar .chip{font-size:.8rem;border-radius:10px;padding:1px 8px;background:var(--leaf-soft);color:var(--leaf);font-weight:700}
 .datebar .chip.lock{background:var(--line);color:var(--muted)}
+.datebar .pbtn{width:auto;height:auto;padding:6px 12px}
 .datebar .today{width:auto;padding:0 10px;font-size:.85rem}
 
 .board{background:var(--board);color:var(--chalk);border-radius:10px;padding:18px 16px 10px;box-shadow:inset 0 0 0 6px #6B4A2B,inset 0 0 0 8px #4E3520}
@@ -86,7 +87,9 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .it{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line)}
 .stepper{display:flex;align-items:center;gap:6px}
 .stepper button{width:30px;height:30px;border-radius:50%;border:1px solid var(--line);background:var(--bg);font-weight:700;line-height:1}
-.stepper input{width:64px;text-align:center;font-weight:700;font-size:1rem;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 4px}
+.it small.ord{display:block;font-size:.75rem;color:var(--alert);font-weight:700}
+.it.short>span:first-child{color:var(--muted);text-decoration:line-through}
+.stepper input{width:76px;text-align:center;font-weight:700;font-size:1rem;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:3px 4px}
 .stepper .u{color:var(--muted);font-size:.85rem;margin-left:-2px}
 .add{display:flex;gap:6px;margin-top:8px}
 .add select{flex:1;min-width:0;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:4px 6px;font-size:.88rem}
@@ -135,14 +138,54 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .savebar .ok:disabled{background:var(--line);color:var(--muted)}
 .savebar span{color:var(--alert);font-size:.88rem;font-weight:700}
 
-.prow2{display:grid;grid-template-columns:1fr auto 140px;gap:10px;align-items:center;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--line)}
+.prow2{display:grid;grid-template-columns:1fr auto 150px 110px;gap:10px;align-items:center;padding:8px 12px;background:var(--surface);border-bottom:1px solid var(--line)}
 .prow2 .nm{font-weight:700}
 .prow2 .nm small{display:block;font-weight:400;color:var(--muted);font-size:.8rem}
 .prow2 .q{color:var(--muted);font-size:.9rem;white-space:nowrap}
+.prow2 .pin.cost input{background:var(--surface);font-weight:500}
+.prow2 .pin small{font-size:.75rem}
 .prow2 .pin{display:flex;align-items:center;gap:3px;color:var(--muted);white-space:nowrap}
 .prow2 input{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:5px 8px;text-align:right;font-weight:700;font-size:1rem}
 .prow2.todo input{border-color:var(--tag);background:color-mix(in srgb,var(--tag) 18%,var(--bg))}
 .prow2.todo .nm small{color:#8A6D00}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:6px 0 16px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+.kpi span{display:block;color:var(--muted);font-size:.8rem}
+.kpi b{font-size:1.35rem}
+.kpi small{color:var(--muted);font-size:.78rem;margin-left:4px}
+.neg{color:var(--alert)!important}
+.rtable{width:100%;border-collapse:collapse;background:var(--surface);border:1px solid var(--line);font-size:.88rem}
+.rtable th{position:sticky;top:0;background:var(--surface);color:var(--muted);font-weight:500;text-align:right;padding:6px;border-bottom:1px solid var(--line);white-space:nowrap}
+.rtable th:first-child,.rtable td:first-child{text-align:left}
+.rtable td{text-align:right;padding:4px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+.rtable tr.empty-day td{color:var(--muted)}
+.rtable input{width:72px;border:1px solid var(--line);background:var(--bg);border-radius:4px;padding:2px 4px;text-align:right}
+.rtable tfoot td{font-weight:900;border-top:2px solid var(--ink)}
+.rwrap{overflow-x:auto;max-height:520px;overflow-y:auto;border-radius:8px}
+.ctypes{display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:10px}
+.ctypes span{background:var(--leaf-soft);color:var(--leaf);border-radius:14px;padding:2px 4px 2px 12px;font-weight:700;font-size:.88rem}
+.ctypes span button{border:0;background:transparent;color:var(--alert);padding:0 5px}
+.ctypes input,.ctypes select{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:4px 8px;font-size:.9rem}
+.ar{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin-bottom:8px;display:grid;grid-template-columns:1fr auto;gap:6px;align-items:center}
+.ar .ms{display:flex;gap:6px;flex-wrap:wrap;font-size:.85rem}
+.ar .ms span{background:var(--bg);border-radius:10px;padding:1px 8px}
+.ar .ms span.old{background:color-mix(in srgb,var(--alert) 15%,var(--bg));color:var(--alert);font-weight:700}
+.sacts{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;align-items:center}
+.sacts button{border-radius:6px;padding:6px 10px;font-weight:700;font-size:.85rem}
+.sacts .ok{border:0;background:var(--leaf);color:#fff}
+.sacts .pbtn{margin:0;width:auto}
+.signed{font-size:.85rem;color:var(--leaf);font-weight:700}
+.signed button{border:0;background:transparent;color:var(--leaf);text-decoration:underline;padding:0 4px;font-size:.85rem}
+.sheetbg{position:fixed;inset:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:25;padding:16px}
+.sheetbg.on{display:flex}
+.sigin{background:var(--surface);border-radius:12px;padding:16px;width:100%;max-width:520px}
+.sigin h3{margin:0}
+#sigPad{width:100%;height:220px;border:2px dashed var(--line);border-radius:8px;background:#fff;touch-action:none;display:block}
+#sigName{width:100%;margin-top:8px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:8px}
+.sigin .sa{display:flex;gap:8px;margin-top:10px}
+.sigin .sa button{flex:1;border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:9px;font-weight:700}
+.sigin .sa .go{background:var(--leaf);border-color:var(--leaf);color:#fff}
+.doc .sigimg{height:60px;vertical-align:middle}
 .pend{background:var(--surface);border:1px solid var(--tag);border-left:6px solid var(--tag);border-radius:8px;padding:12px 14px;margin-bottom:10px}
 .pend .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
 .pend select,.pend input{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:5px 8px;font-size:.92rem;min-width:0}
@@ -152,6 +195,17 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .srow.off{opacity:.6}
 .srow input[type=text],.srow input[type=number]{width:100%;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:4px 7px;font-size:.92rem}
 .srow .wide{grid-column:2/4}
+.srow select{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:4px 6px;font-size:.88rem}
+.grp{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px;margin-bottom:10px}
+.grp .gh{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.grp input,.grp select{border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:5px 8px;font-size:.92rem}
+.grp .gname{font-weight:700;width:150px}
+.grp .gval{width:80px;text-align:right}
+.grp details{margin-top:8px}
+.grp summary{cursor:pointer;color:var(--leaf);font-weight:700;font-size:.9rem}
+.grp .fx{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:6px;margin-top:8px}
+.grp .fx label{display:flex;align-items:center;justify-content:space-between;gap:6px;font-size:.88rem;background:var(--bg);border-radius:6px;padding:4px 8px}
+.grp .fx input{width:80px;text-align:right}
 .srow .mem{grid-column:1/4;display:flex;gap:6px;flex-wrap:wrap;align-items:center;font-size:.85rem;color:var(--muted)}
 .srow .mem span{background:var(--leaf-soft);color:var(--leaf);border-radius:12px;padding:1px 4px 1px 10px;font-weight:700}
 .srow .mem span button{border:0;background:transparent;color:var(--alert);padding:0 4px}
@@ -202,7 +256,7 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
   .doc.break{break-after:page}
   .doc+.doc{border-top:0;margin-top:0;padding-top:0}
 }
-@media (max-width:520px){.arow{grid-template-columns:1fr 60px 56px 24px;padding:6px}.prow2{grid-template-columns:1fr 130px}.prow2 .q{grid-column:1}}
+@media (max-width:520px){.arow{grid-template-columns:1fr 60px 56px 24px;padding:6px}.prow2{grid-template-columns:1fr 1fr}.prow2 .q{grid-column:1}}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
 </style>
 </head>
@@ -225,6 +279,7 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
     <button role="tab" data-tab="prices" aria-selected="false">單價<span class="dot" id="priceDot" hidden></span></button>
     <button role="tab" data-tab="slips" aria-selected="false">出貨單</button>
     <button role="tab" data-tab="bills" aria-selected="false">對帳</button>
+    <button role="tab" data-tab="report" aria-selected="false">報表</button>
     <button role="tab" data-tab="admin" aria-selected="false">品項</button>
     <button role="tab" data-tab="stores" aria-selected="false">店家<span class="dot" id="pendDot" hidden></span></button>
     <button role="tab" data-tab="users" aria-selected="false">帳號</button>
@@ -248,15 +303,15 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 
   <section id="prices" hidden>
     <h2>這天的單價</h2>
-    <p class="sub">只列出這天有店家叫的品項，沒人叫的不用填。先帶入上次的價格，改好按「儲存單價」，這天的出貨單、收據和對帳會一起更新。店家看不到單價。</p>
+    <p class="sub">這裡填的是<b>基本價</b>，有設報價組的店家會自動換算成他的價格。只列出這天有店家叫的品項，沒人叫的不用填。<b>進價</b>選填，填了「報表」才算得出毛利。先帶入上次的價格，改好按「儲存單價」，這天的出貨單、收據和對帳會一起更新。店家看不到單價。</p>
     <div id="priceList"></div>
     <div class="savebar" id="priceBar"><button class="ok" id="saveDP">儲存單價</button><span id="dpInfo"></span></div>
   </section>
 
   <section id="slips" hidden>
     <h2>各店出貨單</h2>
-    <p class="sub">依配送路線排序，理貨順序就是送貨順序。可以幫店家改數量、加品項（例如店家打電話來），都會留下紀錄。</p>
-    <div class="bar"><button class="pbtn" data-print="slips">列印全部出貨單＋收據</button><button class="pbtn" data-print="daily">列印當日營業報表</button></div>
+    <p class="sub">依配送路線排序，理貨順序就是送貨順序。框裡填<b>實際秤出的量</b>，金額照實出量算；和叫貨量不同會標「叫 3 斤」，填 0 是缺貨。店家打電話來可以用「加品項」。修改都會留下紀錄。</p>
+    <div class="bar"><button class="pbtn" data-print="slips">列印全部出貨單＋收據</button><button class="pbtn" data-print="daily">列印當日營業報表</button><button class="pbtn" id="xlsDay">匯出 Excel</button><button class="send" id="receiptAll">全部傳 LINE 收據</button></div>
     <div class="slips" id="slipBox"></div>
     <div class="log" id="logBox"></div>
   </section>
@@ -265,9 +320,15 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
     <div class="datebar"><button data-month="-1" aria-label="上個月">‹</button><input type="month" id="month" aria-label="對帳月份"><button data-month="1" aria-label="下個月">›</button></div>
     <h2 id="billTitle">對帳</h2>
     <p class="sub">金額＝每天出貨數量 × 那天的單價（在「單價」頁輸入）。</p>
-    <div class="bar"><button class="pbtn" data-print="month">列印應收總表</button></div>
+    <div class="bar"><button class="pbtn" data-print="month">列印應收總表</button><button class="pbtn" id="xlsBills">匯出 Excel</button></div>
     <div class="sumline" id="billSum"></div>
     <div id="billBox"></div>
+  </section>
+
+  <section id="report" hidden>
+    <div class="datebar"><button data-rmonth="-1" aria-label="上個月">‹</button><input type="month" id="rmonth" aria-label="報表月份"><button data-rmonth="1" aria-label="下個月">›</button>
+      <button class="pbtn" id="xlsReport">匯出 Excel</button></div>
+    <div id="reportBox"><div class="empty">載入中…</div></div>
   </section>
 
   <section id="admin" hidden>
@@ -306,9 +367,20 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
     <p class="sub">站號就是送貨順序，出貨單和採買明細都照這個排。一家店可以綁好幾個 LINE 帳號（老闆、員工）。</p>
     <div id="storeList"></div>
     <div class="savebar"><button class="pbtn" id="addS">＋ 新增店家</button><button class="ok" id="saveS" disabled>儲存店家</button><span id="sDirty"></span></div>
+
+    <h2 style="margin-top:28px">報價組</h2>
+    <p class="sub">預設所有店家都照「單價」頁的基本價。要給某些店折扣，就建一個報價組（打幾折、每單位減幾元，或個別品項固定價），再到上面把店家選進這一組。改了會自動重算今天以後還沒送的訂單。</p>
+    <div id="groupList"></div>
+    <div class="savebar"><button class="pbtn" id="addG">＋ 新增報價組</button><button class="ok" id="saveG" disabled>儲存報價組</button><span id="gDirty"></span></div>
   </section>
 </div>
 
+<div class="sheetbg" id="sigBox" role="dialog" aria-modal="true" aria-labelledby="sigTitle"><div class="sigin">
+  <h3 id="sigTitle">簽收</h3><p class="sub">請客人在框裡簽名</p>
+  <canvas id="sigPad" aria-label="簽名區"></canvas>
+  <input id="sigName" placeholder="簽收人姓名（選填）" maxlength="20" aria-label="簽收人姓名">
+  <div class="sa"><button id="sigClear">重簽</button><button id="sigCancel">取消</button><button class="go" id="sigOk">確認簽收</button></div>
+</div></div>
 <div class="toast" id="toast" role="status"></div>
 <div id="pv" role="dialog" aria-modal="true" aria-label="列印預覽">
   <div class="pv-bar"><b>列印預覽</b>
@@ -400,14 +472,17 @@ const catIdx=pid=>{const p=PM()[pid];return p?D.categories.indexOf(p.cat):99};
 const prodIdx=pid=>D.products.findIndex(p=>p.id===pid);
 const sortItems=items=>[...items].sort((a,b)=>catIdx(a.pid)-catIdx(b.pid)||prodIdx(a.pid)-prodIdx(b.pid));
 const orderOf=sid=>D.orders.find(o=>o.storeId===sid);
-const amount=o=>Math.round(o.items.reduce((a,i)=>a+i.qty*i.price,0));
+// 計價用的數量：秤過就用實出量，沒秤就用叫貨量
+const billQty=i=>i.ship??i.qty;
+const amount=o=>Math.round(o.items.reduce((a,i)=>a+billQty(i)*i.price,0));
 
 function renderAll(){
   $('meInfo').textContent=`${D.me.name}（${D.me.roleName}）`;
-  const tabs={prices:may('prices'),bills:may('bills'),admin:may('products'),stores:may('stores'),users:may('users')};
+  const tabs={prices:may('prices'),bills:may('bills'),report:may('bills'),admin:may('products'),stores:may('stores'),users:may('users')};
   document.querySelectorAll('nav.tabs button').forEach(b=>{b.hidden=tabs[b.dataset.tab]===false});
   if(tabs[tab]===false)showTab('board');
   document.querySelector('[data-print="daily"]').hidden=!hasPrice();
+  $('receiptAll').hidden=!may('statement');
   $('slips').classList.toggle('ro',!may('editOrders'));
   if(!$('nCat').options.length){$('nCat').innerHTML=D.categories.map(c=>`<option>${esc(c)}</option>`).join('');$('nUnit').innerHTML=D.units.map(u=>`<option>${u}</option>`).join('')}
   $('shopName').textContent=D.shop.name+' 叫貨後台';
@@ -458,7 +533,7 @@ function renderBoard(){
 let dpDraft={};
 function renderPrices(){
   const T=totals(),pm=PM();
-  dpDraft={};
+  dpDraft={};dcDraft={};
   const todo=T.filter(t=>!(t.pid in D.dayPrices)).length;
   $('priceDot').hidden=!todo;$('priceDot').textContent=todo;
   $('priceBar').hidden=!T.length;
@@ -467,21 +542,89 @@ function renderPrices(){
     const set=t.pid in D.dayPrices;
     const cur=set?D.dayPrices[t.pid]:(orderPrice(t.pid)??pm[t.pid]?.price??0);
     dpDraft[t.pid]=cur;
+    const cost=D.dayCosts?.[t.pid]??pm[t.pid]?.cost??'';
+    if(cost!=='')dcDraft[t.pid]=cost;
     const c=pm[t.pid]?.cat||'其他';const head=c!==last?`<div class="acat">${esc(c)}</div>`:'';last=c;
     return `${head}<div class="prow2 ${set?'':'todo'}"><span class="nm">${esc(t.name)}<small>${set?'已確認':'沿用上次的價格，還沒確認'}</small></span>
       <span class="q">共 ${esc(qtyText(t.qty,t.unit))}・${t.rows.length} 家</span>
-      <span class="pin">$<input type="number" inputmode="numeric" min="0" data-dp="${t.pid}" value="${cur}" aria-label="${esc(t.name)}每${esc(t.unit)}單價"><small>/${esc(t.unit)}</small></span></div>`;
+      <span class="pin"><small>售</small>$<input type="number" inputmode="numeric" min="0" data-dp="${t.pid}" value="${cur}" aria-label="${esc(t.name)}每${esc(t.unit)}基本價"><small>/${esc(t.unit)}</small></span>
+      <span class="pin cost"><small>進</small>$<input type="number" inputmode="decimal" min="0" step="any" data-dc="${t.pid}" value="${cost}" placeholder="—" aria-label="${esc(t.name)}每${esc(t.unit)}進價"></span></div>`;
   }).join(''):'<div class="empty">這天還沒有店家叫貨，不用填單價。</div>';
   $('dpInfo').textContent=todo?`還有 ${todo} 項沒確認`:'這天的單價都確認了';
   $('dpInfo').style.color=todo?'var(--alert)':'var(--leaf)';
 }
 // 這天訂單裡目前用的單價
-function orderPrice(pid){for(const o of D.orders){const i=o.items.find(x=>x.pid===pid);if(i)return i.price}return null}
+function orderPrice(pid){for(const o of D.orders){const i=o.items.find(x=>x.pid===pid);if(i)return i.base??i.price}return null}
+let dcDraft={};
 async function saveDayPrices(){
   try{
-    const j=await api('POST',{action:'dayPrices',date:D.date,prices:dpDraft});
+    const j=await api('POST',{action:'dayPrices',date:D.date,prices:dpDraft,costs:dcDraft});
     await load();toast(`${md(D.date)} 的單價已儲存，出貨單和對帳已更新`);
   }catch(e){toast(e.message)}
+}
+
+/* ---------- 出貨單：收據、簽收 ---------- */
+function slipActs(s,o){
+  const sig=D.signatures?.[s.id];
+  return `<div class="sacts">
+    ${sig?`<span class="signed">✅ 已簽收 ${hm(sig.at)}${sig.signer?`（${esc(sig.signer)}）`:''}<button data-sigview="${s.id}">看簽名</button></span>`:may('sign')?`<button class="ok" data-sign="${s.id}">簽收</button>`:''}
+    ${may('statement')&&s.members?.length?`<button class="send" data-receipt="${s.id}">${o.receiptSentAt?'再傳一次收據':'LINE 傳收據'}</button>`:''}
+    <button class="pbtn" data-print="slip" data-store="${s.id}">列印</button></div>`;
+}
+async function sendReceipts(ids){
+  const n=ids.length;if(!n){toast('沒有可以傳的店家（要有訂單、綁定 LINE）');return}
+  if(!confirm(`用 LINE 傳 ${md(D.date)} 的收據給 ${n} 家店？每個綁定的帳號用掉 1 則訊息額度。${D.orders.some(o=>o.items.some(i=>!(i.pid in D.dayPrices)))?'\n\n注意：還有品項的單價沒確認。':''}`))return;
+  try{const j=await api('POST',{action:'receipt',date:D.date,storeIds:ids});toast(`已傳 ${j.sent}/${j.total} 家`);load()}catch(e){toast(e.message)}
+}
+/* 簽名板 */
+let sigStore=null;
+function openSign(sid){
+  sigStore=sid;$('sigTitle').textContent=`${SM()[sid].name} 簽收`;$('sigName').value='';
+  $('sigBox').classList.add('on'); // 先顯示，才量得到簽名框的大小
+  const c=$('sigPad'),ctx=c.getContext('2d');c.width=c.clientWidth*2;c.height=c.clientHeight*2;
+  ctx.fillStyle='#fff';ctx.fillRect(0,0,c.width,c.height);ctx.lineWidth=5;ctx.lineCap='round';ctx.strokeStyle='#111';c.dataset.drawn='';
+}
+(function(){
+  const c=document.getElementById('sigPad');let down=false;
+  const pt=e=>{const r=c.getBoundingClientRect();return [(e.clientX-r.left)*c.width/r.width,(e.clientY-r.top)*c.height/r.height]};
+  c.addEventListener('pointerdown',e=>{down=true;c.setPointerCapture(e.pointerId);const ctx=c.getContext('2d');ctx.beginPath();ctx.moveTo(...pt(e))});
+  c.addEventListener('pointermove',e=>{if(!down)return;const ctx=c.getContext('2d');ctx.lineTo(...pt(e));ctx.stroke();c.dataset.drawn='1'});
+  c.addEventListener('pointerup',()=>down=false);
+})();
+async function saveSign(){
+  const c=$('sigPad');if(!c.dataset.drawn){toast('請客人先簽名');return}
+  // 縮小再存
+  const t=document.createElement('canvas');t.width=600;t.height=Math.round(600*c.height/c.width);t.getContext('2d').drawImage(c,0,0,t.width,t.height);
+  try{const j=await api('POST',{action:'sign',date:D.date,storeId:sigStore,png:t.toDataURL('image/png'),signer:$('sigName').value.trim()});
+    (D.signatures||={})[sigStore]=j.signature;$('sigBox').classList.remove('on');renderSlips();toast('已簽收')}catch(e){toast(e.message)}
+}
+async function sigImg(sid){try{return (await api('GET',null,`?sig=${D.date}_${sid}`)).signature?.png||''}catch{return ''}}
+
+/* ---------- Excel ---------- */
+async function xlsx(filename,sheets){
+  if(!window.XLSX){await new Promise((ok,no)=>{const sc=document.createElement('script');sc.src='https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js';sc.onload=ok;sc.onerror=no;document.head.appendChild(sc)}).catch(()=>{toast('Excel 元件載入失敗');throw 0})}
+  const wb=XLSX.utils.book_new();
+  for(const [name,rows] of Object.entries(sheets)){const ws=XLSX.utils.aoa_to_sheet(rows);ws['!cols']=rows[0].map((_,i)=>({wch:Math.max(8,...rows.map(r=>String(r[i]??'').length*2))}));XLSX.utils.book_append_sheet(wb,ws,name.slice(0,31))}
+  XLSX.writeFile(wb,filename);
+}
+function xlsDay(){
+  const sm=SM(),rows=[hasPrice()?['站號','店家','品名','叫貨量','實出量','單位','單價','金額']:['站號','店家','品名','叫貨量','實出量','單位']];
+  D.orders.map(o=>({o,s:sm[o.storeId]})).sort((a,b)=>(a.s?.route||99)-(b.s?.route||99)).forEach(({o,s})=>sortItems(o.items).forEach(i=>{
+    const r=[s?.route||'',s?.name||'',i.name,i.qty,billQty(i),i.unit];if(hasPrice())r.push(i.price,Math.round(billQty(i)*i.price));rows.push(r)}));
+  xlsx(`出貨明細_${D.date}.xlsx`,{[`${md(D.date)} 出貨`]:rows});
+}
+function xlsBills(){
+  const [y,m]=D.month.split('-'),n=new Date(Date.UTC(+y,+m,0)).getUTCDate();
+  const head=['店家',...Array.from({length:n},(_,i)=>`${+m}/${i+1}`),'合計','收款'];
+  const rows=[head,...D.stores.filter(s=>monthRows(s.id).length).map(s=>{const r=monthRows(s.id),by=Object.fromEntries(r.map(x=>[+x.date.slice(8),x.amount]));return [s.name,...Array.from({length:n},(_,i)=>by[i+1]??''),r.reduce((a,x)=>a+x.amount,0),D.paid[s.id]?'已收':'未收']})];
+  xlsx(`對帳_${D.month}.xlsx`,{[`${+m}月對帳`]:rows});
+}
+function xlsReport(){
+  if(!R)return;
+  const t=R.costTypes.filter(x=>x.period==='daily');
+  const days=[['日期','店家數','出貨重量(公斤)','營收','進貨成本','毛利',...t.map(x=>x.name),'其他成本(含月攤)','淨利'],...R.days.map(d=>[d.date,d.stores,d.kg,d.revenue,d.purchase,d.gross,...t.map(x=>R.costs.daily?.[d.date]?.[x.id]??''),d.other,d.net])];
+  const ar=[['店家','月份','金額'],...R.receivables.flatMap(s=>s.months.map(m=>[s.name,m.month,m.amount]))];
+  xlsx(`報表_${R.month}.xlsx`,{'每日毛利':days,'應收帳款':ar});
 }
 
 /* ---------- 出貨單 ---------- */
@@ -492,22 +635,27 @@ function renderSlips(){
   const stores=[...activeStores(),...D.stores.filter(s=>!s.on&&orderOf(s.id))];
   $('slipBox').innerHTML=stores.map(s=>{
     const o=orderOf(s.id);
-    const items=o?sortItems(o.items).map(i=>`<div class="it"><span>${esc(i.name)}</span>
-      <span class="stepper"><button data-step="-1" data-sid="${s.id}" data-pid="${i.pid}" aria-label="${esc(i.name)}減少">−</button><input type="text" inputmode="decimal" ${may('editOrders')?'':'readonly'} value="${esc(editText(i.qty,i.unit))}" data-sqin="${s.id}" data-pid="${i.pid}" aria-label="${esc(i.name)}數量，可以直接打">${/斤|兩/.test(editText(i.qty,i.unit))?'':`<span class="u">${esc(i.unit)}</span>`}<button data-step="1" data-sid="${s.id}" data-pid="${i.pid}" aria-label="${esc(i.name)}增加">+</button></span></div>`).join(''):`<div class="empty">還沒叫貨</div>`;
+    const items=o?sortItems(o.items).map(i=>{
+      const q=billQty(i),diff=i.ship!=null&&i.ship!==i.qty;
+      return `<div class="it ${q===0?'short':''}"><span>${esc(i.name)}${diff?`<small class="ord">叫 ${esc(qtyText(i.qty,i.unit))}</small>`:''}${q===0?'<small class="ord">缺貨</small>':''}</span>
+      <span class="stepper"><button data-step="-1" data-sid="${s.id}" data-pid="${i.pid}" aria-label="${esc(i.name)}實出減少">−</button><input type="text" inputmode="decimal" ${may('editOrders')?'':'readonly'} value="${esc(editText(q,i.unit))}" data-sqin="${s.id}" data-pid="${i.pid}" aria-label="${esc(i.name)}實出量，可以直接打">${/斤|兩/.test(editText(q,i.unit))?'':`<span class="u">${esc(i.unit)}</span>`}<button data-step="1" data-sid="${s.id}" data-pid="${i.pid}" aria-label="${esc(i.name)}實出增加">+</button></span></div>`;
+    }).join(''):`<div class="empty">還沒叫貨</div>`;
     return `<div class="slip ${o?'':'none'}"><div class="slip-h"><b>${esc(s.name)}</b><span class="stop">第 ${s.route} 站</span></div>${items}
       <div class="add"><select id="add-${s.id}" aria-label="幫${esc(s.name)}加品項"><option value="">＋ 加品項</option>${opts}</select><input id="addq-${s.id}" type="text" placeholder="如 2斤4兩" aria-label="數量，可以打 2斤4兩"><button data-additem="${s.id}">加入</button></div>
-      ${o?`<button class="pbtn" data-print="slip" data-store="${s.id}">列印這家的收據</button>`:''}</div>`;
+      ${o?slipActs(s,o):''}</div>`;
   }).join('')||'<div class="empty">還沒有店家，到「店家」新增。</div>';
   const sm=SM();
   const logs=D.orders.flatMap(o=>(o.log||[]).map(l=>({...l,store:sm[o.storeId]?.name||''}))).sort((a,b)=>b.at.localeCompare(a.at));
   $('logBox').innerHTML=`<h3>改單紀錄</h3>`+(logs.length?`<ol>${logs.map(l=>`<li>${hm(l.at)} ${esc(l.store)}（${l.by==='後台'?`後台改${l.who?'・'+esc(l.who):''}`:l.who?'店家・'+esc(l.who):'店家自己改'}）：${esc(l.text)}</li>`).join('')}</ol>`:`<div class="empty">這天沒有修改紀錄。</div>`);
 }
 // undo=false 是按「復原」時用的，不再跳復原
-async function setQty(sid,pid,qty,undo=true){
+// mode：'ship' 改實出量（出貨單的框）；'qty' 改叫貨量（加品項）
+async function setQty(sid,pid,qty,undo=true,mode='qty'){
   const old=orderOf(sid)?.items.find(i=>i.pid===pid);
-  const before=old?.qty||0;
+  const pick=i=>i?(mode==='ship'?billQty(i):i.qty):0;
+  const before=pick(old);
   try{
-    const r=await api('POST',{action:'setQty',date:D.date,storeId:sid,pid,qty});
+    const r=await api('POST',mode==='ship'?{action:'setShip',date:D.date,storeId:sid,pid,ship:qty}:{action:'setQty',date:D.date,storeId:sid,pid,qty});
     D.orders=D.orders.filter(o=>o.storeId!==sid);
     if(r.order.items.length)D.orders.push(r.order);
     // 重畫前記住游標在哪一格，連續改下一格時才不會跳掉
@@ -516,9 +664,9 @@ async function setQty(sid,pid,qty,undo=true){
     if(keep)document.querySelector(`input[data-sqin="${keep[0]}"][data-pid="${keep[1]}"]`)?.focus();
     const it=r.order.items.find(i=>i.pid===pid)||old||{name:PM()[pid]?.name||'',unit:PM()[pid]?.unit||''};
     const store=SM()[sid]?.name||'';
-    const after=r.order.items.find(i=>i.pid===pid)?.qty||0;
-    const msg=`${store} ${it.name} ${before?qtyText(before,it.unit):'（沒叫）'} → ${after?qtyText(after,it.unit):'拿掉'}`;
-    if(undo)toast(msg+'，已儲存',{label:'復原',run:()=>setQty(sid,pid,before,false)});
+    const after=pick(r.order.items.find(i=>i.pid===pid));
+    const msg=mode==='ship'?`${store} ${it.name} 實出 ${qtyText(before,it.unit)} → ${after?qtyText(after,it.unit):'缺貨'}`:`${store} ${it.name} ${before?qtyText(before,it.unit):'（沒叫）'} → ${after?qtyText(after,it.unit):'拿掉'}`;
+    if(undo)toast(msg+'，已儲存',{label:'復原',run:()=>setQty(sid,pid,before,false,mode)});
     else toast('已復原：'+msg);
   }catch(e){toast(e.message)}
 }
@@ -589,9 +737,86 @@ function renderStores(){
     <input type="text" data-sf="phone" data-i="${i}" value="${esc(s.phone)}" placeholder="電話" aria-label="電話">
     <input type="text" class="wide" data-sf="address" data-i="${i}" value="${esc(s.address)}" placeholder="送貨地址" aria-label="送貨地址" style="grid-column:1/4">
     <div class="mem">LINE：${s.members?.length?s.members.map(m=>`<span>${esc(m.name||'未命名')}<button data-unbind="${m.userId}" aria-label="解除 ${esc(m.name)}">✕</button></span>`).join(''):'還沒綁定'}
+      <select data-sf="groupId" data-i="${i}" aria-label="${esc(s.name)} 的報價組"><option value="">基本價</option>${(D.priceGroups||[]).map(g=>`<option value="${g.id}" ${g.id===s.groupId?'selected':''}>${esc(g.name)}</option>`).join('')}</select>
       <label><input type="checkbox" data-sf="on" data-i="${i}" ${s.on?'checked':''}>合作中</label>
       <button class="x" data-sdel="${i}" aria-label="刪除${esc(s.name)}">刪除</button></div></div>`).join('')||'<div class="empty">還沒有店家。按「新增店家」，或等店家在 LINE 申請後在上面開通。</div>';
   $('saveS').disabled=!sDirty;$('sDirty').textContent=sDirty?'有尚未儲存的修改':'';
+  renderGroups();
+}
+/* ---------- 報表 ---------- */
+let R=null,rmonth='',rDirty=false;
+async function loadReport(){
+  try{R=await api('GET',null,`?report=${rmonth||D.month}`);rmonth=R.month;rDirty=false;renderReport()}catch(e){toast(e.message)}
+}
+const kg=v=>v>=1000?`${+(v/1000).toFixed(2)} 噸`:`${+v.toFixed(1)} 公斤`;
+function renderReport(){
+  $('rmonth').value=R.month;
+  const days=R.days,sum=k=>days.reduce((a,d)=>a+d[k],0);
+  const rev=sum('revenue'),pur=sum('purchase'),gross=sum('gross'),other=sum('other'),net=sum('net'),w=sum('kg'),miss=sum('missingCost');
+  const dailyTypes=R.costTypes.filter(t=>t.period==='daily'),monthlyTypes=R.costTypes.filter(t=>t.period==='monthly');
+  const ar=R.receivables,arTotal=ar.reduce((a,s)=>a+s.total,0),arOld=ar.reduce((a,s)=>a+s.months.filter(m=>m.age>=2).reduce((x,m)=>x+m.amount,0),0);
+  const pct=v=>rev?` <small>${(v/rev*100).toFixed(1)}%</small>`:'';
+  $('reportBox').innerHTML=`
+  <div class="kpis">
+    <div class="kpi"><span>營收</span><b>${money(rev)}</b></div>
+    <div class="kpi"><span>進貨成本</span><b>${money(pur)}</b></div>
+    <div class="kpi"><span>毛利</span><b class="${gross<0?'neg':''}">${money(gross)}</b>${pct(gross)}</div>
+    <div class="kpi"><span>其他成本</span><b>${money(other)}</b></div>
+    <div class="kpi"><span>淨利</span><b class="${net<0?'neg':''}">${money(net)}</b>${pct(net)}</div>
+    <div class="kpi"><span>出貨重量</span><b>${kg(w)}</b></div>
+    <div class="kpi"><span>應收未收</span><b class="${arOld?'neg':''}">${money(arTotal)}</b>${arOld?`<small class="neg">超過 2 個月 ${money(arOld)}</small>`:''}</div>
+  </div>
+  ${miss?`<p class="sub neg">有 ${money(miss)} 的營收沒有填進價，毛利會偏高。到「單價」頁補進價就會更新。</p>`:''}
+  <h2>成本項目</h2>
+  <p class="sub">自己新增，例如：烘乾費（每天）、冷庫租金（每月）、運費、人工。每月的會平均攤到每一天。出貨重量只算斤、兩、公斤的品項。</p>
+  <div class="ctypes">${R.costTypes.map(t=>`<span>${esc(t.name)}・${t.period==='daily'?'每天':'每月'}<button data-ctdel="${t.id}" aria-label="刪除 ${esc(t.name)}">✕</button></span>`).join('')||'<em class="meta">還沒有成本項目</em>'}
+    <input id="ctName" placeholder="新項目，例如烘乾費" maxlength="20" aria-label="成本項目名稱"><select id="ctPeriod" aria-label="週期"><option value="daily">每天記</option><option value="monthly">每月記</option></select><button class="pbtn" id="ctAdd">新增</button></div>
+  ${monthlyTypes.length?`<div class="ctypes">${+R.month.slice(5)} 月：${monthlyTypes.map(t=>`<label>${esc(t.name)} $<input type="number" min="0" inputmode="numeric" data-cm="${t.id}" value="${R.costs.monthly?.[t.id]??''}" style="width:100px" aria-label="${esc(t.name)} 本月金額"></label>`).join('')}</div>`:''}
+  <h2>每日明細</h2>
+  <div class="rwrap"><table class="rtable"><thead><tr><th>日期</th><th>店家</th><th>出貨重量</th><th>營收</th><th>進貨</th><th>毛利</th>${dailyTypes.map(t=>`<th>${esc(t.name)}</th>`).join('')}<th>其他成本</th><th>淨利</th></tr></thead><tbody>
+  ${days.map(d=>`<tr class="${d.revenue?'':'empty-day'}"><td>${dlabel(d.date)}</td><td>${d.stores||''}</td><td>${d.kg?kg(d.kg):''}</td><td>${d.revenue?money(d.revenue):''}</td><td>${d.purchase?money(d.purchase):''}</td><td class="${d.gross<0?'neg':''}">${d.revenue?money(d.gross):''}</td>
+    ${dailyTypes.map(t=>`<td><input type="number" min="0" inputmode="numeric" data-cd="${d.date}" data-ct="${t.id}" value="${R.costs.daily?.[d.date]?.[t.id]??''}" aria-label="${md(d.date)} ${esc(t.name)}"></td>`).join('')}
+    <td>${d.other?money(d.other):''}</td><td class="${d.net<0?'neg':''}">${d.revenue||d.other?money(d.net):''}</td></tr>`).join('')}
+  </tbody><tfoot><tr><td>合計</td><td></td><td>${kg(w)}</td><td>${money(rev)}</td><td>${money(pur)}</td><td>${money(gross)}</td>${dailyTypes.map(t=>`<td>${money(days.reduce((a,d)=>a+(R.costs.daily?.[d.date]?.[t.id]||0),0))}</td>`).join('')}<td>${money(other)}</td><td>${money(net)}</td></tr></tfoot></table></div>
+  ${R.costTypes.length?`<div class="savebar"><button class="ok" id="saveCosts" ${rDirty?'':'disabled'}>儲存成本</button><span id="cDirty">${rDirty?'有尚未儲存的修改':''}</span></div>`:''}
+  <h2 style="margin-top:22px">應收帳款</h2>
+  <p class="sub">最近 12 個月沒勾「已收款」的金額。紅色是超過 2 個月的。收到錢記得到「對帳」勾已收款。</p>
+  ${ar.length?ar.map(s=>`<div class="ar"><div><b>${esc(s.name)}</b>　<b>${money(s.total)}</b><div class="ms">${s.months.map(m=>`<span class="${m.age>=2?'old':''}">${+m.month.slice(5)} 月 ${money(m.amount)}</span>`).join('')}</div></div>
+    ${s.hasLine&&may('statement')?`<button class="send" data-dun="${s.storeId}">LINE 催款</button>`:''}</div>`).join(''):'<div class="empty">沒有未收款 👍</div>'}`;
+}
+function costPayload(){
+  const daily={},monthly={};
+  document.querySelectorAll('[data-cd]').forEach(i=>{if(i.value!=='')(daily[i.dataset.cd]??={})[i.dataset.ct]=i.value});
+  document.querySelectorAll('[data-cm]').forEach(i=>{if(i.value!=='')monthly[i.dataset.cm]=i.value});
+  return {daily,monthly};
+}
+async function saveCosts(){
+  try{const j=await api('POST',{action:'costs',month:R.month,...costPayload()});R={...R,...j};rDirty=false;renderReport();toast('成本已儲存，毛利已更新')}catch(e){toast(e.message)}
+}
+async function saveCostTypes(types,msg){
+  try{if(rDirty)await api('POST',{action:'costs',month:R.month,...costPayload()});await api('POST',{action:'costTypes',costTypes:types});await loadReport();toast(msg)}catch(e){toast(e.message)}
+}
+
+/* ---------- 報價組 ---------- */
+let G=null,gDirty=false;
+const ruleText=g=>g.type==='percent'?`${+(g.value/10).toFixed(1)} 折`:g.type==='minus'?`每單位減 $${g.value}`:'照基本價';
+function renderGroups(){
+  if(!G||!gDirty)G=structuredClone(D.priceGroups||[]);
+  $('groupList').innerHTML=G.map((g,i)=>{
+    const nFix=Object.values(g.fixed||{}).filter(v=>v!==''&&v!=null).length;
+    const used=D.stores.filter(s=>s.groupId===g.id).length;
+    return `<div class="grp"><div class="gh">
+      <input class="gname" data-gf="name" data-i="${i}" value="${esc(g.name)}" placeholder="例如：飯店組" aria-label="報價組名稱">
+      <select data-gf="type" data-i="${i}" aria-label="規則"><option value="none" ${g.type==='none'?'selected':''}>照基本價</option><option value="percent" ${g.type==='percent'?'selected':''}>打折</option><option value="minus" ${g.type==='minus'?'selected':''}>每單位減</option></select>
+      ${g.type==='none'?'':`<input class="gval" type="number" min="0" inputmode="decimal" data-gf="value" data-i="${i}" value="${g.value}" aria-label="${g.type==='percent'?'折數':'金額'}"><span class="meta">${g.type==='percent'?'（9 折填 90）':'元'}</span>`}
+      <span class="meta">${used} 家店在用</span><button class="x" data-gdel="${i}" aria-label="刪除報價組">刪除</button></div>
+      <details ${nFix?'open':''}><summary>個別品項固定價（${nFix} 項）：填了就不管基本價，固定用這個價</summary>
+      <div class="fx">${D.products.filter(p=>p.on||g.fixed?.[p.id]!=null).map(p=>`<label>${esc(p.name)}<span>$<input type="number" min="0" inputmode="numeric" data-gfix="${p.id}" data-i="${i}" value="${g.fixed?.[p.id]??''}" placeholder="—" aria-label="${esc(p.name)} 固定價">/${esc(p.unit)}</span></label>`).join('')}</div></details></div>`;
+  }).join('')||'<div class="empty">還沒有報價組，所有店家都照基本價。</div>';
+  $('saveG').disabled=!gDirty;$('gDirty').textContent=gDirty?'有尚未儲存的修改':'';
+}
+async function saveGroups(){
+  try{const j=await api('POST',{action:'priceGroups',priceGroups:G});gDirty=false;D.priceGroups=j.priceGroups;await load();toast('報價組已儲存，今天以後的訂單已重新計價')}catch(e){toast(e.message)}
 }
 async function saveStores(){
   try{await api('POST',{action:'stores',stores:S});sDirty=false;await load();toast('店家已儲存')}catch(e){toast(e.message)}
@@ -618,21 +843,23 @@ async function userAction(body,msg){
 /* ---------- 列印 ---------- */
 const SHOPN=()=>D.shop.name;
 const ymdSlash=d=>d.replaceAll('-','/');
+let SIGS={};
+const signLine=s=>SIGS[s.id]?`<div>簽收：<img class="sigimg" src="${SIGS[s.id]}" alt="簽名">${D.signatures[s.id].signer?`（${esc(D.signatures[s.id].signer)}）`:''} ${hm(D.signatures[s.id].at)}</div>`:'<div>簽收：＿＿＿＿＿＿</div>';
 function docSlip(s){
   const o=orderOf(s.id);const items=sortItems(o.items);
   // 沒有單價權限的人（理貨、司機）印的是不含金額的出貨單
   if(!hasPrice())return `<div class="doc break"><h3>${esc(SHOPN())}　出貨單</h3>
   <div class="meta"><span>客戶：${esc(s.name)}</span><span>日期：${ymdSlash(D.date)}</span><span>路線：第 ${s.route} 站</span>${s.address?`<span>地址：${esc(s.address)}</span>`:''}</div>
   <table><thead><tr><th>品名</th><th class="n">數量</th></tr></thead>
-  <tbody>${items.map(i=>`<tr><td>${esc(i.name)}</td><td class="n">${esc(qtyText(i.qty,i.unit))}</td></tr>`).join('')}</tbody></table>
-  <div class="sign"><div>送貨人：＿＿＿＿＿＿</div><div>簽收：＿＿＿＿＿＿</div></div></div>`;
+  <tbody>${items.map(i=>`<tr><td>${esc(i.name)}</td><td class="n">${billQty(i)?esc(qtyText(billQty(i),i.unit)):'缺貨'}</td></tr>`).join('')}</tbody></table>
+  <div class="sign"><div>送貨人：＿＿＿＿＿＿</div>${signLine(s)}</div></div>`;
   const total=amount(o);
   return `<div class="doc break"><h3>${esc(SHOPN())}　出貨單／收據</h3>
   <div class="meta"><span>客戶：${esc(s.name)}</span><span>日期：${ymdSlash(D.date)}</span><span>路線：第 ${s.route} 站</span>${s.address?`<span>地址：${esc(s.address)}</span>`:''}</div>
   <table><thead><tr><th>品名</th><th class="n">數量</th><th class="n">單價</th><th class="n">金額</th></tr></thead>
-  <tbody>${items.map(i=>`<tr><td>${esc(i.name)}</td><td class="n">${esc(qtyText(i.qty,i.unit))}</td><td class="n">${i.price}</td><td class="n">${money(i.qty*i.price)}</td></tr>`).join('')}</tbody>
+  <tbody>${items.map(i=>`<tr><td>${esc(i.name)}</td><td class="n">${billQty(i)?esc(qtyText(billQty(i),i.unit)):'缺貨'}</td><td class="n">${i.price}</td><td class="n">${money(billQty(i)*i.price)}</td></tr>`).join('')}</tbody>
   <tfoot><tr><td colspan="3">合計</td><td class="n">${money(total)}</td></tr></tfoot></table>
-  <div class="sign"><div>送貨人：＿＿＿＿＿＿</div><div>簽收：＿＿＿＿＿＿</div></div>
+  <div class="sign"><div>送貨人：＿＿＿＿＿＿</div>${signLine(s)}</div>
   <div class="foot">本單兼收據。${esc(D.shop.payTerms)}${D.shop.phone?`　電話 ${esc(D.shop.phone)}`:''}</div></div>`;
 }
 function docBuy(){
@@ -654,7 +881,7 @@ function docDaily(){
   <tbody>${rows.map(x=>`<tr><td>${esc(x.s.name)}</td><td class="n">${money(x.a)}</td></tr>`).join('')}</tbody>
   <tfoot><tr><td>營業額合計</td><td class="n">${money(sum)}</td></tr></tfoot></table>
   <br><table><thead><tr><th>品名</th><th class="n">出貨量</th><th class="n">金額</th></tr></thead>
-  <tbody>${T.map(t=>{const a=D.orders.reduce((x,o)=>x+o.items.filter(i=>i.pid===t.pid).reduce((y,i)=>y+i.qty*i.price,0),0);return `<tr><td>${esc(t.name)}</td><td class="n">${esc(qtyText(t.qty,t.unit))}</td><td class="n">${money(a)}</td></tr>`}).join('')}</tbody></table></div>`;
+  <tbody>${T.map(t=>{const a=D.orders.reduce((x,o)=>x+o.items.filter(i=>i.pid===t.pid).reduce((y,i)=>y+billQty(i)*i.price,0),0);return `<tr><td>${esc(t.name)}</td><td class="n">${esc(qtyText(D.orders.reduce((x,o)=>x+o.items.filter(i=>i.pid===t.pid).reduce((y,i)=>y+billQty(i),0),0),t.unit))}</td><td class="n">${money(a)}</td></tr>`}).join('')}</tbody></table></div>`;
 }
 function docStmt(s){
   const r=monthRows(s.id),total=r.reduce((a,x)=>a+x.amount,0);const [y,m]=D.month.split('-');
@@ -675,8 +902,10 @@ function docMonth(){
   <table><thead><tr><th>店家</th><th class="n">送貨天數</th><th class="n">應收</th><th>收款</th></tr></thead>
   <tbody>${rows}</tbody><tfoot><tr><td colspan="2">合計</td><td class="n">${money(sum)}</td><td></td></tr></tfoot></table></div>`;
 }
-function openPrint(kind,sid){
+async function openPrint(kind,sid){
   const s=sid&&SM()[sid];
+  // 有簽收的出貨單，先把簽名圖抓下來
+  if(kind==='slip'||kind==='slips'){SIGS={};const ids=kind==='slip'?[sid]:Object.keys(D.signatures||{});await Promise.all(ids.filter(x=>D.signatures?.[x]).map(async x=>SIGS[x]=await sigImg(x)))}
   const withOrder=D.stores.filter(x=>orderOf(x.id)).sort((a,b)=>a.route-b.route);
   if((kind==='slips'||kind==='daily'||kind==='buy')&&!withOrder.length){toast('這天沒有訂單');return}
   const html={buy:docBuy,daily:docDaily,month:docMonth,slip:()=>docSlip(s),stmt:()=>docStmt(s),slips:()=>withOrder.map(docSlip).join('')}[kind]();
@@ -691,6 +920,7 @@ function setPaper(k){
 /* ---------- 事件 ---------- */
 function showTab(t){
   tab=t;
+  if(t==='report'&&(!R||R.month!==(rmonth||D.month)))loadReport();
   document.querySelectorAll('nav.tabs button').forEach(x=>x.setAttribute('aria-selected',x.dataset.tab===t));
   document.querySelectorAll('section').forEach(sec=>sec.hidden=sec.id!==t);
   $('datebar').hidden=!(t==='board'||t==='slips'||t==='prices');
@@ -703,6 +933,7 @@ $('addUser').addEventListener('click',()=>{
 });
 $('logout').addEventListener('click',()=>{if(pDirty||sDirty){if(!confirm('有尚未儲存的修改，確定登出？'))return}FB.signOut(FB.auth)});
 $('date').addEventListener('change',e=>{if(e.target.value){date=e.target.value;openRow=null;load()}});
+$('rmonth').addEventListener('change',e=>{if(e.target.value){rmonth=e.target.value;loadReport()}});
 $('month').addEventListener('change',e=>{if(e.target.value){month=e.target.value;openBill=null;load()}});
 $('toOpen').addEventListener('click',()=>{date='';load()});
 $('addBtn').addEventListener('click',addProduct);
@@ -710,6 +941,8 @@ $('nName').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){e.
 $('saveP').addEventListener('click',saveProducts);
 $('saveDP').addEventListener('click',saveDayPrices);
 $('saveS').addEventListener('click',saveStores);
+$('saveG').addEventListener('click',saveGroups);
+$('addG').addEventListener('click',()=>{G.push({id:'',name:'',type:'percent',value:90,fixed:{}});gDirty=true;renderGroups();document.querySelector(`[data-gf="name"][data-i="${G.length-1}"]`).focus()});
 $('addS').addEventListener('click',()=>{S.push({id:'',name:'',route:Math.max(0,...S.map(s=>s.route))+1,phone:'',address:'',on:true,members:[]});sDirty=true;renderStores();document.querySelector(`[data-sf="name"][data-i="${S.length-1}"]`).focus()});
 document.addEventListener('click',async e=>{
   const b=e.target.closest('button');if(!b)return;
@@ -717,7 +950,7 @@ document.addEventListener('click',async e=>{
   if(b.dataset.day){date=addDays(D.date,+b.dataset.day);openRow=null;load()}
   if(b.dataset.month){month=addMonths(D.month,+b.dataset.month);openBill=null;load()}
   if(b.dataset.row){openRow=openRow===b.dataset.row?null:b.dataset.row;renderBoard()}
-  if(b.dataset.step){const o=orderOf(b.dataset.sid);const it=o.items.find(i=>i.pid===b.dataset.pid);const d=+b.dataset.step;setQty(b.dataset.sid,b.dataset.pid,d<0&&it.qty<1?0:it.qty+d)}
+  if(b.dataset.step){const o=orderOf(b.dataset.sid);const it=o.items.find(i=>i.pid===b.dataset.pid);const d=+b.dataset.step,q=billQty(it);setQty(b.dataset.sid,b.dataset.pid,d<0&&q<1?0:q+d,true,'ship')}
   if(b.dataset.additem){
     const sid=b.dataset.additem,pid=$('add-'+sid).value,q=parseQty($('addq-'+sid).value,PM()[pid]?.unit);
     if(!pid){toast('請先選品項');return}if(!(q>0)){toast('數量看不懂，例如 3、2.5、2斤4兩');$('addq-'+sid).focus();return}
@@ -742,6 +975,22 @@ document.addEventListener('click',async e=>{
   if(b.id==='addUnit'){const u=$('newUnit').value.trim();if(!u){toast('請先填單位');$('newUnit').focus();return}if(D.units.includes(u)){toast(`「${u}」已經有了`);return}saveUnits([...D.units,u],`已新增單位「${u}」`)}
   if(b.dataset.udel){const u=b.dataset.udel;if(P.some(p=>p.unit===u)){toast(`還有品項用「${u}」，先改成別的單位`);return}if(confirm(`刪除單位「${u}」？`))saveUnits(D.units.filter(x=>x!==u),`已刪除單位「${u}」`)}
   if(b.dataset.pdel){const i=+b.dataset.pdel;if(confirm(`刪除「${P[i].name}」？舊訂單紀錄不受影響。`)){P.splice(i,1);pDirty=true;renderProducts()}}
+  if(b.dataset.rmonth){rmonth=addMonths(R?.month||D.month,+b.dataset.rmonth);if(rDirty&&!confirm('成本還沒儲存，確定換月份？'))return;loadReport()}
+  if(b.id==='saveCosts')saveCosts();
+  if(b.id==='ctAdd'){const name=$('ctName').value.trim();if(!name){toast('請填成本項目名稱');$('ctName').focus();return}saveCostTypes([...R.costTypes,{name,period:$('ctPeriod').value}],`已新增「${name}」`)}
+  if(b.dataset.ctdel){const t=R.costTypes.find(x=>x.id===b.dataset.ctdel);if(confirm(`刪除成本項目「${t.name}」？已經填的金額不會再算進報表。`))saveCostTypes(R.costTypes.filter(x=>x.id!==t.id),'已刪除')}
+  if(b.dataset.dun){const s=SM()[b.dataset.dun];if(confirm(`用 LINE 傳催款通知給「${s.name}」？`)){try{await api('POST',{action:'dunning',storeId:s.id});toast(`已傳給 ${s.name}`)}catch(err){toast(err.message)}}}
+  if(b.dataset.receipt)sendReceipts([b.dataset.receipt]);
+  if(b.id==='receiptAll')sendReceipts(D.orders.map(o=>o.storeId).filter(id=>SM()[id]?.members?.length));
+  if(b.dataset.sign)openSign(b.dataset.sign);
+  if(b.dataset.sigview){const png=await sigImg(b.dataset.sigview);if(png){$('paper').innerHTML=`<div class="doc"><h3>${esc(SM()[b.dataset.sigview].name)} 簽收</h3><p style="text-align:center"><img src="${png}" style="max-width:100%;border:1px solid #ccc" alt="簽名"></p></div>`;$('pv').classList.add('on')}}
+  if(b.id==='sigOk')saveSign();
+  if(b.id==='sigCancel')$('sigBox').classList.remove('on');
+  if(b.id==='sigClear')openSign(sigStore);
+  if(b.id==='xlsDay')xlsDay().catch?.(()=>{});
+  if(b.id==='xlsBills')xlsBills();
+  if(b.id==='xlsReport')xlsReport();
+  if(b.dataset.gdel){const i=+b.dataset.gdel;if(confirm(`刪除報價組「${G[i].name||'新報價組'}」？這組的店家會改回基本價。`)){G.splice(i,1);gDirty=true;renderGroups()}}
   if(b.dataset.sdel){const i=+b.dataset.sdel;if(confirm(`刪除「${S[i].name||'新店家'}」？綁定的 LINE 帳號會一起解除，舊訂單和對帳紀錄會保留。`)){S.splice(i,1);sDirty=true;renderStores()}}
   if(b.dataset.approve)approve(b.dataset.approve);
   if(b.dataset.uoff){const off=b.dataset.off==='1';if(confirm(off?'停用後這個帳號就不能進後台，確定？':'恢復這個帳號？'))userAction({action:'updateUser',email:b.dataset.uoff,disabled:off},off?'已停用':'已恢復')}
@@ -752,7 +1001,11 @@ document.addEventListener('click',async e=>{
 document.addEventListener('input',e=>{
   const t=e.target;
   if(t.dataset.pf!=null){const p=P[+t.dataset.i],f=t.dataset.pf;p[f]=f==='on'?t.checked:t.value;pDirty=true;$('saveP').disabled=false;$('pDirty').textContent='有尚未儲存的修改';if(f==='on')renderProducts()}
+  if(t.dataset.cd!=null||t.dataset.cm!=null){rDirty=true;$('saveCosts')&&($('saveCosts').disabled=false);$('cDirty')&&($('cDirty').textContent='有尚未儲存的修改')}
+  if(t.dataset.dc!=null){dcDraft[t.dataset.dc]=t.value;$('dpInfo').textContent='有尚未儲存的修改';$('dpInfo').style.color='var(--alert)'}
   if(t.dataset.dp!=null){dpDraft[t.dataset.dp]=t.value===''?'':Math.max(0,+t.value||0);t.closest('.prow2').classList.add('todo');$('dpInfo').textContent='有尚未儲存的修改';$('dpInfo').style.color='var(--alert)'}
+  if(t.dataset.gf!=null){const g=G[+t.dataset.i],f=t.dataset.gf;g[f]=f==='value'?(+t.value||0):t.value;if(f==='type'){if(t.value==='percent'&&!(g.value>0))g.value=90;renderGroups()}gDirty=true;$('saveG').disabled=false;$('gDirty').textContent='有尚未儲存的修改'}
+  if(t.dataset.gfix!=null){const g=G[+t.dataset.i];(g.fixed||={})[t.dataset.gfix]=t.value===''?'':+t.value;gDirty=true;$('saveG').disabled=false;$('gDirty').textContent='有尚未儲存的修改'}
   if(t.dataset.sf!=null){const s=S[+t.dataset.i],f=t.dataset.sf;s[f]=f==='on'?t.checked:f==='route'?(+t.value||0):t.value;sDirty=true;$('saveS').disabled=false;$('sDirty').textContent='有尚未儲存的修改'}
 });
 document.addEventListener('change',async e=>{
@@ -760,10 +1013,11 @@ document.addEventListener('change',async e=>{
   if(t.dataset.sqin){
     const sid=t.dataset.sqin,pid=t.dataset.pid,it=orderOf(sid)?.items.find(i=>i.pid===pid);if(!it)return;
     const raw=t.value.trim(),q=raw===''||raw==='0'?0:parseQty(raw,it.unit);
-    if(!(q>0)&&!(raw===''||raw==='0')){toast('數量看不懂，例如 3、2.5、2斤4兩');t.value=editText(it.qty,it.unit);return}
-    if(q===it.qty)return;
-    if(q===0&&!confirm(`把「${it.name}」從這家的訂單拿掉？`)){t.value=editText(it.qty,it.unit);return}
-    setQty(sid,pid,q);
+    const cur=billQty(it);
+    if(!(q>0)&&!(raw===''||raw==='0')){toast('數量看不懂，例如 3、2.5、2斤4兩');t.value=editText(cur,it.unit);return}
+    if(q===cur)return;
+    if(q===0&&!confirm(`「${it.name}」標成缺貨（不出貨、不計價）？`)){t.value=editText(cur,it.unit);return}
+    setQty(sid,pid,q,true,'ship');
   }
   if(t.dataset.urole){userAction({action:'updateUser',email:t.dataset.urole,role:t.value},'角色已更新')}
   if(t.dataset.paid){try{const j=await api('POST',{action:'paid',month:D.month,storeId:t.dataset.paid,paid:t.checked});D.paid=j.paid;renderBills()}catch(err){toast(err.message);t.checked=!t.checked}}
@@ -774,7 +1028,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&!e.isComposing&&e.target.id==='newUnit')$('addUnit').click();
 });
 document.addEventListener('focusin',e=>{if(e.target.dataset?.sqin||e.target.dataset?.dp)e.target.select()});
-window.addEventListener('beforeunload',e=>{if(pDirty||sDirty||$('dpInfo').textContent==='有尚未儲存的修改')e.preventDefault()});
+window.addEventListener('beforeunload',e=>{if(pDirty||sDirty||gDirty||rDirty||$('dpInfo').textContent==='有尚未儲存的修改')e.preventDefault()});
 initAuth().catch(e=>{$('login').hidden=false;$('loginErr').textContent='登入元件載入失敗，請重新整理'});
 </script>
 </body>

@@ -84,6 +84,31 @@ export function draftMessage(store, date, draft, existingCount, editUrl) {
   ]));
 }
 
+// 電子收據：實出量 × 單價
+export function receiptMessage(store, date, order, billQty) {
+  const total = Math.round(order.items.reduce((a, i) => a + billQty(i) * i.price, 0));
+  const body = order.items.map((i) => {
+    const q = billQty(i);
+    return {
+      type: 'box', layout: 'vertical', contents: [
+        row(i.name, money(q * i.price), { weight: 'bold' }),
+        text(q ? `${qtyText(q, i.unit)} × ${money(i.price)}${i.ship != null && i.ship !== i.qty ? `（叫 ${qtyText(i.qty, i.unit)}）` : ''}` : '缺貨', { size: 'xxs', color: C.muted }),
+      ],
+    };
+  });
+  return flex(`${md(date)} 收據 ${money(total)}`, bubble(`${md(date)} 出貨收據`, `${store.name}・${label(date)}`, [
+    ...body,
+    sep,
+    row('合計', money(total), { weight: 'bold', size: 'md', margin: 'md' }),
+    text(`本單兼收據。${SHOP.payTerms}`, { size: 'xxs', color: C.muted }),
+  ]));
+}
+
+export function dunningText(store, ar) {
+  const lines = ar.months.slice().reverse().map((m) => `・${+m.month.slice(5)} 月 ${money(m.amount)}`);
+  return { type: 'text', text: `${store.name} 您好，提醒您以下貨款還沒收到：\n${lines.join('\n')}\n合計 ${money(ar.total)}\n${SHOP.payTerms}\n已經付款的話請忽略，謝謝！` };
+}
+
 export function approvedText(store) {
   return { type: 'text', text: `已幫您開通「${store.name}」的叫貨帳號！\n點下方「我要叫貨」就可以開始叫貨。` };
 }

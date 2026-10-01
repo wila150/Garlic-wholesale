@@ -14,9 +14,9 @@ export const ROLES = {
 // 每個角色能做的事
 const CAN = {
   owner: ['*'],
-  accounting: ['view', 'bills', 'prices', 'editOrders', 'products', 'remind', 'statement'],
-  warehouse: ['view', 'editOrders', 'remind'],
-  driver: ['view'],
+  accounting: ['view', 'bills', 'prices', 'editOrders', 'products', 'remind', 'statement', 'sign'],
+  warehouse: ['view', 'editOrders', 'remind', 'sign'],
+  driver: ['view', 'sign'],
 };
 export const can = (role, what) => !!CAN[role] && (CAN[role].includes('*') || CAN[role].includes(what));
 

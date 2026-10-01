@@ -5,11 +5,19 @@ import { push } from '../lib/line.js';
 import { openDate, today, thisMonth, isDate, isMonth } from '../lib/dates.js';
 import * as shop from '../lib/shop.js';
 import { signedIn, need, can, ROLES, listUsers, addUser, updateUser, removeUser } from '../lib/auth.js';
-import { remindText, statementMessage, approvedText } from '../lib/messages.js';
+import { remindText, statementMessage, approvedText, dunningText, receiptMessage } from '../lib/messages.js';
+import { getFirestore } from 'firebase-admin/firestore';
+import * as report from '../lib/report.js';
 
 async function statement(month, storeId) {
   const rows = (await shop.monthAmounts(month)).filter((r) => r.storeId === storeId).sort((a, b) => a.date.localeCompare(b.date));
   return { rows, total: rows.reduce((a, r) => a + r.amount, 0) };
+}
+
+// 這天各店的簽收紀錄（不含圖片）
+async function signaturesOf(date) {
+  const snap = await getFirestore().collection('signatures').where('date', '==', date).get();
+  return Object.fromEntries(snap.docs.map((d) => { const { png, ...rest } = d.data(); return [rest.storeId, rest]; }));
 }
 
 async function pushToStore(store, messages) {
@@ -26,10 +34,23 @@ export async function GET(request) {
     const me = await signedIn(request);
     need(me, 'view');
     const q = new URL(request.url).searchParams;
+    // 簽名圖另外載（列印、查看時才需要）
+    if (q.get('sig')) {
+      need(me, 'view');
+      const s = (await getFirestore().doc('signatures/' + q.get('sig').replace(/[^\w-]/g, '')).get()).data();
+      return json({ signature: s || null });
+    }
+    // 報表分頁另外載（要讀整個月的訂單）
+    if (q.get('report')) {
+      need(me, 'bills');
+      const m = isMonth(q.get('report')) ? q.get('report') : thisMonth();
+      const [r, ar] = await Promise.all([report.monthReport(m), report.receivables()]);
+      return json({ ...r, receivables: ar });
+    }
     const date = isDate(q.get('date')) ? q.get('date') : openDate();
     const month = isMonth(q.get('month')) ? q.get('month') : thisMonth();
     const bills = can(me.role, 'bills');
-    const [stores, products, pending, monthRows, paid, dayOrders, dayPrices, units, users] = await Promise.all([
+    const [stores, products, pending, monthRows, paid, dayOrders, dayPrices, units, users, priceGroups] = await Promise.all([
       shop.getStores(), shop.getProducts(),
       can(me.role, 'stores') ? shop.listPending() : [],
       bills ? shop.monthAmounts(month) : [],
@@ -38,10 +59,11 @@ export async function GET(request) {
       shop.getDayPrices(date),
       shop.getUnits(),
       can(me.role, 'users') ? listUsers() : [],
+      can(me.role, 'prices') ? shop.getPriceGroups() : [],
     ]);
     const showPrices = can(me.role, 'prices') || bills;
     return json({
-      me: { ...me, roleName: ROLES[me.role], can: ['bills', 'prices', 'editOrders', 'products', 'stores', 'remind', 'statement', 'users'].filter((w) => can(me.role, w)) },
+      me: { ...me, roleName: ROLES[me.role], can: ['bills', 'prices', 'editOrders', 'products', 'stores', 'remind', 'statement', 'users', 'sign'].filter((w) => can(me.role, w)) },
       roles: ROLES,
       shop: { name: SHOP.name, phone: SHOP.phone, payTerms: SHOP.payTerms },
       categories: CATEGORIES,
@@ -56,10 +78,13 @@ export async function GET(request) {
       products: showPrices ? products : products.map(({ price, ...p }) => p),
       pending,
       orders: showPrices ? dayOrders : dayOrders.map((o) => ({ ...o, items: o.items.map(({ price, ...i }) => i) })),
+      signatures: await signaturesOf(date),
       dayPrices: showPrices ? dayPrices : {},
+      dayCosts: can(me.role, 'prices') ? await shop.getDayCosts(date) : {},
       monthRows,
       paid,
       users,
+      priceGroups,
     });
   } catch (e) {
     return fail(e);
@@ -84,15 +109,25 @@ export async function POST(request) {
         if (!can(me.role, 'prices')) r.order.items = r.order.items.map(({ price, ...i }) => i);
         return json(r);
       }
+      case 'setShip': {
+        need(me, 'editOrders');
+        await store();
+        const r = await shop.setShip(b.storeId, b.date, b.pid, b.ship, me.name);
+        if (!can(me.role, 'prices')) r.order.items = r.order.items.map(({ price, ...i }) => i);
+        return json(r);
+      }
       case 'dayPrices':
         need(me, 'prices');
-        return json({ dayPrices: await shop.setDayPrices(b.date, b.prices) });
+        return json({ dayPrices: await shop.setDayPrices(b.date, b.prices, b.costs) });
       case 'units':
         need(me, 'products');
         return json({ units: await shop.saveUnits(b.units) });
       case 'products':
         need(me, 'products');
         return json({ products: await shop.saveProducts(b.products) });
+      case 'priceGroups':
+        need(me, 'stores');
+        return json({ priceGroups: await shop.savePriceGroups(b.priceGroups) });
       case 'stores':
         need(me, 'stores');
         return json({ stores: await shop.saveStores(b.stores) });
@@ -132,6 +167,45 @@ export async function POST(request) {
         await store();
         await shop.setPaid(b.month, b.storeId, !!b.paid);
         return json({ paid: await shop.getPaid(b.month) });
+      }
+      case 'receipt': {
+        need(me, 'statement');
+        if (!isDate(b.date)) throw new UserError('日期不正確');
+        const stores = (await shop.getStores()).filter((s) => b.storeIds?.includes(s.id) && s.members.length);
+        const orders = await shop.ordersOfDate(b.date);
+        const res = await Promise.allSettled(stores.map((s) => {
+          const o = orders.find((x) => x.storeId === s.id);
+          return o ? pushToStore(s, [receiptMessage(s, b.date, o, shop.billQty)]) : Promise.reject(new Error('沒有訂單'));
+        }));
+        await Promise.all(stores.map((s, i) => res[i].status === 'fulfilled' && getFirestore().doc(`orders/${b.date}_${s.id}`).update({ receiptSentAt: new Date().toISOString() })));
+        return json({ sent: res.filter((r) => r.status === 'fulfilled').length, total: stores.length });
+      }
+      case 'sign': {
+        need(me, 'sign');
+        if (!isDate(b.date)) throw new UserError('日期不正確');
+        const s = await store();
+        const png = String(b.png || '');
+        if (!/^data:image\/png;base64,/.test(png) || png.length > 300000) throw new UserError('簽名圖片不正確');
+        const signer = String(b.signer || '').trim().slice(0, 20);
+        const rec = { date: b.date, storeId: s.id, png, signer, by: me.name, at: new Date().toISOString() };
+        await getFirestore().doc(`signatures/${b.date}_${s.id}`).set(rec);
+        return json({ signature: { ...rec, png: undefined } });
+      }
+      case 'costTypes':
+        need(me, 'bills');
+        return json({ costTypes: await report.saveCostTypes(b.costTypes) });
+      case 'costs':
+        need(me, 'bills');
+        if (!isMonth(b.month)) throw new UserError('月份不正確');
+        await report.saveCosts(b.month, b);
+        return json(await report.monthReport(b.month));
+      case 'dunning': {
+        need(me, 'statement');
+        const s = await store();
+        const ar = (await report.receivables()).find((x) => x.storeId === s.id);
+        if (!ar) throw new UserError(`「${s.name}」沒有未收款`);
+        await pushToStore(s, [dunningText(s, ar)]);
+        return json({ ok: true });
       }
       case 'addUser':
         need(me, 'users');

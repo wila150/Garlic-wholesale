@@ -610,7 +610,7 @@ function slipActs(s,o,k){
   const sig=D.signatures?.[k];
   const who=sig&&(sig.by==='店家線上確認'||sig.by==='店家線上簽收'?'店家已確認':'後台確認');
   return `<div class="sacts">
-    ${sig?`<span class="signed">✅ ${who} ${hm(sig.at)}${sig.signer?`（${esc(sig.signer)}）`:''}${sig.hasPng?`<button data-sigview="${k}">看簽名</button>`:''}</span><div class="lockhint" style="flex-basis:100%">配送單已確認，數量不能再改${may('editOrders')&&k===okey(slipsOf(s.id).at(-1))?'；要追加請用下面的「開補單」':''}</div>`
+    ${sig?`<span class="signed">✅ ${who} ${hm(sig.at)}${sig.signer?`（${esc(sig.signer)}）`:''}${sig.hasPng?`<button data-sigview="${k}">看確認單</button>`:''}</span><div class="lockhint" style="flex-basis:100%">配送單已確認，數量不能再改${may('editOrders')&&k===okey(slipsOf(s.id).at(-1))?'；要追加請用下面的「開補單」':''}</div>`
       :may('sign')?`<button class="ok" data-signlink="${k}">傳確認連結</button><button class="pbtn" data-confirm="${k}">直接確認</button>`:''}
     ${may('statement')&&s.members?.length&&k===s.id?`<button class="send" data-receipt="${s.id}">${o.receiptSentAt?'再傳一次收據':'LINE 傳收據'}</button>`:''}
     <button class="pbtn" data-print="slip" data-store="${k}">列印</button>
@@ -959,7 +959,7 @@ function docMonth(){
 }
 async function openPrint(kind,sid){
   const s=sid&&SM()[sidOf(sid)];
-  // 舊的電子簽名圖（有的話）一起印
+  // 店家的電子簽名一起印在確認單上
   if(kind==='slip'||kind==='slips'){SIGS={};const ids=kind==='slip'?[sid]:Object.keys(D.signatures||{});await Promise.all(ids.filter(x=>D.signatures?.[x]?.hasPng).map(async x=>SIGS[x]=await sigImg(x)))}
   const withOrder=D.stores.filter(x=>slipsOf(x.id).length).sort((a,b)=>a.route-b.route);
   const allSlips=withOrder.flatMap(x=>slipsOf(x.id).map(okey));
@@ -1046,7 +1046,7 @@ document.addEventListener('click',async e=>{
     if(!confirm(`確認「${slipName(k)}」這張配送單？確認後數量就不能再改（要追加請開補單）。`))return;
     try{const j=await api('POST',{action:'sign',date:D.date,storeId:sidOf(k),seq:seqOf(k)});(D.signatures||={})[k]=j.signature;renderSlips();toast('已確認配送單')}catch(err){toast(err.message)}
   }
-  if(b.dataset.sigview){const png=await sigImg(b.dataset.sigview);if(png){$('paper').innerHTML=`<div class="doc"><h3>${esc(SM()[b.dataset.sigview].name)} 簽收</h3><p style="text-align:center"><img src="${png}" style="max-width:100%;border:1px solid #ccc" alt="簽名"></p></div>`;$('pv').classList.add('on')}}
+  if(b.dataset.sigview)openPrint('slip',b.dataset.sigview);
   if(b.dataset.delslip){
     const k=b.dataset.delslip,o=orderOf(k);
     if(!confirm(`確定刪除「${slipName(k)}」${md(D.date)} 這張出貨單？\n${o.items.map(i=>`${i.name} ${qtyText(i.qty,i.unit)}`).join('、')}\n\n刪除後對帳金額會一起扣掉，改單紀錄會留下來。`))return;

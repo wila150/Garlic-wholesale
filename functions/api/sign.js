@@ -1,4 +1,4 @@
-// 確認配送單：配貨完，老闆把連結貼到 LINE 聊天室，店家點開核對品項和數量、按確認
+// 確認配送單：配貨完，老闆把連結貼到 LINE 聊天室，店家點開核對品項和數量、按確認，再電子簽名
 // （現場簽收用紙本，印出來給客戶用筆簽或免簽）
 import { getFirestore } from 'firebase-admin/firestore';
 import { SHOP } from '../lib/config.js';
@@ -50,7 +50,9 @@ export async function POST(request) {
     const { t, sig } = await slipOf(b.t);
     if (sig) throw new UserError('這張配送單已經確認過了', 409);
     if (b.confirmed !== true) throw new UserError('請先勾選「品項和數量正確」');
-    const rec = { date: t.date, storeId: t.storeId, seq: t.seq, key: t.key, signer: String(b.signer || '').trim().slice(0, 20), by: '店家線上確認', at: new Date().toISOString() };
+    const png = String(b.png || '');
+    if (!/^data:image\/png;base64,/.test(png) || png.length > 300000) throw new UserError('請先簽名');
+    const rec = { date: t.date, storeId: t.storeId, seq: t.seq, key: t.key, png, signer: String(b.signer || '').trim().slice(0, 20), by: '店家線上確認', at: new Date().toISOString() };
     await getFirestore().doc(`signatures/${t.date}_${t.key}`).set(rec);
     return json({ confirmed: { at: rec.at, signer: rec.signer } });
   } catch (e) {

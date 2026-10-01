@@ -52,6 +52,11 @@ button{cursor:pointer}
 .done{text-align:center;padding:24px 8px}
 .done .ok{font-size:3rem;line-height:1}
 .done a{display:inline-block;margin-top:14px;background:var(--line-green);color:#fff;text-decoration:none;font-weight:700;border-radius:24px;padding:12px 24px}
+.pad{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:20;align-items:flex-end;justify-content:center}
+.pad.on{display:flex}
+.pad .sheet{background:var(--surface);width:100%;max-width:560px;border-radius:16px 16px 0 0;padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px))}
+.pad h2{margin:0 0 4px;font-size:1.05rem}
+.pad canvas{display:block;width:100%;height:200px;background:#fff;border:2px dashed var(--line);border-radius:10px;touch-action:none;margin-top:8px}
 .msg{text-align:center;color:var(--muted);padding:40px 16px}
 [hidden]{display:none!important}
 </style>
@@ -72,6 +77,15 @@ button{cursor:pointer}
     <p style="text-align:center"><a id="problem" class="plink" hidden>數量不對？告訴老闆</a></p>
   </div>
   <div class="done" id="done" hidden></div>
+</div>
+<div class="pad" id="pad" role="dialog" aria-modal="true" aria-labelledby="padTitle">
+  <div class="sheet">
+    <h2 id="padTitle">請在框裡簽名</h2>
+    <p class="note">用手指簽就可以，簽完按「確認」。</p>
+    <canvas id="cv" aria-label="簽名區"></canvas>
+    <p class="err" id="padErr" role="alert"></p>
+    <div class="acts"><button id="padBack">返回</button><button id="padClear">重簽</button><button class="go" id="padOk">確認</button></div>
+  </div>
 </div>
 <script>
 const $=id=>document.getElementById(id);
@@ -98,15 +112,36 @@ async function load(){
   if(D.confirmed)showDone(D.confirmed,true);
 }
 
-async function submit(){
+// 第一次按確認：檢查勾選，跳出簽名板
+function submit(){
   if(!$('received').checked){$('err').textContent='請先核對，勾選「品項和數量正確」';return}
-  $('ok').disabled=true;$('ok').textContent='送出中…';$('err').textContent='';
-  try{
-    const r=await fetch('/api/sign',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:T,signer:$('signer').value.trim(),confirmed:true})});
-    const j=await r.json();if(!r.ok)throw new Error(j.error||'送出失敗');
-    showDone(j.confirmed,false);
-  }catch(e){$('err').textContent=e.message;$('ok').disabled=false;$('ok').textContent='確認'}
+  $('err').textContent='';$('padErr').textContent='';
+  $('pad').classList.add('on');sizePad();
 }
+// 簽名板：先顯示再量尺寸，畫布才不會是 0
+const cv=$('cv'),cx=cv.getContext('2d');let inked=false,drawing=false;
+function sizePad(){
+  const r=Math.min(window.devicePixelRatio||1,2),w=cv.clientWidth,h=cv.clientHeight;
+  cv.width=w*r;cv.height=h*r;cx.setTransform(r,0,0,r,0,0);
+  cx.fillStyle='#fff';cx.fillRect(0,0,w,h);cx.lineWidth=2.6;cx.lineCap=cx.lineJoin='round';cx.strokeStyle='#111';inked=false;
+}
+const pt=e=>{const b=cv.getBoundingClientRect();return[e.clientX-b.left,e.clientY-b.top]};
+cv.addEventListener('pointerdown',e=>{drawing=true;cv.setPointerCapture(e.pointerId);cx.beginPath();cx.moveTo(...pt(e))});
+cv.addEventListener('pointermove',e=>{if(!drawing)return;cx.lineTo(...pt(e));cx.stroke();inked=true});
+['pointerup','pointercancel'].forEach(t=>cv.addEventListener(t,()=>drawing=false));
+$('padClear').addEventListener('click',sizePad);
+$('padBack').addEventListener('click',()=>$('pad').classList.remove('on'));
+// 第二次按確認：連同簽名一起送出
+async function send(){
+  if(!inked){$('padErr').textContent='請先簽名';return}
+  $('padOk').disabled=true;$('padOk').textContent='送出中…';$('padErr').textContent='';
+  try{
+    const r=await fetch('/api/sign',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:T,signer:$('signer').value.trim(),confirmed:true,png:cv.toDataURL('image/png')})});
+    const j=await r.json();if(!r.ok)throw new Error(j.error||'送出失敗');
+    $('pad').classList.remove('on');showDone(j.confirmed,false);
+  }catch(e){$('padErr').textContent=e.message;$('padOk').disabled=false;$('padOk').textContent='確認'}
+}
+$('padOk').addEventListener('click',send);
 function showDone(s,already){
   $('signCard').hidden=true;$('problem').hidden=true;
   const at=new Date(s.at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});

@@ -27,6 +27,9 @@ async function call(path, body) {
 
 export const reply = (replyToken, messages) => call('/message/reply', { replyToken, messages });
 export const push = (to, messages) => call('/message/push', { to, messages });
+// 聊天室顯示「…」載入動畫（像對方正在輸入），不算訊息額度；機器人傳出訊息就自動消失。秒數 5～60，要是 5 的倍數
+export const loading = (userId, seconds) =>
+  call('/chat/loading/start', { chatId: userId, loadingSeconds: Math.min(60, Math.max(5, Math.ceil(seconds / 5) * 5)) }).catch((e) => console.warn('loading', e.message));
 
 export async function displayName(userId) {
   const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;

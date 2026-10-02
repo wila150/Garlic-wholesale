@@ -1,6 +1,6 @@
 // LINE Messaging API webhook：https://你的網址/api/webhook
 import { SHOP } from '../lib/config.js';
-import { verifySignature, reply, displayName, notifyAdmins } from '../lib/line.js';
+import { verifySignature, reply, displayName, notifyAdmins, loading } from '../lib/line.js';
 import { orderLink } from '../lib/token.js';
 import { originOf } from '../lib/http.js';
 import { openDate, today, addDays, addonDate } from '../lib/dates.js';
@@ -72,8 +72,9 @@ async function handle(e, origin) {
 
   // AI 叫貨（放在關鍵字前面，「幫我叫貨 大蒜3」才會走 AI）：直接打字（像「大蒜3、去皮15斤」）或傳手寫單照片，交給 aiOrder 函式處理
   if (process.env.AI_ORDER !== 'off') {
-    if (said && looksLikeOrder(said)) return queue({ type: 'text', text: said, userId: uid, replyToken: e.replyToken, origin });
-    if (e.type === 'message' && e.message.type === 'image') return queue({ type: 'image', messageId: e.message.id, userId: uid, replyToken: e.replyToken, origin });
+    // AI 讀的時候先顯示「…」（文字約 5 秒、照片約 20 秒）
+    if (said && looksLikeOrder(said)) return loading(uid, 20).then(() => queue({ type: 'text', text: said, userId: uid, replyToken: e.replyToken, origin }));
+    if (e.type === 'message' && e.message.type === 'image') return loading(uid, 60).then(() => queue({ type: 'image', messageId: e.message.id, userId: uid, replyToken: e.replyToken, origin }));
   }
 
   // 叫貨頁送出後，LIFF 會用店家的身分傳這幾句話進來，這裡回訂單卡（回覆不算訊息額度）

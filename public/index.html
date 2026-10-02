@@ -81,6 +81,12 @@ button{cursor:pointer}
 .done button{border:1px solid var(--leaf);background:transparent;color:var(--leaf);border-radius:20px;padding:8px 16px;font-weight:700}
 .toast{position:fixed;left:50%;bottom:calc(80px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--surface);padding:10px 16px;border-radius:8px;font-size:.9rem;opacity:0;pointer-events:none;transition:opacity .25s;max-width:90vw;z-index:30}
 .toast.show{opacity:1}
+.mode{background:#FFF6D6;color:#4A3B00;padding:9px 14px;font-size:.88rem;display:flex;gap:10px;align-items:center;border-bottom:1px solid var(--line)}
+.mode span{flex:1}
+.mode small{display:block;opacity:.85}
+.mode button{border:0;background:#E0A800;color:#241C00;border-radius:18px;padding:7px 14px;font-weight:700;white-space:nowrap}
+.mode.on{background:var(--leaf);color:#fff}
+.mode.on button{background:#fff;color:var(--leaf)}
 [hidden]{display:none!important}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
 </style>
@@ -93,6 +99,7 @@ button{cursor:pointer}
     <input id="q" type="search" placeholder="找品項，例如：蒜仁" aria-label="搜尋品項">
     <div class="chips" id="chips"></div>
   </div>
+  <div class="mode" id="modeBar" hidden></div>
   <div class="list" id="plist" hidden></div>
   <div class="bar" id="bar" hidden><span id="cartInfo"></span><button id="review" disabled>送出訂單</button></div>
   <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"><div class="sheet-in"><h3 id="sheetTitle">確認這次叫的貨</h3><div class="sl" id="sheetList"></div><div class="err" id="err" role="alert"></div><div class="sa"><button id="back">返回修改</button><button class="go" id="submit">確認送出</button></div></div></div>
@@ -110,6 +117,8 @@ function toast(t){const el=$('toast');el.textContent=t;el.classList.add('show');
 // 從 LIFF（liff.line.me/…?t=…）打開時，參數先包在 liff.state 裡
 const Q=(()=>{const q=new URLSearchParams(location.search),st=q.get('liff.state');return st?new URLSearchParams(st.replace(/^[^?]*\?/,'')):q})();
 const T=Q.get('t')||'',DRAFT=Q.get('d')||'';
+// order：叫配送日的貨；addon：截單後補單（另開一張，跟原本的訂單分開）
+let MODE='order';
 let D=null,cart={},cat='常叫',liffReady=false;
 const PM=()=>Object.fromEntries(D.products.map(p=>[p.id,p]));
 
@@ -118,19 +127,32 @@ async function load(){
   try{r=await fetch('/api/shop?t='+encodeURIComponent(T)+(DRAFT?'&d='+encodeURIComponent(DRAFT):''));D=await r.json()}catch{D={error:'載入失敗，請重新整理'}}
   if(D.shopName){$('title').textContent=D.shopName}
   if(!r?.ok){$('subtitle').textContent='';$('msg').hidden=false;$('msg').textContent=D.error;return}
-  document.title=D.store.name+' 叫貨單';
-  $('title').textContent=D.store.name+'・叫貨單';
-  $('subtitle').textContent=`${D.dateLabel} 配送，${D.cutoff} 前可以改`;
+  D.main={date:D.date,dateLabel:D.dateLabel,cutoff:D.cutoff,order:D.order};
   ['tools','plist','bar'].forEach(id=>$(id).hidden=false);
-  cart={};(D.order?.items||[]).forEach(i=>cart[i.pid]=i.qty);
   // 訂單裡有、但已經下架的品項，也要顯示出來
-  (D.order?.items||[]).forEach(i=>{if(!PM()[i.pid])D.products.push({id:i.pid,name:i.name,unit:i.unit,cat:'',on:false})});
-  cat=frequent().size?'常叫':'全部';
+  [...(D.order?.items||[]),...(D.addon?.order?.items||[])].forEach(i=>{if(!PM()[i.pid])D.products.push({id:i.pid,name:i.name,unit:i.unit,cat:'',on:false})});
+  setMode(Q.get('m')==='addon'&&D.addon&&!D.draft?'addon':'order');
   // 從 LINE「用叫貨單修改」進來：把 AI 整理的品項加進去
-  if(D.draft){D.draft.items.forEach(i=>{cart[i.pid]=Math.round(((cart[i.pid]||0)+i.qty)*10000)/10000});cat='全部'}
-  render();
+  if(D.draft){D.draft.items.forEach(i=>{cart[i.pid]=Math.round(((cart[i.pid]||0)+i.qty)*10000)/10000});cat='全部';render()}
   if(D.draft)toast(D.draft.unknown.length?`已帶入 AI 整理的品項。看不懂的：${D.draft.unknown.join('、')}`:'已帶入 AI 整理的品項，確認後按送出');
   if(D.liffId)initLiff();
+}
+function setMode(m){
+  MODE=m;
+  const A=D.addon,src=m==='addon'?{date:A.date,dateLabel:A.dateLabel,cutoff:A.until,order:A.order}:D.main;
+  Object.assign(D,{date:src.date,dateLabel:src.dateLabel,cutoff:src.cutoff,order:src.order});
+  cart={};(D.order?.items||[]).forEach(i=>cart[i.pid]=i.qty);
+  document.title=D.store.name+(m==='addon'?' 補單':' 叫貨單');
+  $('title').textContent=D.store.name+(m==='addon'?'・補單':'・叫貨單');
+  $('subtitle').textContent=m==='addon'?`${D.dateLabel} 配送，${D.cutoff} 前可以補`:`${D.dateLabel} 配送，${D.cutoff} 前可以改`;
+  const bar=$('modeBar');bar.hidden=!A;bar.classList.toggle('on',m==='addon');
+  if(A&&m==='order')bar.innerHTML=`<span>${esc(A.dateLabel)} 的貨已截單，要加點？<small>${esc(A.until)} 前可以補單，會另開一張</small></span><button data-mode="addon">補單</button>`;
+  if(A&&m==='addon'){
+    const n=A.others.reduce((a,o)=>a+o.items.length,0);
+    bar.innerHTML=`<span>這是另外一張補單${n?`<small>原本的訂單 ${n} 樣不會變，已經在處理了</small>`:''}</span><button data-mode="order">回到叫 ${esc(D.main.dateLabel)}</button>`;
+  }
+  cat=m==='addon'?'全部':frequent().size?'常叫':'全部';
+  $('q').value='';render();$('plist').scrollTop=0;
 }
 function initLiff(){
   const s=document.createElement('script');s.src='https://static.line-scdn.net/liff/edge/2/sdk.js';
@@ -166,16 +188,17 @@ function rowHTML(p){
 function renderList(){
   const items=visible(),q=$('q').value.trim();
   let h='';
-  if(cat==='常叫'&&!q&&D.last&&!Object.values(cart).some(v=>v>0))
+  if(MODE==='order'&&cat==='常叫'&&!q&&D.last&&!Object.values(cart).some(v=>v>0))
     h+=`<div class="repeat"><span>上次叫了 ${D.last.items.length} 樣</span><button data-repeat="1">照上次叫</button></div>`;
   h+=items.length?items.map(rowHTML).join(''):`<div class="noitem">${q?'找不到這個品項，可以在 LINE 留言告訴老闆':'還沒有常叫的品項，點「全部」或分類開始選'}</div>`;
   $('plist').innerHTML=h;
 }
 function renderBar(){
   const n=Object.values(cart).filter(v=>v>0).length;
-  $('cartInfo').textContent=n?`已選 ${n} 樣`:(had()?'全部清空會取消這次的訂單':'還沒選任何品項');
+  const w=MODE==='addon'?'補單':'訂單';
+  $('cartInfo').textContent=n?`已選 ${n} 樣`:(had()?`全部清空會取消這張${w}`:'還沒選任何品項');
   $('review').disabled=!n&&!had();
-  $('review').textContent=had()?'更新訂單':'送出訂單';
+  $('review').textContent=had()?`更新${w}`:`送出${w}`;
 }
 function setQty(pid,q){
   q=Math.max(0,Math.min(999,Math.round(q*10000)/10000));
@@ -192,7 +215,7 @@ function openSheet(){
   const pm=PM(),old=Object.fromEntries((D.order?.items||[]).map(i=>[i.pid,i.qty]));
   const ids=[...new Set([...Object.keys(cart).filter(k=>cart[k]>0),...Object.keys(old)])];
   ids.sort((a,b)=>D.products.indexOf(pm[a])-D.products.indexOf(pm[b]));
-  $('sheetTitle').textContent=had()?'確認修改後的訂單':'確認這次叫的貨';
+  $('sheetTitle').textContent=MODE==='addon'?(had()?'確認修改後的補單':'確認要補的貨'):had()?'確認修改後的訂單':'確認這次叫的貨';
   $('sheetList').innerHTML=ids.map(pid=>{
     const p=pm[pid],n=cart[pid]||0,o=old[pid]||0;
     const chg=!had()||n===o?'':o===0?'新增':n===0?'取消':`原 ${qtyText(o,p.unit)}`;
@@ -204,13 +227,14 @@ async function submit(){
   const btn=$('submit');btn.disabled=true;btn.textContent='送出中…';
   try{
     const items=Object.entries(cart).filter(([,q])=>q>0).map(([pid,qty])=>({pid,qty}));
-    const r=await fetch('/api/shop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:T,date:D.date,items,viaLiff:liffReady,draftId:D.draft?.id})});
+    const r=await fetch('/api/shop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:T,date:D.date,items,mode:MODE,viaLiff:liffReady,draftId:D.draft?.id})});
     const j=await r.json();
     if(!r.ok)throw new Error(j.error||'送出失敗');
     const wasHad=had();
     D.order=j.order.items.length?j.order:null;D.draft=null;
+    if(MODE==='addon')D.addon.order=D.order;else D.main.order=D.order;
     $('sheet').classList.remove('on');
-    const word=!j.order.items.length?'取消今天的訂單':wasHad?'訂單已更新':'訂單已送出';
+    const word=MODE==='addon'?(!j.order.items.length?'取消補單':wasHad?'補單已更新':'補單已送出'):!j.order.items.length?'取消今天的訂單':wasHad?'訂單已更新':'訂單已送出';
     if(liffReady){
       // 用店家的身分在聊天室說一句話，機器人會回訂單卡
       try{await liff.sendMessages([{type:'text',text:word}]);liff.closeWindow();return}catch{}
@@ -220,8 +244,8 @@ async function submit(){
   finally{btn.disabled=false;btn.textContent='確認送出'}
 }
 function showDone(word,o){
-  $('done').innerHTML=`<div class="ok" aria-hidden="true">${o.items.length?'✅':'🗑️'}</div><h2 style="margin:0">${word==='取消今天的訂單'?'這次的訂單已取消':word}</h2>
-    ${o.items.length?`<p>${D.dateLabel} 配送，${D.cutoff} 前都還可以改</p><ul>${o.items.map(i=>`<li><span>${esc(i.name)}</span><b>${esc(qtyText(i.qty,i.unit))}</b></li>`).join('')}</ul>`:''}
+  $('done').innerHTML=`<div class="ok" aria-hidden="true">${o.items.length?'✅':'🗑️'}</div><h2 style="margin:0">${word==='取消今天的訂單'?'這次的訂單已取消':word==='取消補單'?'補單已取消':word}</h2>
+    ${o.items.length?`<p>${D.dateLabel} 配送，${D.cutoff} 前都還可以${MODE==='addon'?'補':'改'}</p><ul>${o.items.map(i=>`<li><span>${esc(i.name)}</span><b>${esc(qtyText(i.qty,i.unit))}</b></li>`).join('')}</ul>`:''}
     <p>在 LINE 點「我的訂單」隨時可以查。</p><button id="again">繼續修改</button>`;
   $('done').classList.add('on');
   $('again').onclick=()=>{$('done').classList.remove('on');render()};
@@ -229,6 +253,7 @@ function showDone(word,o){
 
 document.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.mode){setMode(b.dataset.mode);return}
   if(b.dataset.cat){cat=b.dataset.cat;$('q').value='';renderChips();renderList();$('plist').scrollTop=0}
   if(b.dataset.dq){const pid=b.dataset.pid,q=cart[pid]||0,d=+b.dataset.dq;setQty(pid,d<0&&q<1?0:q+d)}
   if(b.dataset.repeat){const pm=PM();let skip=0;D.last.items.forEach(i=>{if(pm[i.pid]?.on)cart[i.pid]=i.qty;else skip++});render();toast(skip?`已帶入上次的品項，有 ${skip} 樣暫停供貨`:'已帶入上次的品項，可以再用 + − 調整')}

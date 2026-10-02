@@ -1,8 +1,9 @@
 // 後台 API：用 Firebase 登入，依角色決定能做什麼（見 lib/auth.js）
-import { SHOP, CATEGORIES, CUTOFF_HOUR } from '../lib/config.js';
+import { SHOP, CATEGORIES } from '../lib/config.js';
+import { saveRules } from '../lib/rules.js';
 import { json, fail, readJSON, UserError } from '../lib/http.js';
 import { push } from '../lib/line.js';
-import { openDate, today, thisMonth, isDate, isMonth } from '../lib/dates.js';
+import { openDate, today, thisMonth, isDate, isMonth, cutoffLabel, getRulesNow } from '../lib/dates.js';
 import * as shop from '../lib/shop.js';
 import { signedIn, need, can, ROLES, listUsers, addUser, updateUser, removeUser } from '../lib/auth.js';
 import { remindText, statementMessage, approvedText, dunningText, receiptMessage } from '../lib/messages.js';
@@ -77,7 +78,8 @@ export async function GET(request) {
       shop: { name: SHOP.name, phone: SHOP.phone, payTerms: SHOP.payTerms },
       categories: CATEGORIES,
       units,
-      cutoffHour: CUTOFF_HOUR,
+      cutoffLabel: cutoffLabel(openDate()),
+      rules: getRulesNow(),
       today: today(),
       openDate: openDate(),
       date,
@@ -235,6 +237,9 @@ export async function POST(request) {
         await getFirestore().doc(`signatures/${b.date}_${key}`).set(rec);
         return json({ signature: { ...rec, png: undefined, hasPng: !!png } });
       }
+      case 'rules':
+        need(me, 'users');
+        return json({ rules: await saveRules(b.rules || {}), openDate: openDate(), cutoffLabel: cutoffLabel(openDate()) });
       case 'costTypes':
         need(me, 'bills');
         return json({ costTypes: await report.saveCostTypes(b.costTypes) });

@@ -3,9 +3,9 @@ import { SHOP } from '../lib/config.js';
 import { verifySignature, reply, displayName, notifyAdmins } from '../lib/line.js';
 import { orderLink } from '../lib/token.js';
 import { originOf } from '../lib/http.js';
-import { openDate, today, addDays } from '../lib/dates.js';
+import { openDate, today, addDays, addonDate } from '../lib/dates.js';
 import * as shop from '../lib/shop.js';
-import { welcome, orderMessage, orderCard, myOrders } from '../lib/messages.js';
+import { welcome, orderMessage, orderCard, myOrders, addonCard, flex } from '../lib/messages.js';
 import { looksLikeOrder } from '../lib/ai.js';
 import { queue, confirmDraft } from '../lib/aiorder.js';
 
@@ -78,11 +78,22 @@ async function handle(e, origin) {
 
   // 叫貨頁送出後，LIFF 會用店家的身分傳這幾句話進來，這裡回訂單卡（回覆不算訊息額度）
   const fromLiff = said.match(/^(訂單已送出|訂單已更新|取消今天的訂單)$/);
+  const A = addonDate();
+  const addonUrl = `${url}&m=addon`;
+  // 截單後加點：補單跟原本的訂單分開，另開一張
+  if (/^(補單|加點|追加|補單已送出|補單已更新|取消補單)$/.test(said)) {
+    if (!A) return say({ type: 'text', text: '現在沒有可以補單的配送日。要叫貨請點「我要叫貨」；急著加點請直接留言給老闆。' });
+    if (said === '取消補單') return say({ type: 'text', text: '好的，補單已取消。' });
+    const o = await shop.addonSlipOf(store.id, A);
+    return say(flex(said.startsWith('補單已') ? said : '補單', addonCard(store, A, o, addonUrl)));
+  }
   if (fromLiff || wantsOrder) {
     const D = openDate();
     const o = await shop.getOrder(D, store.id);
     if (said === '取消今天的訂單') return say({ type: 'text', text: '好的，這次的訂單已取消。' });
     const title = fromLiff ? (said === '訂單已更新' ? '訂單已更新' : '訂單已收到') : '叫貨單';
+    // 還能補單的話，多附一張補單卡片（回覆不算訊息額度）
+    if (!fromLiff && A) return say(flex('叫貨單', { type: 'carousel', contents: [orderCard(title, store, D, o, url), addonCard(store, A, await shop.addonSlipOf(store.id, A), addonUrl)] }));
     return say(orderMessage(title, store, D, o, url));
   }
 
@@ -96,7 +107,7 @@ async function handle(e, origin) {
       for (const o of await shop.slipsOfDay(store.id, d)) {
         const seq = o.seq || 1;
         if (d === D && seq === 1) continue;
-        const title = seq > 1 ? `補單 #${seq}` : d === today() ? '今天配送' : '已截單';
+        const title = seq > 1 || o.addon ? `補單 #${seq}` : d === today() ? '今天配送' : '已截單';
         cards.push(orderCard(title, store, d, o, url, false));
       }
     }

@@ -14,7 +14,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { DEFAULT_PRODUCTS, CATEGORIES, DEFAULT_UNITS, UNITS_VERSION, UNITS_ADDED } from './config.js';
 import { qtyText, roundQty } from './qty.js';
 import { UserError } from './http.js';
-import { openDate, isDate, today } from './dates.js';
+import { openDate, isDate, today, addonDate } from './dates.js';
 
 const db = () => getFirestore();
 const doc = (path) => db().doc(path);
@@ -348,7 +348,7 @@ export async function saveOrder(sid, date, items, by, who = '', seq = 1) {
     const p = pm.get(it.pid);
     const was = oldMap.get(it.pid);
     if (!p && !was) continue;
-    if (p && !p.on && !was && by === '店家') throw new UserError(`「${p.name}」暫時沒有供貨`);
+    if (p && !p.on && !was && by.startsWith('店家')) throw new UserError(`「${p.name}」暫時沒有供貨`);
     seen.add(it.pid);
     const src = p || was;
     // 叫貨量沒變的話，保留理貨已經秤好的實出量
@@ -376,6 +376,7 @@ export async function saveOrder(sid, date, items, by, who = '', seq = 1) {
     month: date.slice(0, 7),
     storeId: sid,
     seq,
+    ...(old?.addon || by === '店家補單' ? { addon: true } : {}), // 店家自己開的補單
     items: next,
     createdAt: old?.items.length ? old.createdAt : at,
     updatedAt: at,
@@ -415,15 +416,31 @@ export async function slipsOfDay(sid, date) {
   return snap.docs.map((d) => d.data()).filter((o) => o.items.length).sort((a, b) => (a.seq || 1) - (b.seq || 1));
 }
 
-// 簽收後還要追加：開一張新的補單（前面每張都簽收了才能開）
+// 後台開補單：跟原本的單分開，另開一張（原本的單有沒有確認都可以）
 export async function newSlip(sid, date, pid, qty, who) {
-  const snap = await db().collection('orders').where('date', '==', date).where('storeId', '==', sid).get();
-  const seqs = snap.docs.map((d) => d.data()).filter((o) => o.items.length).map((o) => o.seq || 1);
+  const seqs = (await slipsOfDay(sid, date)).map((o) => o.seq || 1);
   if (!seqs.length) throw new UserError('這家店這天還沒有出貨單，直接加品項就好');
-  for (const n of seqs) {
-    if (!(await doc(`signatures/${date}_${slipKey(sid, n)}`).get()).exists) throw new UserError('還有沒確認的配送單，直接在那張加品項就好');
-  }
   return saveOrder(sid, date, [{ pid, qty }], '後台', who, Math.max(...seqs) + 1);
+}
+
+// 店家自己補單（截單後加點）：跟原本的訂單分開。還沒確認的店家補單就繼續加在同一張，確認過了再另開一張
+export async function addonSlipOf(sid, date) {
+  const slips = await slipsOfDay(sid, date);
+  for (const o of slips.filter((x) => x.addon).reverse()) {
+    if (!(await doc(`signatures/${date}_${slipKey(sid, o.seq || 1)}`).get()).exists) return o;
+  }
+  return null;
+}
+export async function saveAddon(sid, date, items) {
+  if (date !== addonDate()) throw new UserError('補單時間已經過了，要追加請直接留言給老闆', 409);
+  const cur = await addonSlipOf(sid, date);
+  let seq = cur?.seq;
+  if (!seq) {
+    // 用沒用過的序號（包含已經清空的單），補單才不會蓋到別張
+    const snap = await db().collection('orders').where('date', '==', date).where('storeId', '==', sid).get();
+    seq = Math.max(0, ...snap.docs.map((d) => d.data().seq || 1)) + 1;
+  }
+  return saveOrder(sid, date, items, '店家補單', '', seq);
 }
 
 // 計價用的數量：理貨秤過就用實出量，沒秤就用叫貨量

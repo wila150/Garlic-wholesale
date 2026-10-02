@@ -13,6 +13,7 @@ import * as shop from './api/shop.js';
 import * as admin from './api/admin.js';
 import * as sign from './api/sign.js';
 import { processJob, cleanOldPhotos } from './lib/aiorder.js';
+import { loadRules } from './lib/rules.js';
 
 initializeApp();
 setGlobalOptions({ region: 'asia-east1', maxInstances: 5 });
@@ -38,6 +39,7 @@ export const api = onRequest({ secrets, cors: false }, async (req, res) => {
     body: ['GET', 'HEAD'].includes(req.method) ? undefined : req.rawBody,
   });
 
+  await loadRules(); // 截單時間、公休日、補單規則（後台設定）
   const r = await fn(request);
   r.headers.forEach((v, k) => res.set(k, v));
   res.status(r.status).send(Buffer.from(await r.arrayBuffer()));
@@ -48,6 +50,7 @@ export const aiOrder = onDocumentCreated({ document: 'aiJobs/{id}', secrets: aiS
   const job = event.data?.data();
   if (!job) return;
   try {
+    await loadRules();
     await processJob(job, event.params.id);
   } finally {
     await event.data.ref.delete(); // 處理完就刪，replyToken 這類東西不留著

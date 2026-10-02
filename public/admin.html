@@ -181,6 +181,9 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .sacts button{border-radius:6px;padding:6px 10px;font-weight:700;font-size:.85rem}
 .sacts .ok{border:0;background:var(--leaf);color:#fff}
 .sacts .pbtn{margin:0;width:auto}
+.rules .chkl{flex-direction:row;align-items:center;gap:8px;font-weight:700}.rules .chkl input{width:20px;height:20px}
+.rules .wds{grid-column:1/-1}.wds input{padding:0}
+.wds{border:0;padding:0;margin:0;min-width:0}.wds legend{font-size:.85rem;color:var(--muted);padding:0;margin-bottom:4px}.wds div{display:flex;gap:6px;flex-wrap:wrap}.wds label{display:inline-flex;flex-direction:row;align-items:center;gap:4px;border:1px solid var(--line);border-radius:16px;padding:4px 10px;font-size:.9rem}
 .manual{display:block;text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--leaf);border-radius:10px;padding:12px 14px;margin-bottom:22px}.manual b{font-size:1.05rem}.manual small{display:block;color:var(--muted)}.manual:hover{border-color:var(--leaf)}
 .devbox{margin-top:28px;border-top:1px dashed var(--line);padding-top:10px;color:var(--muted)}.devbox summary{cursor:pointer;font-size:.85rem}.devbox .danger{border:1px solid var(--alert);background:transparent;color:var(--alert);font-weight:700;border-radius:8px;padding:8px 14px}
 .sacts .delslip{border:0;background:transparent;color:var(--alert);font-weight:700;margin-left:auto}
@@ -382,6 +385,17 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 
   <section id="users" hidden>
     <a class="manual" href="/manual" target="_blank" rel="noopener"><b>📖 使用說明書</b><small>每天的流程、店家怎麼叫貨、各角色怎麼用、出問題怎麼辦。可以印出來或轉傳給員工。</small></a>
+    <div id="rulesBox">
+    <h2>截單和補單</h2>
+    <p class="sub">店家截單前可以自己改訂單；截單後要加點，在 LINE 點「我要叫貨」就會看到「補單」，補單會另開一張，跟原本的訂單分開。</p>
+    <form class="addform rules" id="rulesForm" onsubmit="return false">
+      <label>截單時間（配送日前一天）<input id="rCutoff" type="time" step="60"></label>
+      <label class="chkl"><input type="checkbox" id="rAddon"> 截單後店家可以自己補單</label>
+      <label>補單截止（配送當天）<input id="rAddonUntil" type="time" step="60"></label>
+      <fieldset class="wds"><legend>公休日（不配送）</legend><div id="rClosed"></div></fieldset>
+      <button id="saveRules" type="button">儲存</button>
+    </form>
+    </div>
     <div id="userBox">
     <h2>後台帳號</h2>
     <p class="sub">員工用自己的 Google 帳號登入，在這裡加入他的 Gmail 並選角色就好，不用設密碼。<b>老闆</b>：全部；<b>會計</b>：單價、對帳、品項、改單；<b>理貨</b>：採買總表、出貨單、改數量（看不到單價）；<b>司機</b>：只看出貨單。</p>
@@ -532,7 +546,7 @@ function renderAll(){
   $('shopName').textContent=D.shop.name+' 叫貨後台';
   const n=new Set(D.orders.map(o=>o.storeId)).size;
   $('headInfo').textContent=`${dlabel(D.date)} 配送：${n}/${activeStores().length} 家已叫貨`;
-  $('cutoffTag').textContent=`${dlabel(D.openDate)} 的貨 ${D.openDate===addDays(D.today,1)?'今晚':md(addDays(D.openDate,-1))} ${D.cutoffHour}:00 截單`;
+  $('cutoffTag').textContent=`${dlabel(D.openDate)} 的貨 ${D.cutoffLabel} 截單`;
   $('date').value=D.date;$('month').value=D.month;
   $('dateLabel').textContent=dlabel(D.date)+' 配送';
   const open=D.date===D.openDate,past=D.date<=D.today;
@@ -545,7 +559,8 @@ function renderAll(){
   if(may('bills'))renderBills();
   if(may('products')){renderUnits();renderProducts()}
   if(may('stores'))renderStores();
-  $('userBox').hidden=!may('users');
+  $('userBox').hidden=$('rulesBox').hidden=!may('users');
+  if(may('users'))renderRules();
   if(may('users'))renderUsers();
   $('devBox').hidden=!D.me.engineer;
 }
@@ -670,14 +685,15 @@ function renderSlips(){
         return `<div class="it ${q===0?'short':''}"><span>${esc(i.name)}${diff?`<small class="ord">叫 ${esc(qtyText(i.qty,i.unit))}</small>`:''}${q===0?'<small class="ord">缺貨</small>':''}</span>
         <span class="stepper"><button data-step="-1" data-sid="${k}" data-pid="${i.pid}" aria-label="${esc(i.name)}實出減少">−</button><input type="text" inputmode="decimal" ${ro?'readonly':''} value="${esc(editText(q,i.unit))}" data-sqin="${k}" data-pid="${i.pid}" aria-label="${esc(i.name)}實出量，可以直接打">${/斤|兩/.test(editText(q,i.unit))?'':`<span class="u">${esc(i.unit)}</span>`}<button data-step="1" data-sid="${k}" data-pid="${i.pid}" aria-label="${esc(i.name)}實出增加">+</button></span></div>`;
       }).join('');
-      const extra=!locked?addRow(k,`幫${esc(s.name)}加品項`,'加入','data-additem'):last&&may('editOrders')?`<div class="newslip">${addRow(s.id,`幫${esc(s.name)}開補單`,'開補單','data-newslip')}</div>`:'';
-      return `<div class="slip ${locked?'locked':''} ${(o.seq||1)>1?'supp':''}"><div class="slip-h"><b>${esc(s.name)}${(o.seq||1)>1?` <span class="suppno">補單 #${o.seq}</span>`:''}</b><span class="stop">第 ${s.route} 站</span></div>${items}
+      // 補單跟原本的單分開：最後一張下面隨時可以另開補單
+      const extra=(!locked?addRow(k,`幫${esc(s.name)}加品項`,'加入','data-additem'):'')+(last&&may('editOrders')?`<div class="newslip">${addRow(s.id,`幫${esc(s.name)}開補單`,'開補單','data-newslip')}</div>`:'');
+      return `<div class="slip ${locked?'locked':''} ${(o.seq||1)>1?'supp':''}"><div class="slip-h"><b>${esc(s.name)}${(o.seq||1)>1||o.addon?` <span class="suppno">${o.addon?'店家補單':'補單'} #${o.seq||1}</span>`:''}</b><span class="stop">第 ${s.route} 站</span></div>${items}
         ${extra}${slipActs(s,o,k)}</div>`;
     });
   }).join('')||'<div class="empty">還沒有店家，到「店家」新增。</div>';
   const sm=SM();
   const logs=[...D.orders,...(D.emptyLogs||[])].flatMap(o=>(o.log||[]).map(l=>({...l,store:(sm[o.storeId]?.name||'')+((o.seq||1)>1?` 補單#${o.seq}`:'')}))).sort((a,b)=>b.at.localeCompare(a.at));
-  $('logBox').innerHTML=`<h3>改單紀錄</h3>`+(logs.length?`<ol>${logs.map(l=>`<li>${hm(l.at)} ${esc(l.store)}（${l.by==='後台'?`後台改${l.who?'・'+esc(l.who):''}`:l.who?'店家・'+esc(l.who):'店家自己改'}）：${esc(l.text)}</li>`).join('')}</ol>`:`<div class="empty">這天沒有修改紀錄。</div>`);
+  $('logBox').innerHTML=`<h3>改單紀錄</h3>`+(logs.length?`<ol>${logs.map(l=>`<li>${hm(l.at)} ${esc(l.store)}（${l.by==='後台'?`後台改${l.who?'・'+esc(l.who):''}`:l.by==='店家補單'?'店家補單':l.who?'店家・'+esc(l.who):'店家自己改'}）：${esc(l.text)}</li>`).join('')}</ol>`:`<div class="empty">這天沒有修改紀錄。</div>`);
 }
 // undo=false 是按「復原」時用的，不再跳復原
 // mode：'ship' 改實出量（出貨單的框）；'qty' 改叫貨量（加品項）
@@ -879,6 +895,16 @@ async function approve(uid){
   try{const j=await api('POST',{action:'approve',userId:uid,storeId,newStore:{name}});await load();toast(`已開通「${j.store.name}」，也通知對方了`)}catch(e){toast(e.message)}
 }
 
+/* ---------- 截單和補單 ---------- */
+function renderRules(){
+  const r=D.rules;if(!r||$('rulesForm').dataset.dirty)return;
+  $('rCutoff').value=r.cutoff;$('rAddon').checked=r.addon;$('rAddonUntil').value=r.addonUntil;$('rAddonUntil').disabled=!r.addon;
+  $('rClosed').innerHTML='日一二三四五六'.split('').map((w,i)=>`<label><input type="checkbox" value="${i}" ${r.closed.includes(i)?'checked':''}>週${w}</label>`).join('');
+}
+async function saveRules(){
+  const rules={cutoff:$('rCutoff').value,addon:$('rAddon').checked,addonUntil:$('rAddonUntil').value,closed:[...$('rClosed').querySelectorAll('input:checked')].map(x=>+x.value)};
+  try{const j=await api('POST',{action:'rules',rules});D.rules=j.rules;delete $('rulesForm').dataset.dirty;await load();toast(`已儲存：配送日前一天 ${j.rules.cutoff} 截單${j.rules.addon?`，補單到配送當天 ${j.rules.addonUntil}`:'，不開放店家補單'}`)}catch(e){toast(e.message)}
+}
 /* ---------- 帳號 ---------- */
 async function resetData(){
   const t=prompt('會刪掉所有訂單、配送單確認、單價、對帳、成本和 AI 紀錄（品項、店家、帳號保留），救不回來。\n\n確定的話請輸入「重置」：');
@@ -1122,6 +1148,8 @@ document.addEventListener('keydown',e=>{
 document.addEventListener('focusin',e=>{if(e.target.dataset?.sqin||e.target.dataset?.dp)e.target.select()});
 window.addEventListener('beforeunload',e=>{if(pDirty||sDirty||gDirty||rDirty||$('dpInfo').textContent==='有尚未儲存的修改')e.preventDefault()});
 $('resetData').addEventListener('click',resetData);
+$('saveRules').addEventListener('click',saveRules);
+$('rulesForm').addEventListener('input',()=>{$('rulesForm').dataset.dirty=1;$('rAddonUntil').disabled=!$('rAddon').checked});
 initAuth().catch(e=>{$('login').hidden=false;$('loginErr').textContent='登入元件載入失敗，請重新整理'});
 </script>
 </body>

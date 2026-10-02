@@ -1,6 +1,6 @@
 // LINE 訊息（Flex Message）。給店家的叫貨訊息不放價格，只有對帳單有金額。
-import { SHOP, CUTOFF_HOUR } from './config.js';
-import { label, cutoffLabel, md } from './dates.js';
+import { SHOP } from './config.js';
+import { label, cutoffLabel, md, cutoffTime, addonUntilLabel } from './dates.js';
 import { qtyText } from './qty.js';
 
 const C = { head: '#1F3A2C', headText: '#EEF3EA', sub: '#A9BFAE', tag: '#F5D547', text: '#1B2A21', muted: '#5B6B60', green: '#06C755' };
@@ -29,13 +29,13 @@ function bubble(title, sub, body, footer) {
     ...(footer ? { footer: { type: 'box', layout: 'vertical', spacing: 'sm', contents: footer } } : {}),
   };
 }
-const flex = (altText, contents) => ({ type: 'flex', altText, contents });
+export const flex = (altText, contents) => ({ type: 'flex', altText, contents });
 
 export function welcome(bound) {
   return {
     type: 'text',
     text: bound
-      ? `您好，點下方「我要叫貨」就可以叫貨，不用打字。前一天 ${CUTOFF_HOUR}:00 截單，隔天送到。`
+      ? `您好，點下方「我要叫貨」就可以叫貨，不用打字。前一天 ${cutoffTime()} 截單，隔天送到。`
       : `您好，這裡是${SHOP.name}。\n第一次使用請點下方「我要叫貨」申請開通，老闆開通後就能直接在 LINE 叫貨。`,
   };
 }
@@ -46,11 +46,20 @@ export function orderCard(title, store, date, order, url, editable = true) {
   const body = items.length
     ? items.map((i) => row(i.name, qtyText(i.qty, i.unit), { weight: 'bold' }))
     : [text('還沒叫貨', { color: C.muted })];
-  const foot = editable ? `共 ${items.length} 項，${cutoffLabel(date)} 前可以修改` : `共 ${items.length} 項，${title.startsWith('補單') ? '老闆幫您追加的' : '已截單'}`;
+  const foot = editable ? `共 ${items.length} 項，${cutoffLabel(date)} 前可以修改` : `共 ${items.length} 項，${title.startsWith('補單') ? (order?.addon ? '您自己補的' : '老闆幫您追加的') : '已截單'}`;
   return bubble(title, `${store.name}・${label(date)} 配送`, [...body, sep, text(foot, { size: 'xs', color: C.muted, margin: 'md' })],
     editable ? [button(items.length ? '修改訂單' : '我要叫貨', url)] : null);
 }
 export const orderMessage = (title, ...args) => flex(`${title}`, orderCard(title, ...args));
+
+// 截單後補單：另開一張，跟原本的訂單分開
+export function addonCard(store, date, order, url) {
+  const items = order?.items || [];
+  const body = items.length
+    ? [...items.map((i) => row(i.name, qtyText(i.qty, i.unit), { weight: 'bold' })), sep, text(`共 ${items.length} 項，${addonUntilLabel(date)} 前可以修改`, { size: 'xs', color: C.muted, margin: 'md' })]
+    : [text(`${label(date)} 的貨已經截單了。要加點的話按下面「我要補單」，會另開一張補單，原本的訂單不會變。`), text(`${addonUntilLabel(date)} 前可以補`, { size: 'xs', color: C.muted, margin: 'md' })];
+  return bubble(items.length ? '我的補單' : '要加點？', `${store.name}・${label(date)} 配送`, body, [button(items.length ? '修改補單' : '我要補單', url)]);
+}
 
 export function myOrders(store, cards) {
   return flex('我的訂單', cards.length === 1 ? cards[0] : { type: 'carousel', contents: cards });

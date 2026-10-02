@@ -175,7 +175,7 @@ details>div p+p{margin-top:8px}
   <div class="role-head">
     <p class="who">所有人先看這裡</p>
     <h2>📅 每天的流程</h2>
-    <p>每家店每個配送日一張單。<b>配送日前一天晚上 22:00 截單</b>，截單後店家就不能改，叫貨頁會自動換到下一個配送日。</p>
+    <p>每家店每個配送日一張單。<b>配送日前一天截單</b>（預設晚上 22:00，老闆在「設定」可以改），截單後店家就不能改，叫貨頁會自動換到下一個配送日。截單後要加點，店家可以自己<b>補單</b>，補單另開一張，跟原本的訂單分開。</p>
   </div>
   <div class="body">
     <ol class="steps">
@@ -187,7 +187,7 @@ details>div p+p{margin-top:8px}
       <li><b>列印、出車</b><span>按 <span class="btn">列印</span> 印出出貨單（A4 或 80mm 出單機），交給店家用筆簽，或免簽。</span></li>
       <li><b>月底對帳</b><span>「對帳」分頁有每家店的月結明細，可以用 LINE 傳對帳單、勾選已收款、匯出 Excel。</span></li>
     </ol>
-    <div class="note"><strong>確認後就不能改　</strong>配送單確認後，數量和品項都鎖住。要追加東西，用 <span class="btn">開補單</span> 另開一張，對帳時會自動合併到同一天。</div>
+    <div class="note"><strong>確認後就不能改　</strong>配送單確認後，數量和品項都鎖住。要追加東西，店家可以自己補單，或你用 <span class="btn">開補單</span> 另開一張，對帳時會自動合併到同一天。</div>
   </div>
 </section>
 
@@ -246,10 +246,18 @@ details>div p+p{margin-top:8px}
     <ul class="cl">
       <li><span><em class="cmd">我要叫貨</em></span><span class="d">打開這次配送日的叫貨單</span></li>
       <li><span><em class="cmd">拍照叫貨</em></span><span class="d">拍叫貨單照片給 AI 整理</span></li>
+      <li><span><em class="cmd">補單</em></span><span class="d">截單後要加點，另開一張補單（也可以打「加點」「追加」）</span></li>
       <li><span><em class="cmd">我的訂單</em></span><span class="d">看這次叫了什麼；已截單、還沒送的也會列出來</span></li>
       <li><span><em class="cmd">聯絡老闆</em></span><span class="d">直接在聊天室留言，老闆看到會回</span></li>
     </ul>
-    <div class="note"><strong>截單時間　</strong>配送日前一天 22:00。截單後要改請直接留言給老闆。</div>
+    <h3>截單後要加點：補單</h3>
+    <p>配送日前一天截單（預設晚上 22:00）。截單後原本的訂單就不能改了，要加點的話：</p>
+    <ul>
+      <li>點「我要叫貨」，叫貨頁上面會出現黃色的「<b>要加點？</b>」，按 <span class="btn">補單</span>。或在聊天室打 <span class="cmd">補單</span>。</li>
+      <li>選要加的品項送出，會<b>另開一張補單</b>，原本的訂單不會變。</li>
+      <li>配送當天的補單截止時間前（預設中午 12:00）都可以再改或取消補單。</li>
+    </ul>
+    <div class="note"><strong>補單截止後　</strong>就不能自己補了，請直接在聊天室留言給老闆。</div>
   </div>
 </section>
 
@@ -283,6 +291,15 @@ details>div p+p{margin-top:8px}
       <li><b>打折</b>：例如全部 95 折。</li>
       <li><b>每單位減</b>：例如每斤少 5 元。</li>
       <li><b>個別固定價</b>：某個品項固定一個價錢，不跟基本價。</li>
+    </ul>
+
+    <h3>截單時間、公休日、補單</h3>
+    <p>「設定」分頁的<b>截單和補單</b>：</p>
+    <ul>
+      <li><b>截單時間</b>：配送日前一天幾點截單，預設 22:00。</li>
+      <li><b>截單後店家可以自己補單</b>：打勾後，店家截單後加點會另開一張補單，跟原本的訂單分開。有人補單時你的 LINE 會收到通知（每次用掉 1 則推播額度）。</li>
+      <li><b>補單截止</b>：配送當天幾點以前可以補單，預設 12:00。</li>
+      <li><b>公休日</b>：勾選不配送的星期幾，那天不能叫貨，會自動跳到下一個配送日。</li>
     </ul>
 
     <h3>員工帳號</h3>
@@ -416,7 +433,7 @@ details>div p+p{margin-top:8px}
       <p>只有<b>還沒確認</b>的單能刪，而且只有老闆和會計看得到。單子下面有「✅ 已確認」的，就不能刪也不能改。</p>
     </div></details>
     <details><summary>店家說截單後還要加東西</summary><div>
-      <p>截單後店家自己不能改。可以在後台出貨單直接改數量；如果已經確認，用「開補單」。</p>
+      <p>請店家自己補單：點「我要叫貨」→「補單」，或在聊天室打「補單」。補單另開一張，你的 LINE 會收到通知。過了補單截止時間，就由你在後台出貨單按「開補單」。</p>
     </div></details>
     <details><summary>店家說點「我要叫貨」叫他回覆店名</summary><div>
       <p>代表他的 LINE 還沒開通。到「店家」分頁的開通申請，把他綁到對的店。</p>

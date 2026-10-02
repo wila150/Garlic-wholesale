@@ -37,10 +37,11 @@ export async function processJob(job, jobId) {
     if (job.type === 'image') {
       // 縮小再送，AI 比較快，也不會超過大小限制；另外存一張小縮圖給後台看
       const raw = await getContent(job.messageId);
-      const buf = await sharp(raw).rotate().resize({ width: 1280, height: 1280, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 75 }).toBuffer();
+      // 手寫單：轉灰階、拉對比、稍微銳利化，字比較清楚
+      const buf = await sharp(raw).rotate().resize({ width: 1600, height: 1600, fit: 'inside', withoutEnlargement: true }).grayscale().normalize().sharpen().jpeg({ quality: 85 }).toBuffer();
       image = 'data:image/jpeg;base64,' + buf.toString('base64');
-      // 原圖不留（在 LINE 那邊）；縮圖約 20～40KB，店家確認後就刪，其他的 14 天後自動清掉
-      thumb = 'data:image/jpeg;base64,' + (await sharp(raw).rotate().resize({ width: 600, height: 600, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 55, mozjpeg: true }).toBuffer()).toString('base64');
+      // 原圖不留（在 LINE 那邊）；後台看的縮圖約 50～90KB（看得清楚手寫字），店家確認後就刪，其他的 14 天後自動清掉
+      thumb = 'data:image/jpeg;base64,' + (await sharp(raw).rotate().resize({ width: 1000, height: 1000, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 60, mozjpeg: true }).toBuffer()).toString('base64');
     }
     const t = Date.now();
     parsed = await parseOrder({ text: job.text, image, products });
@@ -91,6 +92,16 @@ export async function draftFor(userId, id) {
   const store = await shop.storeOfUser(userId);
   if (!d || !store || d.storeId !== store.id || d.status !== 'pending' || d.date !== openDate()) return null;
   return { id: d.id, items: d.items.map(({ pid, qty }) => ({ pid, qty })), unknown: d.unknown };
+}
+
+// 後台「對照改單」：行政看著照片把這家店那天的訂單改好（整張單照畫面上的存）
+export async function applyDraft(id, items, who) {
+  const ref = db().collection('aiDrafts').doc(id);
+  const d = (await ref.get()).data();
+  if (!d) throw new Error('找不到這筆 AI 紀錄');
+  const r = await shop.saveOrder(d.storeId, d.date, items, '後台', `${who}・對照${d.type === 'image' ? '照片' : '訊息'}改單`);
+  await ref.update({ status: 'admin', handledBy: who, handledAt: new Date().toISOString() });
+  return r;
 }
 
 export const markDraftUsed = (id) => db().collection('aiDrafts').doc(id).update({ status: 'edited', thumb: FieldValue.delete() }).catch(() => {});

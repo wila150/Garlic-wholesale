@@ -69,6 +69,7 @@ export async function saveProducts(input) {
       price: old.get(id)?.price ?? 0, // 最近一次輸入的單價，新訂單先用這個
       cost: old.get(id)?.cost ?? null, // 最近一次輸入的進價
       on: !!p.on,
+      alias: clean(p.alias, 80), // 別名（店家常見的寫法，給 AI 對照用），用、或逗號隔開
     };
   });
   await doc('settings/products').set({ items: list });

@@ -12,6 +12,7 @@ import { signSlipToken } from '../lib/token.js';
 import { originOf } from '../lib/http.js';
 import * as report from '../lib/report.js';
 import { resetTestData } from '../lib/reset.js';
+import { applyDraft } from '../lib/aiorder.js';
 
 async function statement(month, storeId) {
   const rows = (await shop.monthAmounts(month)).filter((r) => r.storeId === storeId).sort((a, b) => a.date.localeCompare(b.date));
@@ -45,6 +46,14 @@ export async function GET(request) {
       return json({ signature: s || null });
     }
     // AI 叫貨紀錄（最近 30 筆）
+    // 對照改單：這筆 AI 紀錄那天、那家店目前的訂單
+    if (q.get('aiorder')) {
+      need(me, 'editOrders');
+      const d = (await getFirestore().doc('aiDrafts/' + q.get('aiorder').replace(/[^\w-]/g, '')).get()).data();
+      if (!d) throw new UserError('找不到這筆紀錄', 404);
+      const [order, sig] = await Promise.all([shop.getOrder(d.date, d.storeId), getFirestore().doc(`signatures/${d.date}_${d.storeId}`).get()]);
+      return json({ draft: d, order: order?.items.length ? { items: order.items.map(({ pid, name, unit, qty }) => ({ pid, name, unit, qty })) } : null, signed: sig.exists });
+    }
     if (q.get('ai')) {
       need(me, 'editOrders');
       const snap = await getFirestore().collection('aiDrafts').orderBy('createdAt', 'desc').limit(30).get();
@@ -240,6 +249,11 @@ export async function POST(request) {
       case 'rules':
         need(me, 'users');
         return json({ rules: await saveRules(b.rules || {}), openDate: openDate(), cutoffLabel: cutoffLabel(openDate()) });
+      case 'aiApply': {
+        need(me, 'editOrders');
+        const r = await applyDraft(String(b.id || ''), b.items, me.name);
+        return json({ order: { date: r.order.date, items: r.order.items.map(({ pid, name, unit, qty }) => ({ pid, name, unit, qty })) } });
+      }
       case 'costTypes':
         need(me, 'bills');
         return json({ costTypes: await report.saveCostTypes(b.costTypes) });

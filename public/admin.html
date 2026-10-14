@@ -509,7 +509,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 101508</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 101509</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div id="rulesBox">
     <h2>配色</h2>
@@ -1130,7 +1130,7 @@ async function approve(uid){
 }
 
 /* ---------- 配色：選了全部的人一起換（後台、叫貨頁、確認單） ---------- */
-const PALS=[['garlic','蒜頭行','深墨綠＋暖白，品牌質感',['#1F4D3A','#F6F5F0','#B08A3E']],['blue','科技藍','穩重專業，ERP 常用',['#1B365D','#F5F7FA','#1890FF']],['mint','薄荷綠','清新放鬆，適合生鮮',['#00796B','#F4F6F4','#ED6C02']],['gray','商務灰','極簡，表格多時不累眼',['#37474F','#FAFAFA','#1890FF']]];
+const PALS=[['garlic','蒜頭行','深墨綠＋暖白，品牌質感',['#1F4D3A','#ECF0E8','#B08A3E']],['blue','科技藍','穩重專業，ERP 常用',['#1B365D','#EBF0F6','#1890FF']],['mint','薄荷綠','清新放鬆，適合生鮮',['#00796B','#EAF1EE','#ED6C02']],['gray','商務灰','極簡，表格多時不累眼',['#37474F','#EFF1F3','#1890FF']]];
 function renderPalettes(){
   const cur=D.rules?.palette||'garlic';
   $('palBox').innerHTML=PALS.map(([k,n,d,c])=>`<button class="pal" data-pal="${k}" aria-pressed="${k===cur}"><span class="sw3">${c.map(x=>`<i style="background:${x}"></i>`).join('')}</span><b>${n}${k===cur?'　✓':''}</b><small>${d}</small></button>`).join('');

@@ -79,7 +79,7 @@ export async function GET(request) {
       shop.getUnits(),
       can(me.role, 'users') ? listUsers() : [],
       can(me.role, 'prices') ? shop.getPriceGroups() : [],
-      can(me.role, 'stores') ? shop.allStoreAliases() : {},
+      can(me.role, 'products') ? shop.allStoreAliases() : {},
     ]);
     const showPrices = can(me.role, 'prices') || bills;
     return json({
@@ -259,7 +259,7 @@ export async function POST(request) {
         return json({ products: r.products, ...(b.storeId ? { storeId: b.storeId, storeAliases: r.storeAliases } : {}) });
       }
       case 'removeStoreAlias': {
-        need(me, 'stores');
+        need(me, 'products'); // 叫法都在品項頁管理
         const s = await store();
         return json({ storeId: s.id, storeAliases: await shop.removeStoreAlias(s.id, String(b.text || '')) });
       }

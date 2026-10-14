@@ -134,6 +134,8 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .units .add-u{border:0;background:var(--leaf);color:#fff;border-radius:6px;padding:4px 10px;font-weight:700}
 .alias{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:.85rem}
 .alias .lb{color:var(--muted);margin-right:2px;font-weight:400}
+.alias .sa{background:var(--tag)!important;color:#2A2400!important}.alias .sa small{font-weight:400;margin-right:4px;opacity:.8}
+.alias select{border:1px solid var(--line);background:var(--bg);border-radius:12px;padding:1px 6px;font-size:.8rem;max-width:130px}
 .alias span:not(.lb){background:var(--leaf-soft);color:var(--leaf);border-radius:12px;padding:1px 2px 1px 10px;font-weight:700}
 .alias span button{border:0;background:none;color:inherit;padding:0 6px;font-size:.8rem}
 .alias input{border:1px dashed var(--line);border-radius:12px;padding:2px 10px;width:150px;font-size:.85rem;background:transparent;color:var(--ink)}
@@ -399,7 +401,7 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
     <p class="sub">叫貨頁和出貨單用的單位。單位是「斤」的品項，店家可以叫「幾斤幾兩」（1 斤 = 16 兩）。</p>
     <div class="units" id="unitBox"></div>
     <h2 style="margin-top:18px">全部品項</h2>
-    <p class="sub">單價不在這裡設，每天到「單價」頁只填有人叫的品項。缺貨或不賣的取消「上架」就好，舊訂單紀錄會保留。<br><b>客人常打的寫法</b>：客人在 LINE 叫貨時會用的其他名稱（例如蒜仁＝去皮、蒜米），AI 會照這個對。錯字和簡寫 AI 自己看得懂，不用加；AI 紀錄裡「看不懂」的字也可以直接點「加入」。</p>
+    <p class="sub">單價不在這裡設，每天到「單價」頁只填有人叫的品項。缺貨或不賣的取消「上架」就好，舊訂單紀錄會保留。<br><b>客人常打的寫法</b>：客人在 LINE 叫貨時會用的其他名稱（例如蒜仁＝去皮、蒜米），AI 會照這個對。所有叫法都在這裡管：旁邊選「全部店家」或「只有某家店」再打字按 Enter。綠色是全部店家通用（要按「儲存品項」）；黃色標店名的是那家店專屬（馬上存好），同一個叫法兩邊意思不同時，以那家店的為準。AI 紀錄裡「看不懂」的字也可以直接點「加入」，加完會出現在這裡。</p>
     <div id="adminList"></div>
     <div class="savebar"><button class="ok" id="saveP" disabled>儲存品項</button><span id="pDirty"></span></div>
   </section>
@@ -782,13 +784,26 @@ function renderProducts(){
       <select data-pf="unit" data-i="${i}" aria-label="單位">${D.units.map(u=>`<option ${u===p.unit?'selected':''}>${u}</option>`).join('')}</select>
       <label><input type="checkbox" data-pf="on" data-i="${i}" ${p.on?'checked':''}>上架</label>
       <button class="x" data-pdel="${i}" aria-label="刪除${esc(p.name)}">✕</button>
-      <div class="alias"><span class="lb">客人常打的寫法：</span>${aliasArr(p).map((a,k)=>`<span>${esc(a)}<button data-adel="${i}" data-k="${k}" aria-label="刪除叫法 ${esc(a)}">✕</button></span>`).join('')}<input data-anew="${i}" placeholder="＋ 新增，按 Enter" maxlength="20" aria-label="${esc(p.name)} 新增客人常打的寫法"></div></div>`).join('');
+      <div class="alias"><span class="lb">客人常打的寫法：</span>${aliasArr(p).map((a,k)=>`<span>${esc(a)}<button data-adel="${i}" data-k="${k}" aria-label="刪除叫法 ${esc(a)}">✕</button></span>`).join('')}${storeAliasChips(p)}<select data-ascope="${i}" aria-label="${esc(p.name)} 新叫法適用的店家"><option value="">全部店家</option>${D.stores.map(s=>`<option value="${s.id}" ${aScope[i]===s.id?'selected':''}>只有${esc(s.name)}</option>`).join('')}</select><input data-anew="${i}" placeholder="＋ 新增，按 Enter" maxlength="20" aria-label="${esc(p.name)} 新增客人常打的寫法"></div></div>`).join('');
   }).join('');
   $('saveP').disabled=!pDirty;$('pDirty').textContent=pDirty?'有尚未儲存的修改':'';
 }
 // 別名：舊資料是一串字，新的是陣列
 const aliasArr=p=>Array.isArray(p.alias)?p.alias:String(p.alias||'').split(/[、,，]/).map(s=>s.trim()).filter(Boolean);
+// 店家專屬的叫法也放在品項頁（標店名），一個地方管全部叫法
+const aScope={};
+function storeAliasChips(p){
+  return D.stores.flatMap(s=>(D.storeAliases?.[s.id]||[]).filter(a=>a.pid===p.id).map(a=>`<span class="sa"><small>${esc(s.name)}</small>${esc(a.text)}<button data-sadel="${s.id}" data-text="${esc(a.text)}" aria-label="刪除${esc(s.name)}的叫法 ${esc(a.text)}">✕</button></span>`)).join('');
+}
+async function addStoreAliasTags(i,raw,storeId){
+  const p=P[i];if(!p.id){toast('新品項請先按「儲存品項」再加店家專屬叫法');return}
+  for(const text of String(raw).split(/[、,，\s]+/).map(s=>s.trim()).filter(Boolean)){
+    try{const j=await api('POST',{action:'addAlias',text,pid:p.id,storeId});(D.storeAliases||={})[storeId]=j.storeAliases}catch(e){toast(e.message)}
+  }
+  renderProducts();document.querySelector(`[data-anew="${i}"]`)?.focus();toast(`已加入，只有${SM()[storeId]?.name||'這家店'}會這樣對`);
+}
 function addAliasTag(i,raw){
+  if(aScope[i]){addStoreAliasTags(i,raw,aScope[i]);return true}
   const p=P[i],list=aliasArr(p),added=[];
   for(const a of String(raw).split(/[、,，\s]+/).map(s=>s.trim()).filter(Boolean)){
     if(list.includes(a)||added.includes(a))continue;
@@ -836,7 +851,7 @@ function renderStores(){
       <select data-sf="groupId" data-i="${i}" aria-label="${esc(s.name)} 的報價組"><option value="">基本價</option>${(D.priceGroups||[]).map(g=>`<option value="${g.id}" ${g.id===s.groupId?'selected':''}>${esc(g.name)}</option>`).join('')}</select>
       <label><input type="checkbox" data-sf="on" data-i="${i}" ${s.on?'checked':''}>合作中</label>
       <button class="x" data-sdel="${i}" aria-label="刪除${esc(s.name)}">刪除</button></div>
-    ${(D.storeAliases?.[s.id]||[]).length?`<div class="alias" style="grid-column:1/-1"><span class="lb">這家店專屬的叫法：</span>${D.storeAliases[s.id].map(a=>`<span>${esc(a.text)}＝${esc(PM()[a.pid]?.name||'（品項已刪除）')}<button data-sadel="${s.id}" data-text="${esc(a.text)}" aria-label="刪除 ${esc(a.text)}">✕</button></span>`).join('')}</div>`:''}</div>`).join('')||'<div class="empty">還沒有店家。按「新增店家」，或等店家在 LINE 申請後在上面開通。</div>';
+</div>`).join('')||'<div class="empty">還沒有店家。按「新增店家」，或等店家在 LINE 申請後在上面開通。</div>';
   $('saveS').disabled=!sDirty;$('sDirty').textContent=sDirty?'有尚未儲存的修改':'';
   renderGroups();
 }
@@ -861,7 +876,7 @@ async function learnAlias(id){
     // 品項頁有還沒儲存的修改時，不要蓋掉，只把新叫法補進去（不然之後按儲存會把它洗掉）
     if(!pDirty)P=structuredClone(j.products);else if(!storeId){const x=P.find(q=>q.id===pid);if(x&&!aliasArr(x).includes(text))x.alias=[...aliasArr(x),text]}
     may('products')&&renderProducts();
-    if(j.storeId){(D.storeAliases||={})[j.storeId]=j.storeAliases;may('stores')&&renderStores()}
+    if(j.storeId){(D.storeAliases||={})[j.storeId]=j.storeAliases;may('products')&&renderProducts()}
     const name=PM()[pid]?.name||'';
     $('lr-'+id).innerHTML=`<span class="done">✓ 已學會：「${esc(text)}」＝${esc(name)}${storeId?`（只有${esc(SM()[storeId]?.name||'這家店')}）`:''}</span>`;
     toast('下次 AI 就認得了');
@@ -1189,7 +1204,7 @@ document.addEventListener('click',async e=>{
   if(b.id==='aiReload')loadAI();
   if(b.dataset.learn)learnAlias(b.dataset.learn);
   if(b.dataset.adel){const i=+b.dataset.adel,k=+b.dataset.k;P[i].alias=aliasArr(P[i]).filter((_,x)=>x!==k);pDirty=true;renderProducts()}
-  if(b.dataset.sadel){const sid=b.dataset.sadel,text=b.dataset.text;if(confirm(`刪除「${SM()[sid]?.name}」的專屬叫法「${text}」？`)){try{const j=await api('POST',{action:'removeStoreAlias',storeId:sid,text});D.storeAliases[sid]=j.storeAliases;renderStores();toast('已刪除')}catch(err){toast(err.message)}}}
+  if(b.dataset.sadel){const sid=b.dataset.sadel,text=b.dataset.text;if(confirm(`刪除「${SM()[sid]?.name}」的專屬叫法「${text}」？`)){try{const j=await api('POST',{action:'removeStoreAlias',storeId:sid,text});D.storeAliases[sid]=j.storeAliases;renderProducts();toast('已刪除')}catch(err){toast(err.message)}}}
   if(b.dataset.receipt)sendReceipts([b.dataset.receipt]);
   if(b.id==='receiptAll')sendReceipts([...new Set(D.orders.map(o=>o.storeId))].filter(id=>SM()[id]?.members?.length));
   if(b.dataset.confirm){
@@ -1243,6 +1258,7 @@ document.addEventListener('input',e=>{
   if(t.dataset.sf!=null){const s=S[+t.dataset.i],f=t.dataset.sf;s[f]=f==='on'?t.checked:f==='route'?(+t.value||0):t.value;sDirty=true;$('saveS').disabled=false;$('sDirty').textContent='有尚未儲存的修改'}
 });
 document.addEventListener('change',async e=>{
+  if(e.target.dataset?.ascope!=null){aScope[+e.target.dataset.ascope]=e.target.value;return}
   if(e.target.dataset?.aeq!=null){const i=AE.items[+e.target.dataset.aeq],q=parseQty(e.target.value,i.unit);if(q>=0&&!isNaN(q))i.qty=q;else toast('數量看不懂');renderAiEd();return}
   const t=e.target;
   if(t.dataset.sqin){

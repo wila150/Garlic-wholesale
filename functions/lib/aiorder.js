@@ -13,8 +13,12 @@ import { draftMessage, orderMessage } from './messages.js';
 
 const db = () => getFirestore();
 
-export async function queue(job) {
-  await db().collection('aiJobs').add({ ...job, at: new Date().toISOString() });
+// 用 LINE 的 webhookEventId 當文件 ID：LINE 重送同一個事件時 create 會失敗，就不會重複辨識、重複回卡片
+export async function queue(job, eventId) {
+  const col = db().collection('aiJobs');
+  const ref = eventId ? col.doc(String(eventId).replace(/[^\w-]/g, '')) : col.doc();
+  if (eventId && (await db().collection('aiDrafts').doc(ref.id).get()).exists) return; // 已經處理過（aiJobs 處理完會刪掉，所以也查 aiDrafts）
+  await ref.create({ ...job, at: new Date().toISOString() }).catch((e) => { if (e.code !== 6) throw e; }); // 6＝ALREADY_EXISTS
 }
 
 // 回覆用 replyToken（不算額度），過期了才改推播
@@ -26,9 +30,10 @@ async function answer(job, messages) {
 export async function processJob(job, jobId) {
   const store = await shop.storeOfUser(job.userId);
   if (!store) return;
-  const products = await shop.getProducts();
+  const [products, storeAliases] = await Promise.all([shop.getProducts(), shop.getStoreAliases(store.id)]);
   const date = openDate();
   const ref = db().collection('aiDrafts').doc(jobId);
+  if ((await ref.get()).exists) return; // 重送的事件，處理過了
   // 每一筆都留紀錄（含失敗），後台「AI 紀錄」看得到
   const base = { id: ref.id, storeId: store.id, storeName: store.name, userId: job.userId, date, type: job.type, text: job.text || '', items: [], unknown: [], note: '', createdAt: new Date().toISOString() };
   let image, thumb = '';
@@ -44,7 +49,7 @@ export async function processJob(job, jobId) {
       thumb = 'data:image/jpeg;base64,' + (await sharp(raw).rotate().resize({ width: 1000, height: 1000, fit: 'inside', withoutEnlargement: true }).jpeg({ quality: 60, mozjpeg: true }).toBuffer()).toString('base64');
     }
     const t = Date.now();
-    parsed = await parseOrder({ text: job.text, image, products });
+    parsed = await parseOrder({ text: job.text, image, products, storeAliases });
     console.log('AI 叫貨', JSON.stringify({ store: store.name, type: job.type, ms: Date.now() - t, items: parsed.items.length, unknown: parsed.unknown }));
   } catch (e) {
     console.error('AI 辨識失敗', store.name, job.type, e);
@@ -64,26 +69,39 @@ export async function processJob(job, jobId) {
 }
 
 // 店家按「確認送出」
+// 連按兩下或 LINE 重送 postback 時，只有第一次會成立：先用 transaction 把狀態從 pending 改成 confirming（搶到的才往下做）
 export async function confirmDraft(userId, id, origin) {
-  const ref = db().collection('aiDrafts').doc(id);
-  const d = (await ref.get()).data();
+  const ref = db().collection('aiDrafts').doc(String(id || '') || '_');
   const store = await shop.storeOfUser(userId);
-  if (!d || !store || d.storeId !== store.id) return { type: 'text', text: '找不到這張叫貨單，請重新傳一次。' };
-  if (d.status !== 'pending') return { type: 'text', text: '這張叫貨單已經處理過了，點「我的訂單」可以查看。' };
-  if (d.date !== openDate()) {
-    await ref.update({ status: 'expired' });
-    return { type: 'text', text: '這張叫貨單的配送日已經截單了，請點「我要叫貨」重新叫。' };
+  const claim = await db().runTransaction(async (tx) => {
+    const d = (await tx.get(ref)).data();
+    if (!d || !store || d.storeId !== store.id) return { msg: '找不到這張叫貨單，請重新傳一次。' };
+    if (d.status !== 'pending') return { msg: '這張叫貨單已經處理過了，點「我的訂單」可以查看。' };
+    if (d.date !== openDate()) { tx.update(ref, { status: 'expired' }); return { msg: '這張叫貨單的配送日已經截單了，請點「我要叫貨」重新叫。' }; }
+    tx.update(ref, { status: 'confirming' });
+    return { d };
+  });
+  if (!claim.d) return { type: 'text', text: claim.msg };
+  const d = claim.d;
+  let saved;
+  try {
+    // 加進這次已叫的品項（同品項數量相加）；在 saveOrder 的 transaction 裡讀最新的單再加
+    saved = await shop.saveOrder(store.id, d.date, (old) => {
+      const items = (old?.items || []).map((i) => ({ pid: i.pid, qty: i.qty }));
+      for (const it of d.items) {
+        const same = items.find((x) => x.pid === it.pid);
+        if (same) same.qty = roundQty(same.qty + it.qty); else items.push({ pid: it.pid, qty: it.qty });
+      }
+      return items;
+    }, '店家', d.type === 'image' ? 'LINE 照片叫貨' : 'LINE 文字叫貨');
+  } catch (e) {
+    // 只有「訂單沒存成功」才放回 pending，店家可以再按一次；存成功之後的錯誤不能放回去，不然會重複加
+    await ref.update({ status: 'pending' }).catch(() => {});
+    if (e.status) return { type: 'text', text: e.message };
+    throw e;
   }
-  // 加進這次已叫的品項（同品項數量相加）
-  const old = await shop.getOrder(d.date, store.id);
-  const items = (old?.items || []).map((i) => ({ pid: i.pid, qty: i.qty }));
-  for (const it of d.items) {
-    const same = items.find((x) => x.pid === it.pid);
-    if (same) same.qty = roundQty(same.qty + it.qty); else items.push({ pid: it.pid, qty: it.qty });
-  }
-  const { order, had } = await shop.saveOrder(store.id, d.date, items, '店家', d.type === 'image' ? 'LINE 照片叫貨' : 'LINE 文字叫貨');
   await ref.update({ status: 'confirmed', confirmedAt: FieldValue.serverTimestamp(), thumb: FieldValue.delete() });
-  return orderMessage(had ? '訂單已更新' : '訂單已收到', store, d.date, order, orderLink(origin, userId));
+  return orderMessage(saved.had ? '訂單已更新' : '訂單已收到', store, d.date, saved.order, orderLink(origin, userId));
 }
 
 // 叫貨頁「用叫貨單修改」時帶入 AI 整理的品項

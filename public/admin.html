@@ -132,6 +132,15 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .units span button{border:0;background:transparent;color:var(--alert);padding:0 5px}
 .units input{width:90px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:4px 8px}
 .units .add-u{border:0;background:var(--leaf);color:#fff;border-radius:6px;padding:4px 10px;font-weight:700}
+.alias{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px;align-items:center;font-size:.85rem}
+.alias .lb{color:var(--muted);margin-right:2px;font-weight:400}
+.alias span:not(.lb){background:var(--leaf-soft);color:var(--leaf);border-radius:12px;padding:1px 2px 1px 10px;font-weight:700}
+.alias span button{border:0;background:none;color:inherit;padding:0 6px;font-size:.8rem}
+.alias input{border:1px dashed var(--line);border-radius:12px;padding:2px 10px;width:150px;font-size:.85rem;background:transparent;color:var(--ink)}
+.learn{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin:6px 0;padding:6px 8px;border:1px dashed var(--alert);border-radius:8px;font-size:.88rem}
+.learn input{width:7em}.learn select{max-width:12em}
+.learn button{border:0;background:var(--leaf);color:#fff;border-radius:6px;padding:4px 10px;font-weight:700}
+.learn .done{color:var(--leaf);font-weight:700}
 .acat{margin:16px 0 6px;font-weight:900;display:flex;justify-content:space-between;align-items:baseline}
 .acat small{color:var(--muted);font-weight:400}
 .arow{display:grid;grid-template-columns:1fr 72px 64px 28px;gap:8px;align-items:center;padding:6px 10px;background:var(--surface);border-bottom:1px solid var(--line)}
@@ -378,7 +387,7 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
     <p class="sub">叫貨頁和出貨單用的單位。單位是「斤」的品項，店家可以叫「幾斤幾兩」（1 斤 = 16 兩）。</p>
     <div class="units" id="unitBox"></div>
     <h2 style="margin-top:18px">全部品項</h2>
-    <p class="sub">單價不在這裡設，每天到「單價」頁只填有人叫的品項。缺貨或不賣的取消「上架」就好，舊訂單紀錄會保留。</p>
+    <p class="sub">單價不在這裡設，每天到「單價」頁只填有人叫的品項。缺貨或不賣的取消「上架」就好，舊訂單紀錄會保留。<br><b>客人常打的寫法</b>：客人在 LINE 叫貨時會用的其他名稱（例如蒜仁＝去皮、蒜米），AI 會照這個對。錯字和簡寫 AI 自己看得懂，不用加；AI 紀錄裡「看不懂」的字也可以直接點「加入」。</p>
     <div id="adminList"></div>
     <div class="savebar"><button class="ok" id="saveP" disabled>儲存品項</button><span id="pDirty"></span></div>
   </section>
@@ -749,9 +758,24 @@ function renderProducts(){
       <span class="an"><input type="text" data-pf="name" data-i="${i}" value="${esc(p.name)}" aria-label="品名"></span>
       <select data-pf="unit" data-i="${i}" aria-label="單位">${D.units.map(u=>`<option ${u===p.unit?'selected':''}>${u}</option>`).join('')}</select>
       <label><input type="checkbox" data-pf="on" data-i="${i}" ${p.on?'checked':''}>上架</label>
-      <button class="x" data-pdel="${i}" aria-label="刪除${esc(p.name)}">✕</button></div>`).join('');
+      <button class="x" data-pdel="${i}" aria-label="刪除${esc(p.name)}">✕</button>
+      <div class="alias"><span class="lb">客人常打的寫法：</span>${aliasArr(p).map((a,k)=>`<span>${esc(a)}<button data-adel="${i}" data-k="${k}" aria-label="刪除叫法 ${esc(a)}">✕</button></span>`).join('')}<input data-anew="${i}" placeholder="＋ 新增，按 Enter" maxlength="20" aria-label="${esc(p.name)} 新增客人常打的寫法"></div></div>`).join('');
   }).join('');
   $('saveP').disabled=!pDirty;$('pDirty').textContent=pDirty?'有尚未儲存的修改':'';
+}
+// 別名：舊資料是一串字，新的是陣列
+const aliasArr=p=>Array.isArray(p.alias)?p.alias:String(p.alias||'').split(/[、,，]/).map(s=>s.trim()).filter(Boolean);
+function addAliasTag(i,raw){
+  const p=P[i],list=aliasArr(p),added=[];
+  for(const a of String(raw).split(/[、,，\s]+/).map(s=>s.trim()).filter(Boolean)){
+    if(list.includes(a)||added.includes(a))continue;
+    const other=P.find((x,j)=>j!==i&&aliasArr(x).includes(a));
+    if(other){toast(`「${a}」已經是「${other.name}」的叫法了`);continue}
+    added.push(a);
+  }
+  if(!added.length)return false;
+  p.alias=[...list,...added];pDirty=true;renderProducts();
+  document.querySelector(`[data-anew="${i}"]`)?.focus();return true;
 }
 function renderUnits(){
   $('unitBox').innerHTML=D.units.map(u=>`<span>${esc(u)}<button data-udel="${esc(u)}" aria-label="刪除單位 ${esc(u)}">✕</button></span>`).join('')+
@@ -788,11 +812,38 @@ function renderStores(){
     <div class="mem">LINE：${s.members?.length?s.members.map(m=>`<span>${esc(m.name||'未命名')}<button data-unbind="${m.userId}" aria-label="解除 ${esc(m.name)}">✕</button></span>`).join(''):'還沒綁定'}
       <select data-sf="groupId" data-i="${i}" aria-label="${esc(s.name)} 的報價組"><option value="">基本價</option>${(D.priceGroups||[]).map(g=>`<option value="${g.id}" ${g.id===s.groupId?'selected':''}>${esc(g.name)}</option>`).join('')}</select>
       <label><input type="checkbox" data-sf="on" data-i="${i}" ${s.on?'checked':''}>合作中</label>
-      <button class="x" data-sdel="${i}" aria-label="刪除${esc(s.name)}">刪除</button></div></div>`).join('')||'<div class="empty">還沒有店家。按「新增店家」，或等店家在 LINE 申請後在上面開通。</div>';
+      <button class="x" data-sdel="${i}" aria-label="刪除${esc(s.name)}">刪除</button></div>
+    ${(D.storeAliases?.[s.id]||[]).length?`<div class="alias" style="grid-column:1/-1"><span class="lb">這家店專屬的叫法：</span>${D.storeAliases[s.id].map(a=>`<span>${esc(a.text)}＝${esc(PM()[a.pid]?.name||'（品項已刪除）')}<button data-sadel="${s.id}" data-text="${esc(a.text)}" aria-label="刪除 ${esc(a.text)}">✕</button></span>`).join('')}</div>`:''}</div>`).join('')||'<div class="empty">還沒有店家。按「新增店家」，或等店家在 LINE 申請後在上面開通。</div>';
   $('saveS').disabled=!sDirty;$('sDirty').textContent=sDirty?'有尚未儲存的修改':'';
   renderGroups();
 }
 /* ---------- AI 紀錄 ---------- */
+// 「白蒜 3斤」→ 去掉數量和單位，剩下「白蒜」當叫法（可以再手動改）
+const stripQty=t=>String(t).replace(/^[\s　]*[0-9０-９.．一二兩三四五六七八九十百半]+[\s　]*(斤|兩|公斤|台斤|件|箱|籃|袋|包|綑|紮|簍|盒|罐|把|顆|kg|KG)[\s　]*/,'').replace(/[\s　]*[0-9０-９.．一二兩三四五六七八九十百半]+[\s　]*(斤|兩|公斤|台斤|件|箱|籃|袋|包|綑|紮|簍|盒|罐|把|顆|kg|KG)?.*$/,'').replace(/[：:x×*＊\s]+$/,'').trim()||String(t).trim();
+function learnRow(d,u,k){
+  const id=`${d.id}-${k}`;
+  const opts=D.products.map(p=>`<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  return `<div class="learn" id="lr-${id}">教 AI：<input id="lt-${id}" value="${esc(stripQty(u).slice(0,20))}" maxlength="20" aria-label="客人寫的叫法">是指
+    <select id="lp-${id}" aria-label="對應的品項"><option value="">選品項…</option>${opts}</select>
+    <select id="ls-${id}" aria-label="適用範圍"><option value="">全部店家通用</option><option value="${esc(d.storeId)}">只有${esc(d.storeName||'這家店')}</option></select>
+    <button data-learn="${id}">加入</button></div>`;
+}
+async function learnAlias(id){
+  const text=$('lt-'+id).value.trim(),pid=$('lp-'+id).value,storeId=$('ls-'+id).value;
+  if(!text){toast('請填客人寫的叫法');$('lt-'+id).focus();return}
+  if(!pid){toast('請選這是哪個品項');$('lp-'+id).focus();return}
+  try{
+    const j=await api('POST',{action:'addAlias',text,pid,storeId});
+    D.products=j.products;
+    // 品項頁有還沒儲存的修改時，不要蓋掉，只把新叫法補進去（不然之後按儲存會把它洗掉）
+    if(!pDirty)P=structuredClone(j.products);else if(!storeId){const x=P.find(q=>q.id===pid);if(x&&!aliasArr(x).includes(text))x.alias=[...aliasArr(x),text]}
+    may('products')&&renderProducts();
+    if(j.storeId){(D.storeAliases||={})[j.storeId]=j.storeAliases;may('stores')&&renderStores()}
+    const name=PM()[pid]?.name||'';
+    $('lr-'+id).innerHTML=`<span class="done">✓ 已學會：「${esc(text)}」＝${esc(name)}${storeId?`（只有${esc(SM()[storeId]?.name||'這家店')}）`:''}</span>`;
+    toast('下次 AI 就認得了');
+  }catch(e){toast(e.message)}
+}
 const AIST={pending:'待確認',confirmed:'已確認送出',edited:'改用叫貨單送出',expired:'已截單沒送出',empty:'沒看到品項',error:'辨識失敗'};
 async function loadAI(){
   $('aiBox').innerHTML='<div class="empty">載入中…</div>';
@@ -803,7 +854,7 @@ async function loadAI(){
       <div><b>${esc(d.storeName||SM()[d.storeId]?.name||'')}</b><span class="st ${d.status}">${AIST[d.status]||d.status}</span>
         <div class="meta">${new Date(d.createdAt).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false})}・${d.type==='image'?'照片':'文字'}・${md(d.date)} 配送</div>
         ${d.items.length?`<ul>${d.items.map(i=>`<li>${esc(i.name)} <b>${esc(qtyText(i.qty,i.unit))}</b>${i.raw?` <span class="meta">（${esc(i.raw)}）</span>`:''}</li>`).join('')}</ul>`:''}
-        ${d.unknown.length?`<div class="unk">看不懂：${esc(d.unknown.join('、'))}</div>`:''}
+        ${d.unknown.length?`<div class="unk">看不懂：${esc(d.unknown.join('、'))}</div>`+(may('editOrders')?d.unknown.map((u,k)=>learnRow(d,u,k)).join(''):''):''}
         ${d.note?`<div class="meta">備註：${esc(d.note)}</div>`:''}
         ${d.error?`<div class="unk">原因：${esc(d.error)}</div>`:''}
       </div></div>`).join(''):'<div class="empty">還沒有店家用 LINE 打字或傳照片叫貨</div>';
@@ -1079,6 +1130,9 @@ document.addEventListener('click',async e=>{
   if(b.dataset.ctdel){const t=R.costTypes.find(x=>x.id===b.dataset.ctdel);if(confirm(`刪除成本項目「${t.name}」？已經填的金額不會再算進報表。`))saveCostTypes(R.costTypes.filter(x=>x.id!==t.id),'已刪除')}
   if(b.dataset.dun){const s=SM()[b.dataset.dun];if(confirm(`用 LINE 傳催款通知給「${s.name}」？`)){try{await api('POST',{action:'dunning',storeId:s.id});toast(`已傳給 ${s.name}`)}catch(err){toast(err.message)}}}
   if(b.id==='aiReload')loadAI();
+  if(b.dataset.learn)learnAlias(b.dataset.learn);
+  if(b.dataset.adel){const i=+b.dataset.adel,k=+b.dataset.k;P[i].alias=aliasArr(P[i]).filter((_,x)=>x!==k);pDirty=true;renderProducts()}
+  if(b.dataset.sadel){const sid=b.dataset.sadel,text=b.dataset.text;if(confirm(`刪除「${SM()[sid]?.name}」的專屬叫法「${text}」？`)){try{const j=await api('POST',{action:'removeStoreAlias',storeId:sid,text});D.storeAliases[sid]=j.storeAliases;renderStores();toast('已刪除')}catch(err){toast(err.message)}}}
   if(b.dataset.receipt)sendReceipts([b.dataset.receipt]);
   if(b.id==='receiptAll')sendReceipts([...new Set(D.orders.map(o=>o.storeId))].filter(id=>SM()[id]?.members?.length));
   if(b.dataset.confirm){
@@ -1144,7 +1198,10 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape')$('pv').classList.remove('on');
   if(e.key==='Enter'&&!e.isComposing&&e.target.dataset?.sqin)e.target.blur();
   if(e.key==='Enter'&&!e.isComposing&&e.target.id==='newUnit')$('addUnit').click();
+  if((e.key==='Enter'||e.key===',')&&!e.isComposing&&e.target.dataset?.anew!=null){e.preventDefault();if(e.target.value.trim())addAliasTag(+e.target.dataset.anew,e.target.value)}
+  if(e.key==='Backspace'&&e.target.dataset?.anew!=null&&!e.target.value){const i=+e.target.dataset.anew,l=aliasArr(P[i]);if(l.length){P[i].alias=l.slice(0,-1);pDirty=true;renderProducts();document.querySelector(`[data-anew="${i}"]`)?.focus()}}
 });
+document.addEventListener('focusout',e=>{const t=e.target;if(t.dataset?.anew!=null&&t.value.trim())addAliasTag(+t.dataset.anew,t.value)});
 document.addEventListener('focusin',e=>{if(e.target.dataset?.sqin||e.target.dataset?.dp)e.target.select()});
 window.addEventListener('beforeunload',e=>{if(pDirty||sDirty||gDirty||rDirty||$('dpInfo').textContent==='有尚未儲存的修改')e.preventDefault()});
 $('resetData').addEventListener('click',resetData);

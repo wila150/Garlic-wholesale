@@ -3,7 +3,14 @@ import crypto from 'node:crypto';
 import { SHOP } from './config.js';
 
 const DAYS = 7;
-const key = () => 'order-link:' + (process.env.LINE_CHANNEL_SECRET || 'dev');
+// 沒設定 LINE_CHANNEL_SECRET 時，只有本機模擬器可以用 'dev'；正式環境直接報錯，免得連結可以被偽造
+const secret = () => {
+  const s = process.env.LINE_CHANNEL_SECRET;
+  if (s) return s;
+  if (process.env.FUNCTIONS_EMULATOR === 'true') return 'dev';
+  throw new Error('尚未設定 LINE_CHANNEL_SECRET');
+};
+const key = () => 'order-link:' + secret();
 const mac = (s) => crypto.createHmac('sha256', key()).update(s).digest('base64url');
 
 export function sign(userId) {
@@ -29,7 +36,7 @@ export const orderLink = (origin, userId) =>
   SHOP.liffId ? `https://liff.line.me/${SHOP.liffId}?t=${sign(userId)}` : `${origin}/?t=${sign(userId)}`;
 
 // 簽收連結：老闆自己在聊天室傳給店家（不算推播額度），店家點開簽名。內容是「配送日_出貨單代號」
-const signMac = (s) => crypto.createHmac('sha256', 'sign-link:' + (process.env.LINE_CHANNEL_SECRET || 'dev')).update(s).digest('base64url');
+const signMac = (s) => crypto.createHmac('sha256', 'sign-link:' + secret()).update(s).digest('base64url');
 export function signSlipToken(date, key, days = 7) {
   const payload = `${date}_${key}.${Math.floor(Date.now() / 1000) + days * 86400}`;
   return `${Buffer.from(payload).toString('base64url')}.${signMac(payload)}`;

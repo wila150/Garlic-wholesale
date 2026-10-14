@@ -10,6 +10,7 @@
 //   paid/{YYYY-MM}      { stores: { 店: { at } } }：收款紀錄
 //   settings/priceGroups { items: 報價組 }：店家 groupId 對到這裡，決定拿基本價的幾折或固定價
 //   users/{uid}         後台帳號的角色（見 lib/auth.js）
+//   storeAliases/{店}    { items: [{ text, pid }] }：只有這家店用的叫法（例如這家說「大的」是指某個品項）
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { DEFAULT_PRODUCTS, CATEGORIES, DEFAULT_UNITS, UNITS_VERSION, UNITS_ADDED } from './config.js';
 import { qtyText, roundQty } from './qty.js';
@@ -26,6 +27,62 @@ const clean = (s, max) => String(s ?? '').trim().slice(0, max);
 /* ---------- 品項 ---------- */
 export async function getProducts() {
   return (await data('settings/products'))?.items ?? DEFAULT_PRODUCTS;
+}
+
+/* ---------- 別名（客人常打的寫法，給 AI 對照） ---------- */
+// 舊資料是一串字（用、或逗號隔開），新的存成陣列；兩種都讀得懂
+export const ALIAS_MAX = 50; // 每個品項最多幾個叫法
+export function aliasList(v) {
+  const arr = Array.isArray(v) ? v : String(v ?? '').split(/[、,，;；\n]/);
+  return [...new Set(arr.map((s) => clean(s, 20)).filter(Boolean))].slice(0, ALIAS_MAX);
+}
+
+// 從 AI 紀錄「看不懂」加叫法。storeId 有填＝只有這家店用；沒填＝全部店家通用
+export async function addAlias({ text, pid, storeId }) {
+  text = clean(text, 20);
+  if (!text) throw new UserError('請填客人寫的叫法');
+  const products = await getProducts();
+  const p = products.find((x) => x.id === pid);
+  if (!p) throw new UserError('請選對應的品項');
+  if (storeId) {
+    const ref = doc('storeAliases/' + storeId);
+    await db().runTransaction(async (tx) => {
+      const items = ((await tx.get(ref)).data()?.items || []).filter((a) => a.text !== text);
+      if (items.length >= 200) throw new UserError('這家店的專屬叫法太多了，請先刪掉一些');
+      tx.set(ref, { items: [...items, { text, pid }] });
+    });
+    return { products, storeAliases: await getStoreAliases(storeId) };
+  }
+  const ref = doc('settings/products');
+  const list = await db().runTransaction(async (tx) => {
+    const items = (await tx.get(ref)).data()?.items ?? structuredClone(DEFAULT_PRODUCTS);
+    const other = items.find((x) => x.id !== pid && aliasList(x.alias).includes(text));
+    if (other) throw new UserError(`「${text}」已經是「${other.name}」的叫法了，同一個叫法不能對到兩個品項（不同店意思不同的話，請選「只有這家店」）`);
+    const it = items.find((x) => x.id === pid);
+    if (!it) throw new UserError('找不到這個品項，請重新整理');
+    const cur = aliasList(it.alias);
+    if (!cur.includes(text)) {
+      if (cur.length >= ALIAS_MAX) throw new UserError(`「${it.name}」的叫法已經有 ${ALIAS_MAX} 個了`);
+      it.alias = [...cur, text];
+    }
+    tx.set(ref, { items });
+    return items;
+  });
+  return { products: list };
+}
+
+export const getStoreAliases = async (storeId) => (await data('storeAliases/' + storeId))?.items || [];
+export async function allStoreAliases() {
+  const snap = await db().collection('storeAliases').get();
+  return Object.fromEntries(snap.docs.map((d) => [d.id, d.data().items || []]));
+}
+export async function removeStoreAlias(storeId, text) {
+  const ref = doc('storeAliases/' + storeId);
+  await db().runTransaction(async (tx) => {
+    const items = ((await tx.get(ref)).data()?.items || []).filter((a) => a.text !== text);
+    tx.set(ref, { items });
+  });
+  return getStoreAliases(storeId);
 }
 
 /* ---------- 單位 ---------- */
@@ -55,6 +112,7 @@ export async function saveProducts(input) {
   const old = new Map((await getProducts()).map((p) => [p.id, p]));
   const units = await getUnits();
   const names = new Set();
+  const aliasOwner = new Map(); // 叫法 → 品名：同一個叫法不能對到兩個品項
   const list = input.map((p) => {
     const name = clean(p.name, 40);
     if (!name) throw new UserError('有品項沒有填品名');
@@ -69,9 +127,16 @@ export async function saveProducts(input) {
       price: old.get(id)?.price ?? 0, // 最近一次輸入的單價，新訂單先用這個
       cost: old.get(id)?.cost ?? null, // 最近一次輸入的進價
       on: !!p.on,
-      alias: clean(p.alias, 80), // 別名（店家常見的寫法，給 AI 對照用），用、或逗號隔開
+      // 別名（客人常打的寫法，給 AI 對照用）。畫面沒送 alias 時保留原本的，免得存品項時被清空
+      alias: p.alias === undefined ? aliasList(old.get(id)?.alias) : aliasList(p.alias),
     };
   });
+  for (const p of list) {
+    for (const a of p.alias) {
+      if (aliasOwner.has(a) && aliasOwner.get(a) !== p.name) throw new UserError(`「${a}」同時是「${aliasOwner.get(a)}」和「${p.name}」的叫法，請只留一個`);
+      aliasOwner.set(a, p.name);
+    }
+  }
   await doc('settings/products').set({ items: list });
   return list;
 }
@@ -294,10 +359,7 @@ export async function unbind(userId) {
 export const slipKey = (sid, seq = 1) => (seq > 1 ? `${sid}-${seq}` : sid);
 const orderDoc = (date, sid, seq = 1) => doc(`orders/${date}_${slipKey(sid, seq)}`);
 const monthKey = (date, sid, seq = 1) => `${date}|${slipKey(sid, seq)}`;
-// 簽收後出貨單就鎖住，數量和品項都不能再改（單價還是可以補）；要追加就開補單
-async function assertNotSigned(date, sid, seq = 1) {
-  if ((await doc(`signatures/${date}_${slipKey(sid, seq)}`).get()).exists) throw new UserError('這張配送單已經確認，不能再修改；要追加請開補單', 409);
-}
+// 簽收後出貨單就鎖住，數量和品項都不能再改（單價還是可以補）；要追加就開補單（檢查在 saveOrder／setShip 的 transaction 裡）
 export const getOrder = async (date, sid, seq = 1) => (await orderDoc(date, sid, seq).get()).data() ?? null;
 
 export async function ordersOfDate(date, { withEmpty = false } = {}) {
@@ -327,17 +389,24 @@ export async function monthAmounts(month) {
 }
 
 // 整張訂單覆蓋。by：'店家' 或 '後台'；who：後台是誰改的
+// items 可以是陣列，或 (舊訂單) => 陣列：要「在舊的單上加減」時用函式，才不會跟同時間的修改互相蓋掉
+// 用 transaction：同一張單同時有人改（店家改單、理貨填實出量、AI 確認），Firestore 會自動重跑，不會遺失修改
 export async function saveOrder(sid, date, items, by, who = '', seq = 1) {
   if (!isDate(date)) throw new UserError('配送日不正確');
   if (by === '店家' && date !== openDate()) throw new UserError('這一天已經截單了，請重新整理後再叫貨', 409);
   seq = Math.max(1, Math.floor(Number(seq)) || 1);
-  await assertNotSigned(date, sid, seq);
-  const products = await getProducts();
+  const [products, dayPrices, storeDoc, groups] = await Promise.all([getProducts(), getDayPrices(date), data('stores/' + sid), getPriceGroups()]);
   const pm = new Map(products.map((p) => [p.id, p]));
-  const old = await getOrder(date, sid, seq);
-  const dayPrices = await getDayPrices(date);
-  const [storeDoc, groups] = await Promise.all([data('stores/' + sid), getPriceGroups()]);
   const group = groups.find((g) => g.id === storeDoc?.groupId);
+  const ref = orderDoc(date, sid, seq);
+  const sigRef = doc(`signatures/${date}_${slipKey(sid, seq)}`);
+
+  return db().runTransaction(async (tx) => {
+  // 這裡面可能被重跑好幾次，不要有寄訊息之類的副作用
+  const [sigSnap, oldSnap] = await Promise.all([tx.get(sigRef), tx.get(ref)]);
+  if (sigSnap.exists) throw new UserError('這張配送單已經確認，不能再修改；要追加請開補單', 409);
+  const old = oldSnap.data() ?? null;
+  if (typeof items === 'function') items = items(old);
   const oldMap = new Map((old?.items || []).map((i) => [i.pid, i]));
 
   const next = [];
@@ -388,20 +457,20 @@ export async function saveOrder(sid, date, items, by, who = '', seq = 1) {
       ...(!old?.items.length && who ? [{ at, by, who, text: '新叫貨：' + next.map((i) => `${i.name} ${qtyText(i.qty, i.unit)}`).join('、') }] : []),
     ],
   };
-  const batch = db().batch();
-  batch.set(orderDoc(date, sid, seq), order);
-  batch.set(doc('monthly/' + order.month), { amounts: { [monthKey(date, sid, seq)]: next.length ? amountOf(order) : FieldValue.delete() } }, { merge: true });
-  await batch.commit();
+  tx.set(ref, order);
+  tx.set(doc('monthly/' + order.month), { amounts: { [monthKey(date, sid, seq)]: next.length ? amountOf(order) : FieldValue.delete() } }, { merge: true });
   return { order, had: !!old?.items.length, changes };
+  });
 }
 
 export async function setQty(sid, date, pid, qty, who, seq = 1) {
-  const old = await getOrder(date, sid, seq);
-  const items = (old?.items || []).filter((i) => i.pid !== pid);
-  const at = (old?.items || []).findIndex((i) => i.pid === pid);
-  const it = { pid, qty: Math.max(0, roundQty(qty) || 0) };
-  if (at >= 0) items.splice(at, 0, it); else items.push(it);
-  return saveOrder(sid, date, items, '後台', who, seq);
+  return saveOrder(sid, date, (old) => {
+    const items = (old?.items || []).filter((i) => i.pid !== pid);
+    const at = (old?.items || []).findIndex((i) => i.pid === pid);
+    const it = { pid, qty: Math.max(0, roundQty(qty) || 0) };
+    if (at >= 0) items.splice(at, 0, it); else items.push(it);
+    return items;
+  }, '後台', who, seq);
 }
 
 // 整張刪除（還沒簽收的才可以）：品項清空、對帳金額移除，改單紀錄會留下刪了什麼
@@ -450,23 +519,26 @@ export const amountOf = (o) => Math.round(o.items.reduce((a, i) => a + billQty(i
 
 // 理貨填實際秤出的量（0＝缺貨，不出貨也不計價）
 export async function setShip(sid, date, pid, ship, who, seq = 1) {
-  await assertNotSigned(date, sid, seq);
-  const o = await getOrder(date, sid, seq);
-  const it = o?.items.find((i) => i.pid === pid);
-  if (!it) throw new UserError('這家店這天沒有叫這個品項');
   ship = Math.max(0, roundQty(ship) || 0);
   if (ship > 999) throw new UserError('數量太大了');
-  const before = billQty(it);
-  if (before === ship) return { order: o };
-  if (ship === it.qty) delete it.ship; else it.ship = ship;
-  const at = new Date().toISOString();
-  o.updatedAt = at;
-  o.log = [...(o.log || []), { at, by: '後台', who, text: `實出 ${it.name} ${qtyText(before, it.unit)} → ${ship ? qtyText(ship, it.unit) : '缺貨'}` }];
-  const batch = db().batch();
-  batch.set(orderDoc(date, sid, seq), o);
-  batch.set(doc('monthly/' + o.month), { amounts: { [monthKey(date, sid, seq)]: amountOf(o) } }, { merge: true });
-  await batch.commit();
-  return { order: o };
+  const ref = orderDoc(date, sid, seq);
+  const sigRef = doc(`signatures/${date}_${slipKey(sid, seq)}`);
+  return db().runTransaction(async (tx) => {
+    const [sigSnap, snap] = await Promise.all([tx.get(sigRef), tx.get(ref)]);
+    if (sigSnap.exists) throw new UserError('這張配送單已經確認，不能再修改；要追加請開補單', 409);
+    const o = snap.data();
+    const it = o?.items.find((i) => i.pid === pid);
+    if (!it) throw new UserError('這家店這天沒有叫這個品項');
+    const before = billQty(it);
+    if (before === ship) return { order: o };
+    if (ship === it.qty) delete it.ship; else it.ship = ship;
+    const at = new Date().toISOString();
+    o.updatedAt = at;
+    o.log = [...(o.log || []), { at, by: '後台', who, text: `實出 ${it.name} ${qtyText(before, it.unit)} → ${ship ? qtyText(ship, it.unit) : '缺貨'}` }];
+    tx.set(ref, o);
+    tx.set(doc('monthly/' + o.month), { amounts: { [monthKey(date, sid, seq)]: amountOf(o) } }, { merge: true });
+    return { order: o };
+  });
 }
 
 /* ---------- 收款 ---------- */

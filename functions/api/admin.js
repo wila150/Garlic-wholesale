@@ -69,7 +69,7 @@ export async function GET(request) {
     const date = isDate(q.get('date')) ? q.get('date') : openDate();
     const month = isMonth(q.get('month')) ? q.get('month') : thisMonth();
     const bills = can(me.role, 'bills');
-    const [stores, products, pending, monthRows, paid, dayOrders, dayPrices, units, users, priceGroups] = await Promise.all([
+    const [stores, products, pending, monthRows, paid, dayOrders, dayPrices, units, users, priceGroups, storeAliases] = await Promise.all([
       shop.getStores(), shop.getProducts(),
       can(me.role, 'stores') ? shop.listPending() : [],
       bills ? shop.monthAmounts(month) : [],
@@ -79,6 +79,7 @@ export async function GET(request) {
       shop.getUnits(),
       can(me.role, 'users') ? listUsers() : [],
       can(me.role, 'prices') ? shop.getPriceGroups() : [],
+      can(me.role, 'stores') ? shop.allStoreAliases() : {},
     ]);
     const showPrices = can(me.role, 'prices') || bills;
     return json({
@@ -107,6 +108,7 @@ export async function GET(request) {
       paid,
       users,
       priceGroups,
+      storeAliases,
     });
   } catch (e) {
     return fail(e);
@@ -249,6 +251,18 @@ export async function POST(request) {
       case 'rules':
         need(me, 'users');
         return json({ rules: await saveRules(b.rules || {}), openDate: openDate(), cutoffLabel: cutoffLabel(openDate()) });
+      // AI 紀錄「看不懂」→ 加成叫法（理貨也可以加，因為只影響 AI 辨識，不影響價格）
+      case 'addAlias': {
+        need(me, 'editOrders');
+        if (b.storeId) await store();
+        const r = await shop.addAlias({ text: b.text, pid: b.pid, storeId: b.storeId || '' });
+        return json({ products: r.products, ...(b.storeId ? { storeId: b.storeId, storeAliases: r.storeAliases } : {}) });
+      }
+      case 'removeStoreAlias': {
+        need(me, 'stores');
+        const s = await store();
+        return json({ storeId: s.id, storeAliases: await shop.removeStoreAlias(s.id, String(b.text || '')) });
+      }
       case 'aiApply': {
         need(me, 'editOrders');
         const r = await applyDraft(String(b.id || ''), b.items, me.name);

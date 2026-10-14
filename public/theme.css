@@ -1,0 +1,133 @@
+/* 蒜頭行 共用設計：後台（body.admin）、店家叫貨頁（body.shop）、確認配送單（body.sign）
+   放在各頁自己的 <style> 後面載入，這裡的設定優先 */
+@import url("https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@600;700&display=swap");
+
+:root{
+  --bg:#F6F5F0; --surface:#FFFFFF; --surface-2:#FBFAF7; --ink:#1B1F1B; --muted:#72776F; --line:#E6E3DA;
+  --leaf:#1F4D3A; --leaf-2:#2C6A50; --leaf-soft:#E9F0EB;
+  --gold:#B08A3E; --tag:#E9C46A; --tag-soft:#FAF1DC; --tag-ink:#6E5114;
+  --alert:#B4442E; --line-green:#06C755;
+  --shadow:0 1px 2px rgba(28,34,28,.05),0 6px 20px -8px rgba(28,34,28,.10);
+  --shadow-lg:0 12px 40px -12px rgba(28,34,28,.28);
+  --r:14px; --r-sm:10px;
+  --serif:"Noto Serif TC","Songti TC",serif;
+  --board:var(--surface); --chalk:var(--ink); --chalk-dim:var(--muted);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#0F1110; --surface:#171A18; --surface-2:#1B1F1C; --ink:#ECEDE8; --muted:#8F948D; --line:#272B28;
+    --leaf:#2F7A57; --leaf-2:#3A8F68; --leaf-soft:#16271E;
+    --gold:#D7B56D; --tag-soft:#2F2714; --tag-ink:#EBCB82; --alert:#E3836F;
+    --shadow:none; --shadow-lg:0 12px 40px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0F1110; --surface:#171A18; --surface-2:#1B1F1C; --ink:#ECEDE8; --muted:#8F948D; --line:#272B28;
+  --leaf:#2F7A57; --leaf-2:#3A8F68; --leaf-soft:#16271E;
+  --gold:#D7B56D; --tag-soft:#2F2714; --tag-ink:#EBCB82; --alert:#E3836F;
+  --shadow:none; --shadow-lg:0 12px 40px -12px rgba(0,0,0,.6);
+}
+
+body{background:var(--bg);color:var(--ink);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;letter-spacing:.01em}
+::selection{background:var(--leaf-soft)}
+:focus-visible{outline:2px solid var(--leaf-2);outline-offset:2px}
+button{transition:background-color .15s,border-color .15s,color .15s,transform .08s,box-shadow .15s}
+button:active:not(:disabled){transform:scale(.97)}
+input,select,textarea{transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--leaf-2)!important;box-shadow:0 0 0 3px color-mix(in srgb,var(--leaf-2) 18%,transparent)}
+input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
+
+/* 品牌：蒜頭標誌＋襯線店名 */
+.logo{flex:none;width:34px;height:34px;border-radius:10px;background:var(--leaf);color:#F4EBD6;display:grid;place-items:center;box-shadow:inset 0 0 0 1px rgba(255,255,255,.06)}
+.logo svg{width:20px;height:20px}
+.brand{display:flex;align-items:center;gap:10px;min-width:0}
+.brand-name{font-family:var(--serif);font-weight:700;letter-spacing:.06em}
+
+/* ===== 後台 ===== */
+body.admin header.top{padding-top:calc(18px + env(safe-area-inset-top,0px))}
+body.admin header.top h1{font-family:var(--serif);font-size:1.25rem;font-weight:700;letter-spacing:.06em}
+body.admin .tsub{margin-top:6px;padding-left:44px}
+body.admin .cutoff{background:var(--tag-soft);color:var(--tag-ink);border:1px solid color-mix(in srgb,var(--tag) 45%,transparent)}
+body.admin nav.tabs{margin-top:8px;background:color-mix(in srgb,var(--bg) 88%,transparent);backdrop-filter:saturate(1.4) blur(10px);-webkit-backdrop-filter:saturate(1.4) blur(10px)}
+body.admin nav.tabs button{letter-spacing:.04em}
+body.admin nav.tabs button[aria-selected="true"]{box-shadow:inset 0 -2px 0 var(--leaf)}
+body.admin nav.tabs .dot{background:var(--alert);font-weight:700}
+body.admin h2{font-size:1rem;letter-spacing:.04em}
+body.admin .board,body.admin .slip,body.admin .bill,body.admin .kpi,body.admin .aid,body.admin .srow,body.admin .grp,body.admin .plist,
+body.admin .log,body.admin .sumline,body.admin .ar,body.admin .addform,body.admin .units,body.admin .ctypes,body.admin .manual,body.admin .pend,
+body.admin .users,body.admin .missing{border-radius:var(--r);box-shadow:var(--shadow);border-color:var(--line)}
+body.admin .users{overflow:hidden;border:1px solid var(--line)}
+body.admin .users .urow{border-radius:0!important}
+body.admin .brow .qty{color:var(--leaf-2);font-weight:700;letter-spacing:-.01em}
+body.admin .board-head b{font-family:var(--serif);letter-spacing:.04em}
+body.admin .kpi b{letter-spacing:-.01em}
+body.admin .pbtn,body.admin .sacts button,body.admin .datebar button,body.admin .datebar input{border-radius:var(--r-sm)}
+body.admin .pbtn:hover{background:var(--surface-2)}
+body.admin .sacts .ok,body.admin .pbtn.solid,body.admin .savebar .ok,body.admin .quickadd button,body.admin .add button,body.admin .addform button,body.admin .learn button{background:var(--leaf);color:#fff}
+body.admin .sacts .ok:hover,body.admin .quickadd button:hover,body.admin .savebar .ok:not(:disabled):hover{background:var(--leaf-2)}
+body.admin .slip-h b{font-size:1.05rem;letter-spacing:.02em}
+body.admin .stepper button{border-color:var(--line)}
+body.admin .stepper button:hover{border-color:var(--leaf-2);color:var(--leaf-2)}
+body.admin .sw input:checked+span{background:var(--leaf-2)}
+body.admin .login{border-radius:18px;box-shadow:var(--shadow-lg);border:1px solid var(--line);padding:28px 24px;text-align:center}
+body.admin .login h2{font-family:var(--serif);font-size:1.3rem;letter-spacing:.06em;margin:12px 0 4px}
+body.admin .login .logo{margin:0 auto;width:48px;height:48px;border-radius:14px}
+body.admin .login .logo svg{width:28px;height:28px}
+body.admin .login .gbtn{border-radius:12px;padding:12px}
+body.admin .toast{background:var(--ink);color:var(--bg);box-shadow:var(--shadow-lg)}
+body.admin .sheetbg,body.admin #pv{backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+body.admin .sigin,body.admin .aiedin{box-shadow:var(--shadow-lg);border-radius:18px}
+
+/* ===== 店家叫貨頁、確認配送單 ===== */
+body.shop,body.sign{background:var(--bg)}
+body.shop .app{background:var(--bg)}
+body.shop .head,body.sign .head{background:var(--surface);color:var(--ink);border-bottom:1px solid var(--line);padding:calc(14px + env(safe-area-inset-top,0px)) 16px 12px;display:flex;align-items:center;gap:12px}
+body.shop .head .ht,body.sign .head .ht{min-width:0}
+body.shop .head b,body.sign .head b{font-family:var(--serif);font-size:1.1rem;letter-spacing:.04em;display:block;line-height:1.35}
+body.shop .head small,body.sign .head small{color:var(--muted);opacity:1;font-size:.82rem;display:block}
+body.shop .tools{background:var(--surface);border-bottom:1px solid var(--line)}
+body.shop .tools input{background:var(--bg);border-color:transparent;border-radius:12px;padding:9px 14px}
+body.shop .chips button{border-radius:999px;padding:5px 14px;background:var(--surface)}
+body.shop .chips button[aria-pressed="true"]{background:var(--leaf);border-color:var(--leaf);color:#fff}
+body.shop .chips .ct{background:var(--gold);color:#fff}
+body.shop .list{background:var(--bg);padding:8px 0 12px}
+body.shop .prow{background:var(--surface);margin:0 12px;border-bottom:1px solid var(--line);padding:12px 14px}
+body.shop .list>.prow:first-child,body.shop .repeat+.prow{border-radius:var(--r) var(--r) 0 0}
+body.shop .prow:last-child{border-radius:0 0 var(--r) var(--r);border-bottom:0}
+body.shop .prow.sel{background:color-mix(in srgb,var(--leaf-soft) 70%,var(--surface));box-shadow:inset 3px 0 0 var(--leaf)}
+body.shop .prow .pn{font-weight:600}
+body.shop .stp button{background:var(--surface);border-color:var(--line);color:var(--ink)}
+body.shop .stp button.plus{background:var(--leaf);border-color:var(--leaf);color:#fff}
+body.shop .stp button.plus:hover{background:var(--leaf-2)}
+body.shop .stp input,body.shop .ctl select{background:var(--surface-2);border-radius:10px}
+body.shop .repeat{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);margin:4px 12px 10px}
+body.shop .repeat button{background:var(--leaf);border-radius:10px}
+body.shop .bar{background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px)}
+body.shop .bar button{background:var(--leaf);border-radius:12px;padding:12px 22px;letter-spacing:.04em;box-shadow:0 6px 16px -6px color-mix(in srgb,var(--leaf) 70%,transparent)}
+body.shop .bar button:hover:not(:disabled){background:var(--leaf-2)}
+body.shop .bar button:disabled{box-shadow:none}
+body.shop .sheet{backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px)}
+body.shop .sheet-in{border-radius:20px 20px 0 0;box-shadow:var(--shadow-lg)}
+body.shop .sheet-in h3{font-family:var(--serif);letter-spacing:.04em;padding-top:18px}
+body.shop .sa button,body.sign .acts button{border-radius:12px}
+body.shop .sa .go,body.sign .acts .go,body.sign .done a{background:var(--leaf);border-color:var(--leaf)}
+body.shop .done{background:var(--bg)}
+body.shop .done h2{font-family:var(--serif);letter-spacing:.04em}
+body.shop .done ul{background:var(--surface);border-radius:var(--r);padding:8px 14px;box-shadow:var(--shadow)}
+body.shop .done button{border-radius:12px}
+body.shop .mode{background:var(--tag-soft);color:var(--tag-ink);border-bottom:1px solid var(--line)}
+body.shop .mode button{background:var(--gold);color:#fff;border-radius:10px}
+body.shop .mode.on{background:var(--leaf);color:#fff}
+body.shop .mode.on button{background:#fff;color:var(--leaf)}
+body.sign .wrap{padding-top:18px}
+body.sign .card{border-radius:var(--r);box-shadow:var(--shadow);border-color:var(--line)}
+body.sign .card h2{font-family:var(--serif);letter-spacing:.04em}
+body.sign .chk{background:var(--leaf-soft);border-radius:12px}
+body.sign .done a{border-radius:12px}
+body.sign .pad .sheet{border-radius:20px 20px 0 0;box-shadow:var(--shadow-lg)}
+
+body.admin .lnk{white-space:nowrap}
+body.admin #themeBtn{font-size:1.05rem;padding:4px 8px}
+body.admin header.top h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+body.admin .brand{flex:1;min-width:0}
+@media (max-width:420px){body.admin header.top h1{font-size:1.1rem}}

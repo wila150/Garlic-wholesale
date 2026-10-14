@@ -53,11 +53,11 @@ export function orderCard(title, store, date, order, url, editable = true) {
 export const orderMessage = (title, ...args) => flex(`${title}`, orderCard(title, ...args));
 
 // 截單後補單：另開一張，跟原本的訂單分開
-export function addonCard(store, date, order, url) {
+export function addonCard(store, date, order, url, until = addonUntilLabel(date)) {
   const items = order?.items || [];
   const body = items.length
-    ? [...items.map((i) => row(i.name, qtyText(i.qty, i.unit), { weight: 'bold' })), sep, text(`共 ${items.length} 項，${addonUntilLabel(date)} 前可以修改`, { size: 'xs', color: C.muted, margin: 'md' })]
-    : [text(`${label(date)} 的貨已經截單了。要加點的話按下面「我要補單」，會另開一張補單，原本的訂單不會變。`), text(`${addonUntilLabel(date)} 前可以補`, { size: 'xs', color: C.muted, margin: 'md' })];
+    ? [...items.map((i) => row(i.name, qtyText(i.qty, i.unit), { weight: 'bold' })), sep, text(`共 ${items.length} 項，${until} 前可以修改`, { size: 'xs', color: C.muted, margin: 'md' })]
+    : [text(`${label(date)} 的貨已經截單或確認了。要加點的話按下面「我要補單」，會另開一張補單，原本的訂單不會變。`), text(`${until} 前可以補`, { size: 'xs', color: C.muted, margin: 'md' })];
   return bubble(items.length ? '我的補單' : '要加點？', `${store.name}・${label(date)} 配送`, body, [button(items.length ? '修改補單' : '我要補單', url)]);
 }
 

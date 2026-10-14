@@ -193,6 +193,18 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .rules .chkl{flex-direction:row;align-items:center;gap:8px;font-weight:700}.rules .chkl input{width:20px;height:20px}
 .rules .wds{grid-column:1/-1}.wds input{padding:0}
 .wds{border:0;padding:0;margin:0;min-width:0}.wds legend{font-size:.85rem;color:var(--muted);padding:0;margin-bottom:4px}.wds div{display:flex;gap:6px;flex-wrap:wrap}.wds label{display:inline-flex;flex-direction:row;align-items:center;gap:4px;border:1px solid var(--line);border-radius:16px;padding:4px 10px;font-size:.9rem}
+.aiedin{background:var(--surface);border-radius:12px;width:100%;max-width:980px;max-height:92vh;display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1fr);overflow:hidden}
+.aeimg{background:#111;overflow:auto;display:flex;align-items:flex-start;justify-content:center}
+.aeimg img{width:100%;height:auto;display:block}
+.aeimg .txt{color:#eee;padding:16px;white-space:pre-wrap}
+.aeform{padding:16px;overflow:auto;display:flex;flex-direction:column;gap:8px}
+.aeform h3{margin:0}
+.aer{display:grid;grid-template-columns:1fr auto 28px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line)}
+.aer em{font-style:normal;font-size:.72rem;background:var(--tag);color:#2A2400;border-radius:8px;padding:0 6px}
+.aer .x{border:0;background:transparent;color:var(--muted);font-size:1rem}
+.aeform .sa{display:flex;gap:8px;margin-top:auto;padding-top:8px}.aeform .sa button{flex:1;border-radius:20px;padding:9px;font-weight:700;border:1px solid var(--line);background:var(--bg)}.aeform .sa .go{background:var(--leaf);border-color:var(--leaf);color:#fff}
+.aid .aied{margin-top:6px}
+@media (max-width:700px){.aiedin{grid-template-columns:1fr;max-height:96vh;overflow:auto}.aeimg{max-height:45vh}.aeform{overflow:visible}}
 .manual{display:block;text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--leaf);border-radius:10px;padding:12px 14px;margin-bottom:22px}.manual b{font-size:1.05rem}.manual small{display:block;color:var(--muted)}.manual:hover{border-color:var(--leaf)}
 .devbox{margin-top:28px;border-top:1px dashed var(--line);padding-top:10px;color:var(--muted)}.devbox summary{cursor:pointer;font-size:.85rem}.devbox .danger{border:1px solid var(--alert);background:transparent;color:var(--alert);font-weight:700;border-radius:8px;padding:8px 14px}
 .sacts .delslip{border:0;background:transparent;color:var(--alert);font-weight:700;margin-left:auto}
@@ -437,6 +449,17 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
   </section>
 </div>
 
+<div class="sheetbg aied-bg" id="aiEd" role="dialog" aria-modal="true" aria-labelledby="aeTitle"><div class="aiedin">
+  <div class="aeimg" id="aeImg"></div>
+  <div class="aeform">
+    <h3 id="aeTitle"></h3>
+    <p class="sub" id="aeHint"></p>
+    <div class="unk" id="aeUnk"></div>
+    <div id="aeList"></div>
+    <div class="add"><select id="aeAdd" aria-label="加品項"></select><input id="aeAddQ" type="text" placeholder="如 2斤4兩" aria-label="數量"><button id="aeAddBtn" type="button">加入</button></div>
+    <div class="sa"><button id="aeClose" type="button">關閉</button><button class="go" id="aeSave" type="button">儲存</button></div>
+  </div>
+</div></div>
 <div class="sheetbg" id="linkBox" role="dialog" aria-modal="true" aria-labelledby="linkTitle"><div class="sigin">
   <h3 id="linkTitle">確認配送單連結</h3>
   <p class="sub">按「複製並開聊天室」→ 在 LINE 官方帳號的聊天列表點這家店 → 貼上送出（你自己傳不算推播額度）。店家點開核對品項和數量，按「確認」再簽名；數量不對可以直接回報。確認後這裡會變成「店家已確認」並鎖住。連結 7 天有效。</p>
@@ -844,7 +867,7 @@ async function learnAlias(id){
     toast('下次 AI 就認得了');
   }catch(e){toast(e.message)}
 }
-const AIST={pending:'待確認',confirmed:'已確認送出',edited:'改用叫貨單送出',expired:'已截單沒送出',empty:'沒看到品項',error:'辨識失敗'};
+const AIST={pending:'待確認',confirming:'處理中',confirmed:'已確認送出',edited:'改用叫貨單送出',expired:'已截單沒送出',empty:'沒看到品項',error:'辨識失敗',admin:'後台已改單'};
 async function loadAI(){
   $('aiBox').innerHTML='<div class="empty">載入中…</div>';
   try{
@@ -857,8 +880,42 @@ async function loadAI(){
         ${d.unknown.length?`<div class="unk">看不懂：${esc(d.unknown.join('、'))}</div>`+(may('editOrders')?d.unknown.map((u,k)=>learnRow(d,u,k)).join(''):''):''}
         ${d.note?`<div class="meta">備註：${esc(d.note)}</div>`:''}
         ${d.error?`<div class="unk">原因：${esc(d.error)}</div>`:''}
+        ${d.lines?.length?`<details class="meta"><summary>AI 讀到的字</summary>${d.lines.map(esc).join('<br>')}</details>`:''}
+        ${may('editOrders')?`<button class="pbtn aied" data-aied="${esc(d.id)}">${d.type==='image'?'看照片改單':'對照改單'}</button>`:''}
       </div></div>`).join(''):'<div class="empty">還沒有店家用 LINE 打字或傳照片叫貨</div>';
   }catch(e){$('aiBox').innerHTML=`<div class="empty">${esc(e.message)}</div>`}
+}
+
+/* ---------- 對照改單：左邊照片，右邊這家店那天的單，可以加減品項 ---------- */
+let AE=null;
+async function openAiEd(id){
+  try{
+    const j=await api('GET',null,`?aiorder=${encodeURIComponent(id)}`),d=j.draft;
+    // 店家還沒確認的，把 AI 讀到的加進去；已經處理過的（AI 的品項已經在單裡）就只帶原本的單
+    const base=j.signed?[]:(j.order?.items||[]).map(i=>({pid:i.pid,name:i.name,unit:i.unit,qty:i.qty}));
+    const addAi=!['confirmed','edited','admin','confirming'].includes(d.status);
+    if(addAi)for(const it of d.items){const x=base.find(b=>b.pid===it.pid);if(x){x.qty=Math.round((x.qty+it.qty)*10000)/10000;x.ai=true}else base.push({pid:it.pid,name:it.name,unit:it.unit,qty:it.qty,ai:true})}
+    AE={id,d,items:base,signed:j.signed};
+    $('aeImg').innerHTML=d.thumb?`<img src="${d.thumb}" alt="店家傳的照片">`:`<div class="txt">${d.type==='image'?'📷 照片已經刪除了（店家確認後或 14 天後自動刪除）':esc(d.text)}</div>`;
+    $('aeTitle').textContent=`${d.storeName||SM()[d.storeId]?.name||''}・${md(d.date)} 配送`;
+    $('aeHint').innerHTML=(j.signed?'原本的單已經確認了，這裡存的會<b>另開一張補單</b>。':'這裡是這家店那天<b>整張單</b>，按儲存就照畫面上的存。')+(!addAi?' AI 讀到的品項已經在單裡了（之前處理過）。':d.items.length?' AI 讀到的品項（標 <b>AI</b> 的）已經加進來了，對照照片調整。':' AI 沒有讀到品項，看照片把要加的品項加進來。');
+    $('aeUnk').textContent=d.unknown?.length?`AI 看不懂：${d.unknown.join('、')}`:'';
+    renderAiEd();$('aiEd').classList.add('on');
+  }catch(e){toast(e.message)}
+}
+function renderAiEd(){
+  const on=D.products.filter(p=>p.on);
+  $('aeList').innerHTML=AE.items.map((i,k)=>`<div class="aer"><span>${esc(i.name)}${i.ai?' <em>AI</em>':''}</span>
+    <span class="stepper"><button data-aes="-1" data-k="${k}" aria-label="${esc(i.name)}減少">−</button><input type="text" inputmode="decimal" value="${esc(editText(i.qty,i.unit))}" data-aeq="${k}" aria-label="${esc(i.name)}數量">${/斤|兩/.test(editText(i.qty,i.unit))?'':`<span class="u">${esc(i.unit)}</span>`}<button data-aes="1" data-k="${k}" aria-label="${esc(i.name)}增加">+</button></span>
+    <button class="x" data-aex="${k}" aria-label="移除${esc(i.name)}">✕</button></div>`).join('')||'<div class="empty">還沒有品項，從下面加</div>';
+  $('aeAdd').innerHTML='<option value="">＋ 加品項</option>'+D.categories.map(c=>{const ps=on.filter(p=>p.cat===c&&!AE.items.some(i=>i.pid===p.id));return ps.length?`<optgroup label="${esc(c)}">${ps.map(p=>`<option value="${p.id}">${esc(p.name)}（${esc(p.unit)}）</option>`).join('')}</optgroup>`:''}).join('');
+}
+async function saveAiEd(){
+  const items=AE.items.filter(i=>i.qty>0).map(i=>({pid:i.pid,qty:i.qty}));
+  if(!items.length&&AE.signed){toast('補單至少要有一個品項');return}
+  $('aeSave').disabled=true;
+  try{await api('POST',{action:'aiApply',id:AE.id,items});$('aiEd').classList.remove('on');toast(AE.signed?'已另開一張補單':'已存好這家店的單');loadAI();load()}
+  catch(e){toast(e.message)}finally{$('aeSave').disabled=false}
 }
 
 /* ---------- 報表 ---------- */
@@ -1141,6 +1198,12 @@ document.addEventListener('click',async e=>{
     try{const j=await api('POST',{action:'sign',date:D.date,storeId:sidOf(k),seq:seqOf(k)});(D.signatures||={})[k]=j.signature;renderSlips();toast('已確認配送單')}catch(err){toast(err.message)}
   }
   if(b.dataset.sigview)openPrint('slip',b.dataset.sigview);
+  if(b.dataset.aied)openAiEd(b.dataset.aied);
+  if(b.dataset.aes){const i=AE.items[+b.dataset.k];i.qty=Math.max(0,Math.round((i.qty+(+b.dataset.aes))*10000)/10000);renderAiEd()}
+  if(b.dataset.aex){AE.items.splice(+b.dataset.k,1);renderAiEd()}
+  if(b.id==='aeAddBtn'){const pid=$('aeAdd').value,p=PM()[pid];if(!p){toast('先選品項');return}const q=parseQty($('aeAddQ').value||'1',p.unit);if(!(q>0)){toast('數量看不懂，例如 2 或 2斤4兩');return}AE.items.push({pid,name:p.name,unit:p.unit,qty:q});$('aeAddQ').value='';renderAiEd()}
+  if(b.id==='aeClose')$('aiEd').classList.remove('on');
+  if(b.id==='aeSave')saveAiEd();
   if(b.dataset.delslip){
     const k=b.dataset.delslip,o=orderOf(k);
     if(!confirm(`確定刪除「${slipName(k)}」${md(D.date)} 這張出貨單？\n${o.items.map(i=>`${i.name} ${qtyText(i.qty,i.unit)}`).join('、')}\n\n刪除後對帳金額會一起扣掉，改單紀錄會留下來。`))return;
@@ -1180,6 +1243,7 @@ document.addEventListener('input',e=>{
   if(t.dataset.sf!=null){const s=S[+t.dataset.i],f=t.dataset.sf;s[f]=f==='on'?t.checked:f==='route'?(+t.value||0):t.value;sDirty=true;$('saveS').disabled=false;$('sDirty').textContent='有尚未儲存的修改'}
 });
 document.addEventListener('change',async e=>{
+  if(e.target.dataset?.aeq!=null){const i=AE.items[+e.target.dataset.aeq],q=parseQty(e.target.value,i.unit);if(q>=0&&!isNaN(q))i.qty=q;else toast('數量看不懂');renderAiEd();return}
   const t=e.target;
   if(t.dataset.sqin){
     const sid=t.dataset.sqin,pid=t.dataset.pid,it=orderOf(sid)?.items.find(i=>i.pid===pid);if(!it)return;
@@ -1195,7 +1259,7 @@ document.addEventListener('change',async e=>{
 });
 document.addEventListener('click',e=>{const im=e.target.closest('img[data-zoom]');if(im){$('paper').innerHTML=`<div class="doc"><img src="${im.src}" style="width:100%" alt="店家傳的照片"></div>`;$('pv').classList.add('on')}});
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape')$('pv').classList.remove('on');
+  if(e.key==='Escape'){$('pv').classList.remove('on');$('aiEd').classList.remove('on')}
   if(e.key==='Enter'&&!e.isComposing&&e.target.dataset?.sqin)e.target.blur();
   if(e.key==='Enter'&&!e.isComposing&&e.target.id==='newUnit')$('addUnit').click();
   if((e.key==='Enter'||e.key===',')&&!e.isComposing&&e.target.dataset?.anew!=null){e.preventDefault();if(e.target.value.trim())addAliasTag(+e.target.dataset.anew,e.target.value)}

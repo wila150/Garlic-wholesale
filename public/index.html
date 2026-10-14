@@ -131,7 +131,8 @@ async function load(){
   ['tools','plist','bar'].forEach(id=>$(id).hidden=false);
   // 訂單裡有、但已經下架的品項，也要顯示出來
   [...(D.order?.items||[]),...(D.addon?.order?.items||[])].forEach(i=>{if(!PM()[i.pid])D.products.push({id:i.pid,name:i.name,unit:i.unit,cat:'',on:false})});
-  setMode(Q.get('m')==='addon'&&D.addon&&!D.draft?'addon':'order');
+  // 原本的單已經被老闆確認（鎖住）：直接進補單
+  setMode((Q.get('m')==='addon'||D.addon?.mainLocked)&&D.addon&&!D.draft?'addon':'order');
   // 從 LINE「用叫貨單修改」進來：把 AI 整理的品項加進去
   if(D.draft){D.draft.items.forEach(i=>{cart[i.pid]=Math.round(((cart[i.pid]||0)+i.qty)*10000)/10000});cat='全部';render()}
   if(D.draft)toast(D.draft.unknown.length?`已帶入 AI 整理的品項。看不懂的：${D.draft.unknown.join('、')}`:'已帶入 AI 整理的品項，確認後按送出');
@@ -146,10 +147,10 @@ function setMode(m){
   $('title').textContent=D.store.name+(m==='addon'?'・補單':'・叫貨單');
   $('subtitle').textContent=m==='addon'?`${D.dateLabel} 配送，${D.cutoff} 前可以補`:`${D.dateLabel} 配送，${D.cutoff} 前可以改`;
   const bar=$('modeBar');bar.hidden=!A;bar.classList.toggle('on',m==='addon');
-  if(A&&m==='order')bar.innerHTML=`<span>${esc(A.dateLabel)} 的貨已截單，要加點？<small>${esc(A.until)} 前可以補單，會另開一張</small></span><button data-mode="addon">補單</button>`;
+  if(A&&m==='order')bar.innerHTML=`<span>${esc(A.dateLabel)} 的貨${A.mainLocked?'老闆已經確認':'已截單'}，要加點？<small>${esc(A.until)} 前可以補單，會另開一張</small></span><button data-mode="addon">補單</button>`;
   if(A&&m==='addon'){
     const n=A.others.reduce((a,o)=>a+o.items.length,0);
-    bar.innerHTML=`<span>這是另外一張補單${n?`<small>原本的訂單 ${n} 樣不會變，已經在處理了</small>`:''}</span><button data-mode="order">回到叫 ${esc(D.main.dateLabel)}</button>`;
+    bar.innerHTML=`<span>這是另外一張補單${n?`<small>原本的訂單 ${n} 樣${A.mainLocked?'老闆已經確認，':''}不會變</small>`:''}</span>${A.mainLocked?'':`<button data-mode="order">回到叫 ${esc(D.main.dateLabel)}</button>`}`;
   }
   cat=m==='addon'?'全部':frequent().size?'常叫':'全部';
   $('q').value='';render();$('plist').scrollTop=0;

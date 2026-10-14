@@ -20,7 +20,8 @@ export async function GET(request) {
     const store = await shop.storeOfUser(uid);
     if (!store) return json({ error: '您的帳號還沒開通，老闆開通後就能叫貨', shopName: SHOP.name }, 403);
     const D = openDate();
-    const A = addonDate();
+    const AF = await shop.addonFor(store.id);
+    const A = AF?.date;
     const [products, order, last, addonSlip, addonBase] = await Promise.all([
       shop.getProducts(), shop.getOrder(D, store.id), shop.lastOrder(store.id, D),
       A ? shop.addonSlipOf(store.id, A) : null, A ? shop.slipsOfDay(store.id, A) : [],
@@ -41,7 +42,8 @@ export async function GET(request) {
       addon: A ? {
         date: A,
         dateLabel: label(A),
-        until: addonUntilLabel(A),
+        until: AF.until,
+        mainLocked: AF.mainLocked,
         order: addonSlip ? noPrice(addonSlip) : null,
         others: addonBase.filter((o) => o.seq !== addonSlip?.seq).map((o) => ({ seq: o.seq || 1, addon: !!o.addon, items: o.items.map((i) => ({ name: i.name, unit: i.unit, qty: i.qty })) })),
       } : null,

@@ -15,7 +15,7 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { DEFAULT_PRODUCTS, CATEGORIES, DEFAULT_UNITS, UNITS_VERSION, UNITS_ADDED } from './config.js';
 import { qtyText, roundQty } from './qty.js';
 import { UserError } from './http.js';
-import { openDate, isDate, today, addonDate } from './dates.js';
+import { openDate, isDate, today, addonDate, getRulesNow, cutoffLabel, addonUntilLabel } from './dates.js';
 
 const db = () => getFirestore();
 const doc = (path) => db().doc(path);
@@ -406,12 +406,13 @@ export async function saveOrder(sid, date, items, by, who = '', seq = 1) {
   const [sigSnap, oldSnap] = await Promise.all([tx.get(sigRef), tx.get(ref)]);
   if (sigSnap.exists) throw new UserError('這張配送單已經確認，不能再修改；要追加請開補單', 409);
   const old = oldSnap.data() ?? null;
-  if (typeof items === 'function') items = items(old);
+  // 交易撞到別人同時改單會重跑：每次都要用這次讀到的最新的單重算，不能改掉外面的 items
+  const list = typeof items === 'function' ? items(old) : items;
   const oldMap = new Map((old?.items || []).map((i) => [i.pid, i]));
 
   const next = [];
   const seen = new Set();
-  for (const it of Array.isArray(items) ? items : []) {
+  for (const it of Array.isArray(list) ? list : []) {
     const qty = roundQty(it?.qty);
     if (!(qty > 0) || seen.has(it.pid)) continue;
     if (qty > 999) throw new UserError('數量太大了');
@@ -501,8 +502,17 @@ export async function addonSlipOf(sid, date) {
   }
   return null;
 }
+// 這家店現在可以補單的配送日：
+//   叫貨中的那天，原本的單已經被後台確認（鎖住）了 → 補那一天（到截單為止）
+//   否則 → 已截單、還沒過補單截止時間的那天
+export async function addonFor(sid) {
+  const D = openDate();
+  if (getRulesNow().addon && (await doc(`signatures/${D}_${slipKey(sid, 1)}`).get()).exists) return { date: D, until: cutoffLabel(D), mainLocked: true };
+  const A = addonDate();
+  return A ? { date: A, until: addonUntilLabel(A), mainLocked: false } : null;
+}
 export async function saveAddon(sid, date, items) {
-  if (date !== addonDate()) throw new UserError('補單時間已經過了，要追加請直接留言給老闆', 409);
+  if (date !== (await addonFor(sid))?.date) throw new UserError('補單時間已經過了，要追加請直接留言給老闆', 409);
   const cur = await addonSlipOf(sid, date);
   let seq = cur?.seq;
   if (!seq) {

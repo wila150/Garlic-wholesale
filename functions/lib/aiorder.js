@@ -83,17 +83,22 @@ export async function confirmDraft(userId, id, origin) {
   });
   if (!claim.d) return { type: 'text', text: claim.msg };
   const d = claim.d;
-  let saved;
+  let saved, asAddon = false;
   try {
     // 加進這次已叫的品項（同品項數量相加）；在 saveOrder 的 transaction 裡讀最新的單再加
-    saved = await shop.saveOrder(store.id, d.date, (old) => {
+    const merge = (old) => {
       const items = (old?.items || []).map((i) => ({ pid: i.pid, qty: i.qty }));
       for (const it of d.items) {
         const same = items.find((x) => x.pid === it.pid);
         if (same) same.qty = roundQty(same.qty + it.qty); else items.push({ pid: it.pid, qty: it.qty });
       }
       return items;
-    }, '店家', d.type === 'image' ? 'LINE 照片叫貨' : 'LINE 文字叫貨');
+    };
+    // 原本的單已經被老闆確認（鎖住）：改加進補單
+    const af = await shop.addonFor(store.id);
+    asAddon = !!(af?.mainLocked && af.date === d.date);
+    saved = asAddon ? await shop.saveAddon(store.id, d.date, merge)
+      : await shop.saveOrder(store.id, d.date, merge, '店家', d.type === 'image' ? 'LINE 照片叫貨' : 'LINE 文字叫貨');
   } catch (e) {
     // 只有「訂單沒存成功」才放回 pending，店家可以再按一次；存成功之後的錯誤不能放回去，不然會重複加
     await ref.update({ status: 'pending' }).catch(() => {});
@@ -101,6 +106,7 @@ export async function confirmDraft(userId, id, origin) {
     throw e;
   }
   await ref.update({ status: 'confirmed', confirmedAt: FieldValue.serverTimestamp(), thumb: FieldValue.delete() });
+  if (asAddon) return orderMessage(saved.had ? '補單已更新' : '補單已收到', store, d.date, saved.order, orderLink(origin, userId), false);
   return orderMessage(saved.had ? '訂單已更新' : '訂單已收到', store, d.date, saved.order, orderLink(origin, userId));
 }
 
@@ -117,7 +123,14 @@ export async function applyDraft(id, items, who) {
   const ref = db().collection('aiDrafts').doc(id);
   const d = (await ref.get()).data();
   if (!d) throw new Error('找不到這筆 AI 紀錄');
-  const r = await shop.saveOrder(d.storeId, d.date, items, '後台', `${who}・對照${d.type === 'image' ? '照片' : '訊息'}改單`);
+  // 原本的單已經確認（鎖住）的話，另開一張補單
+  const signed = (await db().doc(`signatures/${d.date}_${shop.slipKey(d.storeId, 1)}`).get()).exists;
+  let seq = 1;
+  if (signed) {
+    const snap = await db().collection('orders').where('date', '==', d.date).where('storeId', '==', d.storeId).get();
+    seq = Math.max(0, ...snap.docs.map((x) => x.data().seq || 1)) + 1;
+  }
+  const r = await shop.saveOrder(d.storeId, d.date, items, '後台', `${who}・對照${d.type === 'image' ? '照片' : '訊息'}${signed ? '開補單' : '改單'}`, seq);
   await ref.update({ status: 'admin', handledBy: who, handledAt: new Date().toISOString() });
   return r;
 }

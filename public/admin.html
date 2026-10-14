@@ -207,6 +207,10 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .aeform .sa{display:flex;gap:8px;margin-top:auto;padding-top:8px}.aeform .sa button{flex:1;border-radius:20px;padding:9px;font-weight:700;border:1px solid var(--line);background:var(--bg)}.aeform .sa .go{background:var(--leaf);border-color:var(--leaf);color:#fff}
 .aid .aied{margin-top:6px}
 @media (max-width:700px){.aiedin{grid-template-columns:1fr;max-height:96vh;overflow:auto}.aeimg{max-height:45vh}.aeform{overflow:visible}}
+.helpbox{position:fixed;inset:0;z-index:40;background:var(--bg);display:none;flex-direction:column;padding-top:env(safe-area-inset-top,0px)}
+.helpbox.on{display:flex}
+.hb-bar{display:flex;align-items:center;justify-content:space-between;padding:8px 14px;border-bottom:1px solid var(--line);background:var(--surface)}
+.helpbox iframe{flex:1;width:100%;border:0;background:var(--bg)}
 .newver{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:50;border:0;background:var(--tag);color:#2A2400;font-weight:700;border-radius:20px;padding:9px 18px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
 .ver{color:var(--muted);font-size:.72rem;white-space:nowrap}
 .manual{display:block;text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--leaf);border-radius:10px;padding:12px 14px;margin-bottom:22px}.manual b{font-size:1.05rem}.manual small{display:block;color:var(--muted)}.manual:hover{border-color:var(--leaf)}
@@ -313,9 +317,9 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 </head>
 <body>
 <button class="newver" id="newVer" hidden>有新版本，點這裡更新</button>
+<div class="helpbox" id="helpBox" role="dialog" aria-modal="true" aria-label="使用說明書"><div class="hb-bar"><b>使用說明書</b><button class="pbtn" id="helpClose">關閉</button></div><iframe id="helpFrame" title="使用說明書"></iframe></div>
 <form class="login" id="login" hidden onsubmit="return false">
   <h2>叫貨後台</h2>
-  <p class="sub" style="margin:6px 0 14px">用老闆授權過的 Google 帳號登入。</p>
   <div class="err" id="loginErr" role="alert"></div>
   <button id="loginBtn" class="gbtn" type="button"><svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.7 29.2 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.4-.4-3.5z"/><path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.8 1.2 7.9 3.1l5.7-5.7C34 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/><path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.2 0-9.6-3.3-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/><path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.2-4.1 5.6l6.2 5.2C37 39.2 44 34 44 24c0-1.3-.1-2.4-.4-3.5z"/></svg>用 Google 登入</button>
 </form>
@@ -323,7 +327,7 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 <div class="wrap" id="app" hidden>
   <header class="top">
     <div><h1 id="shopName">叫貨後台</h1><p id="headInfo"></p></div>
-    <div class="who"><span class="cutoff" id="cutoffTag"></span><span id="meInfo"></span><button class="pbtn" id="logout">登出</button><small class="ver">版本 101504</small></div>
+    <div class="who"><span class="cutoff" id="cutoffTag"></span><span id="meInfo"></span><button class="pbtn" id="helpBtn">說明</button><button class="pbtn" id="logout">登出</button><small class="ver">版本 101505</small></div>
   </header>
 
   <nav class="tabs" role="tablist">
@@ -348,7 +352,6 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 
   <section id="board">
     <h2>要準備的量</h2>
-    <p class="sub">所有店家加總，依分類排列，點品項可以看是哪幾家叫的。</p>
     <div class="bar"><button class="pbtn" data-print="buy">列印採買總表</button></div>
     <div class="board" id="boardBox"></div>
     <div id="missing"></div>
@@ -356,14 +359,12 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 
   <section id="prices" hidden>
     <h2>這天的單價</h2>
-    <p class="sub">這裡填的是<b>基本價</b>，有設報價組的店家會自動換算成他的價格。只列出這天有店家叫的品項，沒人叫的不用填。<b>進價</b>選填，填了「報表」才算得出毛利。先帶入上次的價格，改好按「儲存單價」，這天的出貨單、收據和對帳會一起更新。店家看不到單價。</p>
     <div id="priceList"></div>
     <div class="savebar" id="priceBar"><button class="ok" id="saveDP">儲存單價</button><span id="dpInfo"></span></div>
   </section>
 
   <section id="slips" hidden>
     <h2>各店出貨單</h2>
-    <p class="sub">依配送路線排序，理貨順序就是送貨順序。框裡填<b>實際秤出的量</b>，金額照實出量算；和叫貨量不同會標「叫 3 斤」，填 0 是缺貨。店家打電話來可以用「加品項」。修改都會留下紀錄。</p>
     <div class="bar"><button class="pbtn" data-print="slips">列印全部出貨單＋收據</button><button class="pbtn" data-print="daily">列印當日營業報表</button><button class="pbtn" id="xlsDay">匯出 Excel</button><button class="send" id="receiptAll">全部傳 LINE 收據</button></div>
     <div class="slips" id="slipBox"></div>
     <div class="log" id="logBox"></div>
@@ -372,7 +373,6 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
   <section id="bills" hidden>
     <div class="datebar"><button data-month="-1" aria-label="上個月">‹</button><input type="month" id="month" aria-label="對帳月份"><button data-month="1" aria-label="下個月">›</button></div>
     <h2 id="billTitle">對帳</h2>
-    <p class="sub">金額＝每天出貨數量 × 那天的單價（在「單價」頁輸入）。</p>
     <div class="bar"><button class="pbtn" data-print="month">列印應收總表</button><button class="pbtn" id="xlsBills">匯出 Excel</button></div>
     <div class="sumline" id="billSum"></div>
     <div id="billBox"></div>
@@ -380,7 +380,6 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 
   <section id="ai" hidden>
     <h2>AI 叫貨紀錄</h2>
-    <p class="sub">店家在 LINE 直接打字或傳照片叫貨時，AI 讀到的內容。最近 30 筆。<b>待確認</b>＝店家還沒按「確認送出」；<b>沒看到品項</b>＝AI 判斷不是叫貨，所以沒回覆店家。照片只存小縮圖，店家確認後就刪除，其他的 14 天後自動刪除，不佔空間。</p>
     <div class="bar"><button class="pbtn" id="aiReload">重新整理</button></div>
     <div id="aiBox"><div class="empty">載入中…</div></div>
   </section>
@@ -393,7 +392,6 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 
   <section id="admin" hidden>
     <h2>新增品項</h2>
-    <p class="sub">新增後按下方「儲存品項」，店家的叫貨頁馬上就會出現。</p>
     <form class="addform" id="addForm" onsubmit="return false">
       <label>品名<input id="nName" placeholder="例如：蒜頭酥"></label>
       <label>分類<select id="nCat"></select></label>
@@ -401,19 +399,16 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
       <button id="addBtn" type="button">加入清單</button>
     </form>
     <h2>單位</h2>
-    <p class="sub">叫貨頁和出貨單用的單位。單位是「斤」的品項，店家可以叫「幾斤幾兩」（1 斤 = 16 兩）。</p>
     <div class="units" id="unitBox"></div>
     <h2 style="margin-top:18px">全部品項</h2>
-    <p class="sub">單價不在這裡設，每天到「單價」頁只填有人叫的品項。缺貨或不賣的取消「上架」就好，舊訂單紀錄會保留。<br><b>客人常打的寫法</b>：客人在 LINE 叫貨時會用的其他名稱（例如蒜仁＝去皮、蒜米），AI 會照這個對。所有叫法都在這裡管：旁邊選「全部店家」或「只有某家店」再打字按 Enter。綠色是全部店家通用（要按「儲存品項」）；黃色標店名的是那家店專屬（馬上存好），同一個叫法兩邊意思不同時，以那家店的為準。AI 紀錄裡「看不懂」的字也可以直接點「加入」，加完會出現在這裡。</p>
     <div id="adminList"></div>
     <div class="savebar"><button class="ok" id="saveP" disabled>儲存品項</button><span id="pDirty"></span></div>
   </section>
 
   <section id="users" hidden>
-    <a class="manual" href="/manual" target="_blank" rel="noopener"><b>📖 使用說明書</b><small>每天的流程、店家怎麼叫貨、各角色怎麼用、出問題怎麼辦。可以印出來或轉傳給員工。</small></a>
+    <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div id="rulesBox">
     <h2>截單和補單</h2>
-    <p class="sub">店家截單前可以自己改訂單；截單後要加點，在 LINE 點「我要叫貨」就會看到「補單」，補單會另開一張，跟原本的訂單分開。</p>
     <form class="addform rules" id="rulesForm" onsubmit="return false">
       <label>截單時間（配送日前一天）<input id="rCutoff" type="time" step="60"></label>
       <label class="chkl"><input type="checkbox" id="rAddon"> 截單後店家可以自己補單</label>
@@ -424,7 +419,6 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
     </div>
     <div id="userBox">
     <h2>後台帳號</h2>
-    <p class="sub">員工用自己的 Google 帳號登入，在這裡加入他的 Gmail 並選角色就好，不用設密碼。<b>老闆</b>：全部；<b>會計</b>：單價、對帳、品項、改單；<b>理貨</b>：採買總表、出貨單、改數量（看不到單價）；<b>司機</b>：只看出貨單。</p>
     <form class="addform" id="userForm" onsubmit="return false">
       <label>Google 帳號 Email<input id="uEmail" type="email" autocomplete="off" placeholder="例如 xxx@gmail.com"></label>
       <label>名字<input id="uName" placeholder="例如：會計小美"></label>
@@ -443,12 +437,10 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
   <section id="stores" hidden>
     <div id="pendBox"></div>
     <h2>店家與配送路線</h2>
-    <p class="sub">站號就是送貨順序，出貨單和採買明細都照這個排。一家店可以綁好幾個 LINE 帳號（老闆、員工）。</p>
     <div id="storeList"></div>
     <div class="savebar"><button class="pbtn" id="addS">＋ 新增店家</button><button class="ok" id="saveS" disabled>儲存店家</button><span id="sDirty"></span></div>
 
     <h2 style="margin-top:28px">報價組</h2>
-    <p class="sub">預設所有店家都照「單價」頁的基本價。要給某些店折扣，就建一個報價組（打幾折、每單位減幾元，或個別品項固定價），再到上面把店家選進這一組。改了會自動重算今天以後還沒送的訂單。</p>
     <div id="groupList"></div>
     <div class="savebar"><button class="pbtn" id="addG">＋ 新增報價組</button><button class="ok" id="saveG" disabled>儲存報價組</button><span id="gDirty"></span></div>
   </section>
@@ -467,7 +459,6 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 </div></div>
 <div class="sheetbg" id="linkBox" role="dialog" aria-modal="true" aria-labelledby="linkTitle"><div class="sigin">
   <h3 id="linkTitle">確認配送單連結</h3>
-  <p class="sub">按「複製並開聊天室」→ 在 LINE 官方帳號的聊天列表點這家店 → 貼上送出（你自己傳不算推播額度）。店家點開核對品項和數量，按「確認」再簽名；數量不對可以直接回報。確認後這裡會變成「店家已確認」並鎖住。連結 7 天有效。</p>
   <input id="linkUrl" readonly aria-label="確認配送單連結" style="width:100%;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:8px;font-size:.85rem">
   <div class="sa"><button id="linkCopy">複製連結</button><button class="go" id="linkShare">複製並開聊天室</button><button id="linkClose">關閉</button></div>
 </div></div>
@@ -840,7 +831,7 @@ async function saveProducts(){
 /* ---------- 店家 ---------- */
 function renderStores(){
   const storeOpts=D.stores.map(s=>`<option value="${s.id}">${esc(s.name)}</option>`).join('');
-  $('pendBox').innerHTML=D.pending.length?`<h2>等待開通（${D.pending.length}）</h2><p class="sub">這些人在 LINE 點了「我要叫貨」。選要綁定的店家，或直接建立新店家。</p>`+D.pending.map(p=>`<div class="pend">
+  $('pendBox').innerHTML=D.pending.length?`<h2>等待開通（${D.pending.length}）</h2>`+D.pending.map(p=>`<div class="pend">
     <b>${esc(p.name||'（沒有名稱）')}</b>${p.text?`<span style="color:var(--muted)">　回覆：「${esc(p.text)}」</span>`:''}
     <div class="acts"><select id="ps-${p.userId}" aria-label="綁定到店家"><option value="">建立新店家 →</option>${storeOpts}</select>
     <input id="pn-${p.userId}" placeholder="新店家店名" value="${esc(p.text||'')}" aria-label="新店家店名">
@@ -961,7 +952,6 @@ function renderReport(){
   </div>
   ${miss?`<p class="sub neg">有 ${money(miss)} 的營收沒有填進價，毛利會偏高。到「單價」頁補進價就會更新。</p>`:''}
   <h2>成本項目</h2>
-  <p class="sub">自己新增，例如：烘乾費（每天）、冷庫租金（每月）、運費、人工。每月的會平均攤到每一天。出貨重量只算斤、兩、公斤的品項。</p>
   <div class="ctypes">${R.costTypes.map(t=>`<span>${esc(t.name)}・${t.period==='daily'?'每天':'每月'}<button data-ctdel="${t.id}" aria-label="刪除 ${esc(t.name)}">✕</button></span>`).join('')||'<em class="meta">還沒有成本項目</em>'}
     <input id="ctName" placeholder="新項目，例如烘乾費" maxlength="20" aria-label="成本項目名稱"><select id="ctPeriod" aria-label="週期"><option value="daily">每天記</option><option value="monthly">每月記</option></select><button class="pbtn" id="ctAdd">新增</button></div>
   ${monthlyTypes.length?`<div class="ctypes">${+R.month.slice(5)} 月：${monthlyTypes.map(t=>`<label>${esc(t.name)} $<input type="number" min="0" inputmode="numeric" data-cm="${t.id}" value="${R.costs.monthly?.[t.id]??''}" style="width:100px" aria-label="${esc(t.name)} 本月金額"></label>`).join('')}</div>`:''}
@@ -973,7 +963,6 @@ function renderReport(){
   </tbody><tfoot><tr><td>合計</td><td></td><td>${kg(w)}</td><td>${money(rev)}</td><td>${money(pur)}</td><td>${money(gross)}</td>${dailyTypes.map(t=>`<td>${money(days.reduce((a,d)=>a+(R.costs.daily?.[d.date]?.[t.id]||0),0))}</td>`).join('')}<td>${money(other)}</td><td>${money(net)}</td></tr></tfoot></table></div>
   ${R.costTypes.length?`<div class="savebar"><button class="ok" id="saveCosts" ${rDirty?'':'disabled'}>儲存成本</button><span id="cDirty">${rDirty?'有尚未儲存的修改':''}</span></div>`:''}
   <h2 style="margin-top:22px">應收帳款</h2>
-  <p class="sub">最近 12 個月沒勾「已收款」的金額。紅色是超過 2 個月的。收到錢記得到「對帳」勾已收款。</p>
   ${ar.length?ar.map(s=>`<div class="ar"><div><b>${esc(s.name)}</b>　<b>${money(s.total)}</b><div class="ms">${s.months.map(m=>`<span class="${m.age>=2?'old':''}">${+m.month.slice(5)} 月 ${money(m.amount)}</span>`).join('')}</div></div>
     ${s.hasLine&&may('statement')?`<button class="send" data-dun="${s.storeId}">LINE 催款</button>`:''}</div>`).join(''):'<div class="empty">沒有未收款 👍</div>'}`;
 }
@@ -1278,7 +1267,7 @@ document.addEventListener('change',async e=>{
 });
 document.addEventListener('click',e=>{const im=e.target.closest('img[data-zoom]');if(im){$('paper').innerHTML=`<div class="doc"><img src="${im.src}" style="width:100%" alt="店家傳的照片"></div>`;$('pv').classList.add('on')}});
 document.addEventListener('keydown',e=>{
-  if(e.key==='Escape'){$('pv').classList.remove('on');$('aiEd').classList.remove('on')}
+  if(e.key==='Escape'){$('pv').classList.remove('on');$('aiEd').classList.remove('on');$('helpBox').classList.remove('on')}
   if(e.key==='Enter'&&!e.isComposing&&e.target.dataset?.sqin)e.target.blur();
   if(e.key==='Enter'&&!e.isComposing&&e.target.id==='newUnit')$('addUnit').click();
   if((e.key==='Enter'||e.key===',')&&!e.isComposing&&e.target.dataset?.anew!=null){e.preventDefault();if(e.target.value.trim())addAliasTag(+e.target.dataset.anew,e.target.value)}
@@ -1298,6 +1287,9 @@ async function checkVer(){
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkVer()});
 setInterval(checkVer,10*60e3);
 $('newVer').addEventListener('click',()=>{if(!pDirty&&!sDirty&&!gDirty&&!rDirty||confirm('有還沒儲存的修改，更新會不見，確定？'))location.replace('/admin?v='+Date.now())});
+// 說明：在後台裡打開使用說明書，直接跳到目前這一頁的說明
+$('helpBtn').addEventListener('click',()=>{$('helpFrame').src='/manual?in=1#tab-'+tab;$('helpBox').classList.add('on')});
+$('helpClose').addEventListener('click',()=>$('helpBox').classList.remove('on'));
 initAuth().catch(e=>{$('login').hidden=false;$('loginErr').textContent='登入元件載入失敗，請重新整理'});
 </script>
 </body>

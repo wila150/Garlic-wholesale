@@ -10,19 +10,19 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#EEF3EA; --surface:#FFFFFF; --ink:#1B2A21; --muted:#5B6B60; --line:#D6E0D0;
-  --leaf:#2F6B45; --leaf-soft:#DCEBDD; --tag:#F5D547; --alert:#B23A2E; --line-green:#06C755;
-  --board:#1F3A2C; --chalk:#EEF3EA; --chalk-dim:#A9BFAE;
+  --bg:#F4F5F3; --surface:#FFFFFF; --ink:#16201A; --muted:#6B746F; --line:#E2E5E1;
+  --leaf:#1E6B47; --leaf-soft:#E5F1EA; --tag:#F2C94C; --tag-soft:#FFF5D6; --tag-ink:#6A5100; --alert:#C2412D; --line-green:#06C755;
+  --board:var(--surface); --chalk:var(--ink); --chalk-dim:var(--muted);
 }
 @media (prefers-color-scheme:dark){
   :root:not([data-theme="light"]){
-    --bg:#111915; --surface:#1A241E; --ink:#E4ECE5; --muted:#98A99E; --line:#2B3A31;
-    --leaf:#78C093; --leaf-soft:#22362A; --alert:#E0776B; --board:#16291F;
+    --bg:#0E1210; --surface:#161B18; --ink:#E6EBE8; --muted:#8C9690; --line:#252C28;
+    --leaf:#2F8A5C; --leaf-soft:#173024; --tag-soft:#3A3014; --tag-ink:#F2D27A; --alert:#E5806F;
   }
 }
 :root[data-theme="dark"]{
-  --bg:#111915; --surface:#1A241E; --ink:#E4ECE5; --muted:#98A99E; --line:#2B3A31;
-  --leaf:#78C093; --leaf-soft:#22362A; --alert:#E0776B; --board:#16291F;
+  --bg:#0E1210; --surface:#161B18; --ink:#E6EBE8; --muted:#8C9690; --line:#252C28;
+  --leaf:#2F8A5C; --leaf-soft:#173024; --tag-soft:#3A3014; --tag-ink:#F2D27A; --alert:#E5806F;
 }
 *,*::before,*::after{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;font-size:16px;line-height:1.6;font-variant-numeric:tabular-nums}
@@ -313,6 +313,109 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 }
 @media (max-width:520px){.arow{grid-template-columns:1fr 60px 56px 24px;padding:6px}.prow2{grid-template-columns:1fr 1fr}.prow2 .q{grid-column:1}}
 @media (prefers-reduced-motion:reduce){.toast{transition:none}}
+
+/* ===== 乾淨版面：統一圓角、細邊框、少用色塊 ===== */
+body{font-size:15px}
+header.top{padding-bottom:6px;align-items:center}
+header.top h1{font-size:1.2rem;font-weight:700;letter-spacing:.02em}
+header.top p{font-size:.82rem}
+.who{font-size:.82rem}
+.cutoff{background:var(--tag-soft);color:var(--tag-ink);font-weight:700;font-size:.8rem;border-radius:999px;padding:3px 10px}
+nav.tabs{gap:0;padding:0;border-bottom:1px solid var(--line);scrollbar-width:none}
+nav.tabs::-webkit-scrollbar{display:none}
+nav.tabs button{flex:0 0 auto;border-radius:0;padding:12px 14px;font-weight:500;font-size:.92rem;color:var(--muted)}
+nav.tabs button[aria-selected="true"]{background:transparent;color:var(--ink);font-weight:700;box-shadow:inset 0 -2px 0 var(--leaf)}
+section{padding-top:18px}
+h2{font-size:1.05rem;font-weight:700;margin:0 0 10px}
+.pbtn{border:1px solid var(--line);background:var(--surface);color:var(--ink);border-radius:8px;font-weight:500}
+.pbtn:hover{border-color:var(--leaf);color:var(--leaf)}
+.pbtn.solid{background:var(--leaf);border-color:var(--leaf);color:#fff}
+.send{background:var(--leaf);border-radius:8px;font-weight:500}
+.datebar button,.datebar input{border-radius:8px}
+.datebar .chip{background:var(--leaf-soft);border-radius:999px}
+/* 採買總表：不用黑板，跟其他卡片一樣 */
+.board{background:var(--surface);color:var(--ink);border:1px solid var(--line);border-radius:12px;box-shadow:none;padding:14px 12px 6px}
+.board-head{border-bottom:1px solid var(--line)}
+.brow{border-bottom:1px solid var(--line)}
+.brow:last-child{border-bottom:0}
+.brow .qty{color:var(--leaf);font-size:1.5rem;font-weight:700}
+.brow .qty small{color:var(--muted)}
+.missing{border:1px solid var(--line);border-left:3px solid var(--alert);border-radius:10px}
+/* 卡片 */
+.slip{border:1px solid var(--line);border-radius:12px;padding:14px}
+.slip.supp{border-left:3px solid var(--tag)}
+.slip.locked{background:color-mix(in srgb,var(--surface) 70%,var(--bg))}
+.stop{background:var(--bg);color:var(--muted);font-weight:500}
+.it{border-bottom:1px solid var(--line)}
+.stepper button{background:var(--surface)}
+.stepper input,.add select,.add input,.addform input,.addform select,.srow input[type=text],.srow input[type=number],.srow select,.pend select,.pend input,.grp input,.grp select,.users select,.users input{background:var(--surface);border-radius:8px}
+.add button,.addform button,.learn button,.pend .go{border-radius:8px}
+.log,.bill,.sumline,.kpi,.aid,.srow,.grp,.pend,.ar,.ctypes,.units,.addform{border-radius:12px}
+.pend{border:1px solid var(--line);border-left:3px solid var(--tag)}
+.suppno{background:var(--tag-soft);color:var(--tag-ink)}
+.aid .st.pending{background:var(--tag-soft);color:var(--tag-ink)}
+.alias .sa{background:var(--tag-soft)!important;color:var(--tag-ink)!important}
+.users .urow{border-bottom:1px solid var(--line)}
+.users .urow:first-child{border-radius:12px 12px 0 0}
+.manual{border-left:1px solid var(--line);border-radius:12px}
+.savebar{background:color-mix(in srgb,var(--bg) 92%,transparent);backdrop-filter:blur(6px)}
+.savebar .ok{background:var(--leaf);border-radius:8px}
+.toast{border-radius:10px}
+/* 品項頁 */
+.quickadd{display:grid;grid-template-columns:1fr auto auto auto;gap:8px;margin-bottom:12px}
+.quickadd input,.quickadd select,.psearch{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:9px 12px;min-width:0}
+.quickadd button{border:0;background:var(--leaf);color:#fff;border-radius:10px;padding:0 16px;font-weight:700}
+.psearch{width:100%;margin-bottom:6px}
+.acat{margin:18px 2px 6px;font-weight:700;font-size:.85rem;color:var(--muted)}
+.acat small{font-size:.8rem}
+.plist{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.prow3{display:grid;grid-template-columns:1fr auto;align-items:center;border-bottom:1px solid var(--line)}
+.prow3:last-child{border-bottom:0}
+.pmain{display:flex;align-items:baseline;gap:8px;border:0;background:transparent;text-align:left;padding:13px 14px;min-width:0}
+.pmain .pn{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pmain .pu{color:var(--muted);font-size:.82rem}
+.pmain .pa{color:var(--leaf);font-size:.75rem;background:var(--leaf-soft);border-radius:999px;padding:0 8px}
+.prow3.off .pn{color:var(--muted)}
+.prow3.open{background:color-mix(in srgb,var(--leaf-soft) 35%,var(--surface))}
+.sw{position:relative;width:42px;height:24px;margin-right:14px;flex:none}
+.sw input{position:absolute;opacity:0;inset:0;margin:0;cursor:pointer}
+.sw span{position:absolute;inset:0;border-radius:999px;background:var(--line);transition:background .15s;pointer-events:none}
+.sw span::after{content:"";position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+.sw input:checked+span{background:var(--leaf)}
+.sw input:checked+span::after{transform:translateX(18px)}
+.sw input:focus-visible+span{outline:3px solid var(--tag);outline-offset:2px}
+.ped{grid-column:1/-1;padding:4px 14px 14px;display:grid;gap:12px}
+.pedrow{display:grid;grid-template-columns:2fr 1fr 1fr;gap:8px}
+.ped label{display:flex;flex-direction:column;gap:3px;font-size:.78rem;color:var(--muted)}
+.ped input,.ped select{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 9px;font-size:.92rem;color:var(--ink)}
+.ped .alias{font-size:.85rem}
+.ped .alias .lb{width:100%;font-size:.78rem;margin-bottom:2px}
+.ped .anew{display:inline-flex;gap:4px;background:none!important;padding:0!important}
+.ped .anew select,.ped .anew input{padding:3px 8px;font-size:.82rem;border-radius:999px}
+.ped .anew input{border-style:dashed;width:120px}
+.pdel{justify-self:start;border:0;background:none;color:var(--alert);font-size:.85rem;padding:0}
+.unitsbox{margin-top:18px}
+.unitsbox summary{cursor:pointer;color:var(--muted);font-size:.9rem;padding:6px 2px}
+.unitsbox .units{margin-top:6px}
+@media (max-width:520px){.quickadd{grid-template-columns:1fr 1fr}.quickadd input{grid-column:1/-1}.quickadd button{grid-column:1/-1;padding:10px}.pedrow{grid-template-columns:1fr 1fr}.pedrow label:first-child{grid-column:1/-1}}
+header.top{display:block;padding:calc(14px + env(safe-area-inset-top,0px)) 0 8px}
+.th{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.hact{display:flex;gap:2px}
+.lnk{border:0;background:none;color:var(--muted);font-size:.88rem;padding:6px 8px;border-radius:8px}
+.lnk:hover{background:var(--surface);color:var(--ink)}
+.tsub{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px}
+.mebox{display:flex;justify-content:space-between;align-items:baseline;gap:8px;color:var(--muted);font-size:.85rem;margin-bottom:12px}
+@media (max-width:520px){.quickadd{grid-template-columns:1fr 1fr auto}.quickadd input{grid-column:1/-1}.quickadd button{grid-column:auto;padding:0 16px}}
+.newslip{border-top:0;margin-top:6px;padding-top:0}
+.newslip summary{cursor:pointer;color:var(--muted);font-size:.85rem;padding:4px 0;list-style:none}
+.newslip summary::-webkit-details-marker{display:none}
+.newslip[open] summary{color:var(--ink)}
+.newslip .add button{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+.sacts .send{background:var(--surface);color:var(--ink);border:1px solid var(--line)}
+.sacts button{font-weight:500}
+.sacts .ok{font-weight:700}
+.slip .add{margin-top:10px}
+input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
 </style>
 </head>
 <body>
@@ -326,8 +429,8 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 
 <div class="wrap" id="app" hidden>
   <header class="top">
-    <div><h1 id="shopName">叫貨後台</h1><p id="headInfo"></p></div>
-    <div class="who"><span class="cutoff" id="cutoffTag"></span><span id="meInfo"></span><button class="pbtn" id="helpBtn">說明</button><button class="pbtn" id="logout">登出</button><small class="ver">版本 101505</small></div>
+    <div class="th"><h1 id="shopName">叫貨後台</h1><div class="hact"><button class="lnk" id="helpBtn">說明</button><button class="lnk" id="logout">登出</button></div></div>
+    <div class="tsub"><p id="headInfo"></p><span class="cutoff" id="cutoffTag"></span></div>
   </header>
 
   <nav class="tabs" role="tablist">
@@ -391,21 +494,20 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
   </section>
 
   <section id="admin" hidden>
-    <h2>新增品項</h2>
-    <form class="addform" id="addForm" onsubmit="return false">
-      <label>品名<input id="nName" placeholder="例如：蒜頭酥"></label>
-      <label>分類<select id="nCat"></select></label>
-      <label>單位<select id="nUnit"></select></label>
-      <button id="addBtn" type="button">加入清單</button>
+    <form class="quickadd" id="addForm" onsubmit="return false">
+      <input id="nName" placeholder="新增品項，例如：蒜頭酥" aria-label="品名">
+      <select id="nCat" aria-label="分類"></select>
+      <select id="nUnit" aria-label="單位"></select>
+      <button id="addBtn" type="button">新增</button>
     </form>
-    <h2>單位</h2>
-    <div class="units" id="unitBox"></div>
-    <h2 style="margin-top:18px">全部品項</h2>
+    <input id="pSearch" class="psearch" type="search" placeholder="搜尋品項或叫法" aria-label="搜尋品項">
     <div id="adminList"></div>
+    <details class="unitsbox"><summary>單位管理</summary><div class="units" id="unitBox"></div></details>
     <div class="savebar"><button class="ok" id="saveP" disabled>儲存品項</button><span id="pDirty"></span></div>
   </section>
 
   <section id="users" hidden>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 101506</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div id="rulesBox">
     <h2>截單和補單</h2>
@@ -714,7 +816,7 @@ function renderSlips(){
         <span class="stepper"><button data-step="-1" data-sid="${k}" data-pid="${i.pid}" aria-label="${esc(i.name)}實出減少">−</button><input type="text" inputmode="decimal" ${ro?'readonly':''} value="${esc(editText(q,i.unit))}" data-sqin="${k}" data-pid="${i.pid}" aria-label="${esc(i.name)}實出量，可以直接打">${/斤|兩/.test(editText(q,i.unit))?'':`<span class="u">${esc(i.unit)}</span>`}<button data-step="1" data-sid="${k}" data-pid="${i.pid}" aria-label="${esc(i.name)}實出增加">+</button></span></div>`;
       }).join('');
       // 補單跟原本的單分開：最後一張下面隨時可以另開補單
-      const extra=(!locked?addRow(k,`幫${esc(s.name)}加品項`,'加入','data-additem'):'')+(last&&may('editOrders')?`<div class="newslip">${addRow(s.id,`幫${esc(s.name)}開補單`,'開補單','data-newslip')}</div>`:'');
+      const extra=(!locked?addRow(k,`幫${esc(s.name)}加品項`,'加入','data-additem'):'')+(last&&may('editOrders')?`<details class="newslip" ${locked?'open':''}><summary>＋ 開補單</summary>${addRow(s.id,`幫${esc(s.name)}開補單`,'開補單','data-newslip')}</details>`:'');
       return `<div class="slip ${locked?'locked':''} ${(o.seq||1)>1?'supp':''}"><div class="slip-h"><b>${esc(s.name)}${(o.seq||1)>1||o.addon?` <span class="suppno">${o.addon?'店家補單':'補單'} #${o.seq||1}</span>`:''}</b><span class="stop">第 ${s.route} 站</span></div>${items}
         ${extra}${slipActs(s,o,k)}</div>`;
     });
@@ -770,16 +872,27 @@ function renderBills(){
 }
 
 /* ---------- 品項 ---------- */
+// 品項：平常只看品名、單位、上架開關；點一下才展開編輯
+let openP=-1;
 function renderProducts(){
+  const q=($('pSearch')?.value||'').trim();
+  const hit=p=>!q||p.name.includes(q)||aliasArr(p).some(a=>a.includes(q));
   $('adminList').innerHTML=D.categories.map(c=>{
-    const items=P.map((p,i)=>({p,i})).filter(x=>x.p.cat===c);if(!items.length)return '';
-    return `<div class="acat">${esc(c)}<small>${items.filter(x=>x.p.on).length}/${items.length} 上架</small></div>`+items.map(({p,i})=>`<div class="arow ${p.on?'':'off'}">
-      <span class="an"><input type="text" data-pf="name" data-i="${i}" value="${esc(p.name)}" aria-label="品名"></span>
-      <select data-pf="unit" data-i="${i}" aria-label="單位">${D.units.map(u=>`<option ${u===p.unit?'selected':''}>${u}</option>`).join('')}</select>
-      <label><input type="checkbox" data-pf="on" data-i="${i}" ${p.on?'checked':''}>上架</label>
-      <button class="x" data-pdel="${i}" aria-label="刪除${esc(p.name)}">✕</button>
-      <div class="alias"><span class="lb">客人常打的寫法：</span>${aliasArr(p).map((a,k)=>`<span>${esc(a)}<button data-adel="${i}" data-k="${k}" aria-label="刪除叫法 ${esc(a)}">✕</button></span>`).join('')}${storeAliasChips(p)}<select data-ascope="${i}" aria-label="${esc(p.name)} 新叫法適用的店家"><option value="">全部店家</option>${D.stores.map(s=>`<option value="${s.id}" ${aScope[i]===s.id?'selected':''}>只有${esc(s.name)}</option>`).join('')}</select><input data-anew="${i}" placeholder="＋ 新增，按 Enter" maxlength="20" aria-label="${esc(p.name)} 新增客人常打的寫法"></div></div>`).join('');
-  }).join('');
+    const all=P.map((p,i)=>({p,i})).filter(x=>x.p.cat===c),items=all.filter(x=>hit(x.p));if(!items.length)return '';
+    return `<div class="acat">${esc(c)}<small>${all.filter(x=>x.p.on).length}/${all.length}</small></div><div class="plist">`+items.map(({p,i})=>{
+      const n=aliasArr(p).length+D.stores.reduce((a,s)=>a+(D.storeAliases?.[s.id]||[]).filter(x=>x.pid===p.id).length,0);
+      return `<div class="prow3 ${p.on?'':'off'} ${openP===i?'open':''}">
+      <button class="pmain" data-popen="${i}" aria-expanded="${openP===i}"><span class="pn">${esc(p.name)}</span><span class="pu">${esc(p.unit)}</span>${n?`<span class="pa">${n} 個叫法</span>`:''}</button>
+      <label class="sw" title="上架"><input type="checkbox" data-pf="on" data-i="${i}" ${p.on?'checked':''} aria-label="${esc(p.name)} 上架"><span></span></label>
+      ${openP===i?`<div class="ped">
+        <div class="pedrow"><label>品名<input type="text" data-pf="name" data-i="${i}" value="${esc(p.name)}"></label>
+        <label>單位<select data-pf="unit" data-i="${i}">${D.units.map(u=>`<option ${u===p.unit?'selected':''}>${esc(u)}</option>`).join('')}</select></label>
+        <label>分類<select data-pf="cat" data-i="${i}">${D.categories.map(x=>`<option ${x===p.cat?'selected':''}>${esc(x)}</option>`).join('')}</select></label></div>
+        <div class="alias"><span class="lb">客人常打的寫法</span>${aliasArr(p).map((a,k)=>`<span>${esc(a)}<button data-adel="${i}" data-k="${k}" aria-label="刪除叫法 ${esc(a)}">✕</button></span>`).join('')}${storeAliasChips(p)}
+          <span class="anew"><select data-ascope="${i}" aria-label="適用的店家"><option value="">全部店家</option>${D.stores.map(s=>`<option value="${s.id}" ${aScope[i]===s.id?'selected':''}>只有${esc(s.name)}</option>`).join('')}</select><input data-anew="${i}" placeholder="打字按 Enter" maxlength="20" aria-label="${esc(p.name)} 新增叫法"></span></div>
+        <button class="pdel" data-pdel="${i}">刪除這個品項</button>
+      </div>`:''}</div>`}).join('')+'</div>';
+  }).join('')||'<div class="empty">找不到</div>';
   $('saveP').disabled=!pDirty;$('pDirty').textContent=pDirty?'有尚未儲存的修改':'';
 }
 // 別名：舊資料是一串字，新的是陣列
@@ -1151,6 +1264,7 @@ $('toOpen').addEventListener('click',()=>{date='';load()});
 $('addBtn').addEventListener('click',addProduct);
 $('nName').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();addProduct()}});
 $('saveP').addEventListener('click',saveProducts);
+$('pSearch').addEventListener('input',()=>{openP=-1;renderProducts()});
 $('saveDP').addEventListener('click',saveDayPrices);
 $('saveS').addEventListener('click',saveStores);
 $('saveG').addEventListener('click',saveGroups);
@@ -1187,7 +1301,8 @@ document.addEventListener('click',async e=>{
   if(b.dataset.doprint){fitPage();try{window.print()}catch{toast('請用瀏覽器選單的列印')}}
   if(b.id==='addUnit'){const u=$('newUnit').value.trim();if(!u){toast('請先填單位');$('newUnit').focus();return}if(D.units.includes(u)){toast(`「${u}」已經有了`);return}saveUnits([...D.units,u],`已新增單位「${u}」`)}
   if(b.dataset.udel){const u=b.dataset.udel;if(P.some(p=>p.unit===u)){toast(`還有品項用「${u}」，先改成別的單位`);return}if(confirm(`刪除單位「${u}」？`))saveUnits(D.units.filter(x=>x!==u),`已刪除單位「${u}」`)}
-  if(b.dataset.pdel){const i=+b.dataset.pdel;if(confirm(`刪除「${P[i].name}」？舊訂單紀錄不受影響。`)){P.splice(i,1);pDirty=true;renderProducts()}}
+  if(b.dataset.popen!=null){const i=+b.dataset.popen;openP=openP===i?-1:i;renderProducts();return}
+  if(b.dataset.pdel){const i=+b.dataset.pdel;if(confirm(`刪除「${P[i].name}」？舊訂單紀錄不受影響。`)){P.splice(i,1);openP=-1;pDirty=true;renderProducts()}}
   if(b.dataset.rmonth){rmonth=addMonths(R?.month||D.month,+b.dataset.rmonth);if(rDirty&&!confirm('成本還沒儲存，確定換月份？'))return;loadReport()}
   if(b.id==='saveCosts')saveCosts();
   if(b.id==='ctAdd'){const name=$('ctName').value.trim();if(!name){toast('請填成本項目名稱');$('ctName').focus();return}saveCostTypes([...R.costTypes,{name,period:$('ctPeriod').value}],`已新增「${name}」`)}
@@ -1241,7 +1356,7 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('input',e=>{
   const t=e.target;
-  if(t.dataset.pf!=null){const p=P[+t.dataset.i],f=t.dataset.pf;p[f]=f==='on'?t.checked:t.value;pDirty=true;$('saveP').disabled=false;$('pDirty').textContent='有尚未儲存的修改';if(f==='on')renderProducts()}
+  if(t.dataset.pf!=null){const p=P[+t.dataset.i],f=t.dataset.pf;p[f]=f==='on'?t.checked:t.value;pDirty=true;$('saveP').disabled=false;$('pDirty').textContent='有尚未儲存的修改';if(f==='on'||f==='cat'||f==='unit')renderProducts()}
   if(t.dataset.cd!=null||t.dataset.cm!=null){rDirty=true;$('saveCosts')&&($('saveCosts').disabled=false);$('cDirty')&&($('cDirty').textContent='有尚未儲存的修改')}
   if(t.dataset.dc!=null){dcDraft[t.dataset.dc]=t.value;$('dpInfo').textContent='有尚未儲存的修改';$('dpInfo').style.color='var(--alert)'}
   if(t.dataset.dp!=null){dpDraft[t.dataset.dp]=t.value===''?'':Math.max(0,+t.value||0);t.closest('.prow2').classList.add('todo');$('dpInfo').textContent='有尚未儲存的修改';$('dpInfo').style.color='var(--alert)'}

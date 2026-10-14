@@ -207,6 +207,7 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .aeform .sa{display:flex;gap:8px;margin-top:auto;padding-top:8px}.aeform .sa button{flex:1;border-radius:20px;padding:9px;font-weight:700;border:1px solid var(--line);background:var(--bg)}.aeform .sa .go{background:var(--leaf);border-color:var(--leaf);color:#fff}
 .aid .aied{margin-top:6px}
 @media (max-width:700px){.aiedin{grid-template-columns:1fr;max-height:96vh;overflow:auto}.aeimg{max-height:45vh}.aeform{overflow:visible}}
+.newver{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:50;border:0;background:var(--tag);color:#2A2400;font-weight:700;border-radius:20px;padding:9px 18px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
 .ver{color:var(--muted);font-size:.72rem;white-space:nowrap}
 .manual{display:block;text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--leaf);border-radius:10px;padding:12px 14px;margin-bottom:22px}.manual b{font-size:1.05rem}.manual small{display:block;color:var(--muted)}.manual:hover{border-color:var(--leaf)}
 .devbox{margin-top:28px;border-top:1px dashed var(--line);padding-top:10px;color:var(--muted)}.devbox summary{cursor:pointer;font-size:.85rem}.devbox .danger{border:1px solid var(--alert);background:transparent;color:var(--alert);font-weight:700;border-radius:8px;padding:8px 14px}
@@ -311,6 +312,7 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 </style>
 </head>
 <body>
+<button class="newver" id="newVer" hidden>有新版本，點這裡更新</button>
 <form class="login" id="login" hidden onsubmit="return false">
   <h2>叫貨後台</h2>
   <p class="sub" style="margin:6px 0 14px">用老闆授權過的 Google 帳號登入。</p>
@@ -321,7 +323,7 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 <div class="wrap" id="app" hidden>
   <header class="top">
     <div><h1 id="shopName">叫貨後台</h1><p id="headInfo"></p></div>
-    <div class="who"><span class="cutoff" id="cutoffTag"></span><span id="meInfo"></span><button class="pbtn" id="logout">登出</button><small class="ver">版本 10/15-2</small></div>
+    <div class="who"><span class="cutoff" id="cutoffTag"></span><span id="meInfo"></span><button class="pbtn" id="logout">登出</button><small class="ver">版本 10/15-3</small></div>
   </header>
 
   <nav class="tabs" role="tablist">
@@ -1288,6 +1290,14 @@ window.addEventListener('beforeunload',e=>{if(pDirty||sDirty||gDirty||rDirty||$(
 $('resetData').addEventListener('click',resetData);
 $('saveRules').addEventListener('click',saveRules);
 $('rulesForm').addEventListener('input',()=>{$('rulesForm').dataset.dirty=1;$('rAddonUntil').disabled=!$('rAddon').checked});
+// 加到主畫面的後台沒有重新整理按鈕：切回來時問伺服器有沒有新版本，有的話跳出「點這裡更新」
+const MY_VER=document.querySelector('.ver')?.textContent;
+async function checkVer(){
+  try{const t=await (await fetch('/admin?v='+Date.now(),{cache:'no-store'})).text();const v=t.match(/<small class="ver">([^<]+)</)?.[1];if(v&&MY_VER&&v!==MY_VER)$('newVer').hidden=false}catch{}
+}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')checkVer()});
+setInterval(checkVer,10*60e3);
+$('newVer').addEventListener('click',()=>{if(!pDirty&&!sDirty&&!gDirty&&!rDirty||confirm('有還沒儲存的修改，更新會不見，確定？'))location.replace('/admin?v='+Date.now())});
 initAuth().catch(e=>{$('login').hidden=false;$('loginErr').textContent='登入元件載入失敗，請重新整理'});
 </script>
 </body>

@@ -1,5 +1,6 @@
 {
   "hosting": {
+    "predeploy": ["node scripts/stamp-version.mjs"],
     "public": "public",
     "cleanUrls": true,
     "rewrites": [

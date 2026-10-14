@@ -170,3 +170,5 @@ body.admin .brand{flex:1;min-width:0}
 :root[data-theme="dark"]{--shadow:0 0 0 1px rgba(255,255,255,.02),0 8px 24px -12px rgba(0,0,0,.7)}
 :root[data-theme="dark"] body.admin nav.tabs{background:color-mix(in srgb,var(--bg) 92%,transparent)}
 :root[data-theme="dark"] .kpi,:root[data-theme="dark"] .bill,:root[data-theme="dark"] .slip,:root[data-theme="dark"] .board,:root[data-theme="dark"] .plist,:root[data-theme="dark"] .card{border-color:var(--line)}
+
+body.admin .savebar .ok:disabled{background:var(--line);color:var(--muted);box-shadow:none}

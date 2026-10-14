@@ -417,6 +417,22 @@ header.top{display:block;padding:calc(14px + env(safe-area-inset-top,0px)) 0 8px
 .sacts .ok{font-weight:700}
 .slip .add{margin-top:10px}
 input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
+.acat{display:flex;justify-content:space-between;align-items:center}
+.acat small{margin-left:8px}
+.cmenu{border:0;background:none;color:var(--muted);font-size:1.2rem;line-height:1;padding:2px 10px;border-radius:8px}
+.cmenu:hover,.cmenu[aria-expanded="true"]{background:var(--surface);color:var(--ink)}
+.cacts{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 8px}
+.cacts button{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:5px 12px;font-size:.85rem}
+.cacts button:disabled{opacity:.4}
+.cacts .danger{color:var(--alert);margin-left:auto}
+.padd{display:grid;grid-template-columns:1fr auto auto;gap:6px;padding:8px 10px;background:var(--surface-2,var(--bg));border-top:1px solid var(--line)}
+.padd input,.padd select{border:1px solid var(--line);background:var(--surface);border-radius:8px;padding:7px 10px;font-size:.92rem;min-width:0}
+.padd input{border-style:dashed}
+.padd button{border:0;background:var(--leaf);color:#fff;border-radius:8px;padding:0 14px;font-weight:700;font-size:.88rem}
+.addcat{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:18px}
+.addcat input{border:1px dashed var(--line);background:var(--surface);border-radius:10px;padding:9px 12px}
+.addcat button{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:0 14px;font-weight:700}
+#unitsSet{margin-bottom:22px}
 </style>
 <link rel="stylesheet" href="/theme.css">
 </head>
@@ -496,22 +512,19 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="admin" hidden>
-    <form class="quickadd" id="addForm" onsubmit="return false">
-      <input id="nName" placeholder="新增品項，例如：蒜頭酥" aria-label="品名">
-      <select id="nCat" aria-label="分類"></select>
-      <select id="nUnit" aria-label="單位"></select>
-      <button id="addBtn" type="button">新增</button>
-    </form>
     <input id="pSearch" class="psearch" type="search" placeholder="搜尋品項或叫法" aria-label="搜尋品項">
     <div id="adminList"></div>
-    <details class="unitsbox"><summary>分類管理</summary><div class="units" id="catBox"></div></details>
-    <details class="unitsbox"><summary>單位管理</summary><div class="units" id="unitBox"></div></details>
+    <div class="addcat"><input id="newCat" placeholder="＋ 新增分類，例如：醬料" maxlength="12" aria-label="新分類名稱"><button id="addCat" type="button">新增分類</button></div>
     <div class="savebar"><button class="ok" id="saveP" disabled>儲存品項</button><span id="pDirty"></span></div>
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 101510</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 101511</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
+    <div id="unitsSet" hidden>
+    <h2>單位</h2>
+    <div class="units" id="unitBox"></div>
+    </div>
     <div id="rulesBox">
     <h2>配色</h2>
     <div class="palettes" id="palBox"></div>
@@ -679,7 +692,6 @@ function renderAll(){
   document.querySelector('[data-print="daily"]').hidden=!hasPrice();
   $('receiptAll').hidden=!may('statement');
   $('slips').classList.toggle('ro',!may('editOrders'));
-  if(!$('nCat').options.length){$('nCat').innerHTML=D.categories.map(c=>`<option>${esc(c)}</option>`).join('');$('nUnit').innerHTML=D.units.map(u=>`<option>${u}</option>`).join('')}
   $('shopName').textContent=D.shop.name+' 叫貨後台';
   const n=new Set(D.orders.map(o=>o.storeId)).size;
   $('headInfo').textContent=`${dlabel(D.date)} 配送：${n}/${activeStores().length} 家已叫貨`;
@@ -694,7 +706,8 @@ function renderAll(){
   renderBoard();renderSlips();
   if(may('prices'))renderPrices();
   if(may('bills'))renderBills();
-  if(may('products')){renderCats();renderUnits();renderProducts()}
+  if(may('products')){renderUnits();renderProducts()}
+  $('unitsSet').hidden=!may('products');
   if(may('stores'))renderStores();
   $('userBox').hidden=$('rulesBox').hidden=!may('users');
   if(may('users')){renderRules();renderPalettes()}
@@ -880,13 +893,17 @@ function renderBills(){
 
 /* ---------- 品項 ---------- */
 // 品項：平常只看品名、單位、上架開關；點一下才展開編輯
-let openP=-1;
+let openP=-1,openCat=-1;
 function renderProducts(){
   const q=($('pSearch')?.value||'').trim();
   const hit=p=>!q||p.name.includes(q)||aliasArr(p).some(a=>a.includes(q));
-  $('adminList').innerHTML=D.categories.map(c=>{
-    const all=P.map((p,i)=>({p,i})).filter(x=>x.p.cat===c),items=all.filter(x=>hit(x.p));if(!items.length)return '';
-    return `<div class="acat">${esc(c)}<small>${all.filter(x=>x.p.on).length}/${all.length}</small></div><div class="plist">`+items.map(({p,i})=>{
+  $('adminList').innerHTML=D.categories.map((c,ci)=>{
+    const all=P.map((p,i)=>({p,i})).filter(x=>x.p.cat===c),items=all.filter(x=>hit(x.p));if(q&&!items.length)return '';
+    const cu=commonUnit(c);
+    const head=`<div class="acat"><span>${esc(c)}<small>${all.filter(x=>x.p.on).length}/${all.length}</small></span><button class="cmenu" data-cmenu="${ci}" aria-expanded="${openCat===ci}" aria-label="${esc(c)} 分類設定">⋯</button></div>`+
+      (openCat===ci?`<div class="cacts"><button data-cren="${ci}">改名</button><button data-cmove="${ci}" data-d="-1" ${ci?'':'disabled'}>上移</button><button data-cmove="${ci}" data-d="1" ${ci<D.categories.length-1?'':'disabled'}>下移</button><button class="danger" data-cdel="${esc(c)}">刪除分類</button></div>`:'');
+    const foot=q?'':`<div class="padd"><input data-newp="${ci}" placeholder="＋ 在「${esc(c)}」新增品項" maxlength="40" aria-label="在${esc(c)}新增品項"><select data-newu="${ci}" aria-label="單位">${D.units.map(u=>`<option ${u===cu?'selected':''}>${esc(u)}</option>`).join('')}</select><button data-addp="${ci}">新增</button></div>`;
+    return head+`<div class="plist">`+items.map(({p,i})=>{
       const n=aliasArr(p).length+D.stores.reduce((a,s)=>a+(D.storeAliases?.[s.id]||[]).filter(x=>x.pid===p.id).length,0);
       return `<div class="prow3 ${p.on?'':'off'} ${openP===i?'open':''}">
       <button class="pmain" data-popen="${i}" aria-expanded="${openP===i}"><span class="pn">${esc(p.name)}</span><span class="pu">${esc(p.unit)}</span>${n?`<span class="pa">${n} 個叫法</span>`:''}</button>
@@ -898,7 +915,7 @@ function renderProducts(){
         <div class="alias"><span class="lb">客人常打的寫法</span>${aliasArr(p).map((a,k)=>`<span>${esc(a)}<button data-adel="${i}" data-k="${k}" aria-label="刪除叫法 ${esc(a)}">✕</button></span>`).join('')}${storeAliasChips(p)}
           <span class="anew"><select data-ascope="${i}" aria-label="適用的店家"><option value="">全部店家</option>${D.stores.map(s=>`<option value="${s.id}" ${aScope[i]===s.id?'selected':''}>只有${esc(s.name)}</option>`).join('')}</select><input data-anew="${i}" placeholder="打字按 Enter" maxlength="20" aria-label="${esc(p.name)} 新增叫法"></span></div>
         <button class="pdel" data-pdel="${i}">刪除這個品項</button>
-      </div>`:''}</div>`}).join('')+'</div>';
+      </div>`:''}</div>`}).join('')+foot+'</div>';
   }).join('')||'<div class="empty">找不到</div>';
   $('saveP').disabled=!pDirty;$('pDirty').textContent=pDirty?'有尚未儲存的修改':'';
 }
@@ -929,27 +946,25 @@ function addAliasTag(i,raw){
   p.alias=[...list,...added];pDirty=true;renderProducts();
   document.querySelector(`[data-anew="${i}"]`)?.focus();return true;
 }
-function renderCats(){
-  $('catBox').innerHTML=D.categories.map(c=>`<span>${esc(c)}<button data-cdel="${esc(c)}" aria-label="刪除分類 ${esc(c)}">✕</button></span>`).join('')+
-    `<input id="newCat" placeholder="新分類" maxlength="12" aria-label="新分類"><button class="add-u" id="addCat">新增</button>`;
-}
 async function saveCats(categories,msg){
-  try{const j=await api('POST',{action:'categories',categories});D.categories=j.categories;$('nCat').innerHTML=D.categories.map(c=>`<option>${esc(c)}</option>`).join('');renderCats();renderProducts();toast(msg)}catch(e){toast(e.message)}
+  try{const j=await api('POST',{action:'categories',categories});D.categories=j.categories;renderProducts();toast(msg)}catch(e){toast(e.message)}
 }
 function renderUnits(){
   $('unitBox').innerHTML=D.units.map(u=>`<span>${esc(u)}<button data-udel="${esc(u)}" aria-label="刪除單位 ${esc(u)}">✕</button></span>`).join('')+
     `<input id="newUnit" placeholder="新單位" maxlength="6" aria-label="新單位"><button class="add-u" id="addUnit">新增</button>`;
 }
 async function saveUnits(units,msg){
-  try{const j=await api('POST',{action:'units',units});D.units=j.units;$('nUnit').innerHTML=D.units.map(u=>`<option>${esc(u)}</option>`).join('');renderUnits();renderProducts();toast(msg)}catch(e){toast(e.message)}
+  try{const j=await api('POST',{action:'units',units});D.units=j.units;renderUnits();renderProducts();toast(msg)}catch(e){toast(e.message)}
 }
-function addProduct(){
-  const name=$('nName').value.trim();
-  if(!name){toast('請先填品名');$('nName').focus();return}
+// 這個分類最常用的單位，新增品項時先帶這個
+function commonUnit(c){const n={};P.filter(p=>p.cat===c).forEach(p=>n[p.unit]=(n[p.unit]||0)+1);return Object.entries(n).sort((a,b)=>b[1]-a[1])[0]?.[0]||D.units[0]}
+async function addProduct(ci){
+  const c=D.categories[ci],inp=document.querySelector(`[data-newp="${ci}"]`),name=inp.value.trim(),unit=document.querySelector(`[data-newu="${ci}"]`).value;
+  if(!name){toast('請先打品名');inp.focus();return}
   if(P.some(p=>p.name===name)){toast(`「${name}」已經有了`);return}
-  const p={id:'',name,cat:$('nCat').value,unit:$('nUnit').value,on:true};
-  const last=P.map(x=>x.cat).lastIndexOf(p.cat);P.splice(last+1,0,p);
-  $('nName').value='';pDirty=true;renderProducts();toast(`已加入「${name}」，記得按「儲存品項」`);
+  const last=P.map(x=>x.cat).lastIndexOf(c);P.splice(last<0?P.length:last+1,0,{id:'',name,cat:c,unit,on:true});pDirty=true;
+  await saveProducts();
+  document.querySelector(`[data-newp="${ci}"]`)?.focus();
 }
 async function saveProducts(){
   try{const j=await api('POST',{action:'products',products:P});pDirty=false;D.products=j.products;P=structuredClone(j.products);await load();toast('品項已儲存，店家叫貨頁馬上更新')}catch(e){toast(e.message)}
@@ -1285,8 +1300,6 @@ $('date').addEventListener('change',e=>{if(e.target.value){date=e.target.value;o
 $('rmonth').addEventListener('change',e=>{if(e.target.value){rmonth=e.target.value;loadReport()}});
 $('month').addEventListener('change',e=>{if(e.target.value){month=e.target.value;openBill=null;load()}});
 $('toOpen').addEventListener('click',()=>{date='';load()});
-$('addBtn').addEventListener('click',addProduct);
-$('nName').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();addProduct()}});
 $('saveP').addEventListener('click',saveProducts);
 $('pSearch').addEventListener('input',()=>{openP=-1;renderProducts()});
 $('saveDP').addEventListener('click',saveDayPrices);
@@ -1324,8 +1337,12 @@ document.addEventListener('click',async e=>{
   if(b.dataset.close)$('pv').classList.remove('on');
   if(b.dataset.doprint){fitPage();try{window.print()}catch{toast('請用瀏覽器選單的列印')}}
   if(b.id==='addUnit'){const u=$('newUnit').value.trim();if(!u){toast('請先填單位');$('newUnit').focus();return}if(D.units.includes(u)){toast(`「${u}」已經有了`);return}saveUnits([...D.units,u],`已新增單位「${u}」`)}
-  if(b.id==='addCat'){const c=$('newCat').value.trim();if(!c){toast('請先填分類名稱');$('newCat').focus();return}if(D.categories.includes(c)){toast(`「${c}」已經有了`);return}saveCats([...D.categories,c],`已新增分類「${c}」，新增品項時就可以選`)}
-  if(b.dataset.cdel){const c=b.dataset.cdel;if(P.some(p=>p.cat===c)){toast(`還有品項在「${c}」，先把品項改到別的分類`);return}if(confirm(`刪除分類「${c}」？`))saveCats(D.categories.filter(x=>x!==c),`已刪除分類「${c}」`)}
+  if(b.dataset.cmenu!=null){const ci=+b.dataset.cmenu;openCat=openCat===ci?-1:ci;renderProducts();return}
+  if(b.dataset.addp!=null){addProduct(+b.dataset.addp);return}
+  if(b.dataset.cren!=null){const c=D.categories[+b.dataset.cren],to=prompt(`「${c}」改成：`,c);if(to&&to.trim()&&to.trim()!==c){if(pDirty){toast('請先按「儲存品項」');return}try{const j=await api('POST',{action:'renameCategory',from:c,to:to.trim()});D.categories=j.categories;D.products=j.products;P=structuredClone(j.products);openCat=-1;renderProducts();toast(`已改名為「${to.trim()}」`)}catch(err){toast(err.message)}}return}
+  if(b.dataset.cmove!=null){const ci=+b.dataset.cmove,d=+b.dataset.d,l=[...D.categories];[l[ci],l[ci+d]]=[l[ci+d],l[ci]];openCat=ci+d;saveCats(l,'分類順序已更新');return}
+  if(b.id==='addCat'){const c=$('newCat').value.trim();if(!c){toast('請先填分類名稱');$('newCat').focus();return}if(D.categories.includes(c)){toast(`「${c}」已經有了`);return}{$('newCat').value='';saveCats([...D.categories,c],`已新增分類「${c}」，在它下面新增品項`)}}
+  if(b.dataset.cdel){const c=b.dataset.cdel;if(P.some(p=>p.cat===c)){toast(`還有品項在「${c}」，先把品項改到別的分類`);return}if(confirm(`刪除分類「${c}」？`)){openCat=-1;saveCats(D.categories.filter(x=>x!==c),`已刪除分類「${c}」`)}}
   if(b.dataset.udel){const u=b.dataset.udel;if(P.some(p=>p.unit===u)){toast(`還有品項用「${u}」，先改成別的單位`);return}if(confirm(`刪除單位「${u}」？`))saveUnits(D.units.filter(x=>x!==u),`已刪除單位「${u}」`)}
   if(b.dataset.pal){choosePalette(b.dataset.pal);return}
   if(b.dataset.popen!=null){const i=+b.dataset.popen;openP=openP===i?-1:i;renderProducts();return}
@@ -1413,6 +1430,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&!e.isComposing&&e.target.dataset?.sqin)e.target.blur();
   if(e.key==='Enter'&&!e.isComposing&&e.target.id==='newUnit')$('addUnit').click();
   if(e.key==='Enter'&&!e.isComposing&&e.target.id==='newCat')$('addCat').click();
+  if(e.key==='Enter'&&!e.isComposing&&e.target.dataset?.newp!=null){e.preventDefault();addProduct(+e.target.dataset.newp)}
   if((e.key==='Enter'||e.key===',')&&!e.isComposing&&e.target.dataset?.anew!=null){e.preventDefault();if(e.target.value.trim())addAliasTag(+e.target.dataset.anew,e.target.value)}
   if(e.key==='Backspace'&&e.target.dataset?.anew!=null&&!e.target.value){const i=+e.target.dataset.anew,l=aliasArr(P[i]);if(l.length){P[i].alias=l.slice(0,-1);pDirty=true;renderProducts();document.querySelector(`[data-anew="${i}"]`)?.focus()}}
 });

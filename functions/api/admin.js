@@ -160,6 +160,9 @@ export async function POST(request) {
       case 'dayPrices':
         need(me, 'prices');
         return json({ dayPrices: await shop.setDayPrices(b.date, b.prices, b.costs) });
+      case 'renameCategory':
+        need(me, 'products');
+        return json(await shop.renameCategory(String(b.from || ''), b.to));
       case 'categories':
         need(me, 'products');
         return json({ categories: await shop.saveCategories(b.categories) });

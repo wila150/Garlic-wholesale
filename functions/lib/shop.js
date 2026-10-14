@@ -124,6 +124,25 @@ export async function saveCategories(input) {
   return list;
 }
 
+// 分類改名：連同這個分類底下的品項一起改
+export async function renameCategory(from, to) {
+  to = clean(to, 12);
+  if (!to) throw new UserError('請填新的分類名稱');
+  const cats = await getCategories();
+  if (!cats.includes(from)) throw new UserError('找不到這個分類，請重新整理');
+  if (from === to) return { categories: cats, products: await getProducts() };
+  if (cats.includes(to)) throw new UserError(`「${to}」已經有了`);
+  const pref = doc('settings/products');
+  const products = await db().runTransaction(async (tx) => {
+    const items = (await tx.get(pref)).data()?.items ?? structuredClone(DEFAULT_PRODUCTS);
+    items.forEach((p) => { if (p.cat === from) p.cat = to; });
+    tx.set(pref, { items });
+    tx.set(doc('settings/categories'), { items: cats.map((c) => (c === from ? to : c)) });
+    return items;
+  });
+  return { categories: cats.map((c) => (c === from ? to : c)), products };
+}
+
 // 品項只管名稱、分類、單位、上下架；單價每天在「單價」頁輸入
 export async function saveProducts(input) {
   if (!Array.isArray(input)) throw new UserError('品項格式錯誤');

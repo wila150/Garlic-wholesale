@@ -11,7 +11,9 @@ export const DEFAULT_RULES = {
   closed: CLOSED_WEEKDAYS, // 不配送的星期幾（0＝週日）
   addon: true, // 截單後店家可以自己補單
   addonUntil: '12:00', // 配送當天幾點前可以補單
+  palette: 'garlic', // 整個 App 的配色：garlic 蒜頭行、blue 科技藍、mint 薄荷綠、gray 商務灰
 };
+export const PALETTES = ['garlic', 'blue', 'mint', 'gray'];
 
 let cachedAt = 0;
 export async function loadRules() {
@@ -34,8 +36,16 @@ export async function saveRules(input) {
   if (!isTime(r.cutoff)) throw new UserError('截單時間格式不對，例如 22:00');
   if (!isTime(r.addonUntil)) throw new UserError('補單截止時間格式不對，例如 12:00');
   if (r.closed.length === 7) throw new UserError('不能每天都公休');
-  await getFirestore().doc('settings/rules').set(r);
+  await getFirestore().doc('settings/rules').set(r, { merge: true }); // merge：不要蓋掉配色
   setRules(r);
   cachedAt = Date.now();
   return r;
+}
+
+export async function savePalette(palette) {
+  if (!PALETTES.includes(palette)) throw new UserError('沒有這個配色');
+  await getFirestore().doc('settings/rules').set({ palette }, { merge: true });
+  setRules({ palette });
+  cachedAt = Date.now();
+  return palette;
 }

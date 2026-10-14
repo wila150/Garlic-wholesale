@@ -4,7 +4,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { SHOP } from '../lib/config.js';
 import { verifySlipToken } from '../lib/token.js';
 import { json, fail, readJSON, UserError } from '../lib/http.js';
-import { label } from '../lib/dates.js';
+import { label, getRulesNow } from '../lib/dates.js';
 import * as shop from '../lib/shop.js';
 
 async function slipOf(token) {
@@ -30,6 +30,7 @@ export async function GET(request) {
     });
     return json({
       shopName: SHOP.name,
+      palette: getRulesNow().palette,
       basicId: SHOP.basicId,
       store: store.name,
       date: t.date,

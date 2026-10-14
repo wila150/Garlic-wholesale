@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<script>/* 預設淺色；在後台按「深色」才切換，記在這台裝置 */try{document.documentElement.dataset.theme=localStorage.getItem('theme')==='dark'?'dark':'light'}catch(e){document.documentElement.dataset.theme='light'}</script>
+<script>/* 預設淺色；在後台按「深色」才切換，記在這台裝置 */try{document.documentElement.dataset.theme=localStorage.getItem('theme')==='dark'?'dark':'light';document.documentElement.dataset.palette=localStorage.getItem('palette')||'garlic'}catch(e){document.documentElement.dataset.theme='light'}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
 <title>叫貨後台</title>
@@ -509,9 +509,11 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 101507</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 101508</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div id="rulesBox">
+    <h2>配色</h2>
+    <div class="palettes" id="palBox"></div>
     <h2>截單和補單</h2>
     <form class="addform rules" id="rulesForm" onsubmit="return false">
       <label>截單時間（配送日前一天）<input id="rCutoff" type="time" step="60"></label>
@@ -642,9 +644,11 @@ async function api(method,body,q=''){
 function showLogin(msg){$('app').hidden=true;$('login').hidden=false;$('loginErr').textContent=msg||'';if(msg&&FB?.auth.currentUser)FB.signOut(FB.auth)}
 const may=w=>D.me.can.includes(w);
 const hasPrice=()=>may('prices')||may('bills');
+function applyPalette(p){if(!p)return;document.documentElement.dataset.palette=p;try{localStorage.setItem('palette',p)}catch{}}
 async function load(){
   try{D=await api('GET',null,`?date=${date}&month=${month}`)}catch(e){if($('login').hidden)toast(e.message);return}
   $('login').hidden=true;$('app').hidden=false;
+  applyPalette(D.rules?.palette);
   date=D.date;month=D.month;
   if(!pDirty)P=structuredClone(D.products);
   if(!sDirty)S=structuredClone(D.stores);
@@ -692,7 +696,7 @@ function renderAll(){
   if(may('products')){renderUnits();renderProducts()}
   if(may('stores'))renderStores();
   $('userBox').hidden=$('rulesBox').hidden=!may('users');
-  if(may('users'))renderRules();
+  if(may('users')){renderRules();renderPalettes()}
   if(may('users'))renderUsers();
   $('devBox').hidden=!D.me.engineer;
 }
@@ -1125,6 +1129,16 @@ async function approve(uid){
   try{const j=await api('POST',{action:'approve',userId:uid,storeId,newStore:{name}});await load();toast(`已開通「${j.store.name}」，也通知對方了`)}catch(e){toast(e.message)}
 }
 
+/* ---------- 配色：選了全部的人一起換（後台、叫貨頁、確認單） ---------- */
+const PALS=[['garlic','蒜頭行','深墨綠＋暖白，品牌質感',['#1F4D3A','#F6F5F0','#B08A3E']],['blue','科技藍','穩重專業，ERP 常用',['#1B365D','#F5F7FA','#1890FF']],['mint','薄荷綠','清新放鬆，適合生鮮',['#00796B','#F4F6F4','#ED6C02']],['gray','商務灰','極簡，表格多時不累眼',['#37474F','#FAFAFA','#1890FF']]];
+function renderPalettes(){
+  const cur=D.rules?.palette||'garlic';
+  $('palBox').innerHTML=PALS.map(([k,n,d,c])=>`<button class="pal" data-pal="${k}" aria-pressed="${k===cur}"><span class="sw3">${c.map(x=>`<i style="background:${x}"></i>`).join('')}</span><b>${n}${k===cur?'　✓':''}</b><small>${d}</small></button>`).join('');
+}
+async function choosePalette(k){
+  const old=D.rules.palette;applyPalette(k);D.rules.palette=k;renderPalettes();
+  try{await api('POST',{action:'palette',palette:k});toast(`已換成「${PALS.find(p=>p[0]===k)[1]}」，店家叫貨頁也會一起換`)}catch(e){applyPalette(old);D.rules.palette=old;renderPalettes();toast(e.message)}
+}
 /* ---------- 截單和補單 ---------- */
 function renderRules(){
   const r=D.rules;if(!r||$('rulesForm').dataset.dirty)return;
@@ -1303,6 +1317,7 @@ document.addEventListener('click',async e=>{
   if(b.dataset.doprint){fitPage();try{window.print()}catch{toast('請用瀏覽器選單的列印')}}
   if(b.id==='addUnit'){const u=$('newUnit').value.trim();if(!u){toast('請先填單位');$('newUnit').focus();return}if(D.units.includes(u)){toast(`「${u}」已經有了`);return}saveUnits([...D.units,u],`已新增單位「${u}」`)}
   if(b.dataset.udel){const u=b.dataset.udel;if(P.some(p=>p.unit===u)){toast(`還有品項用「${u}」，先改成別的單位`);return}if(confirm(`刪除單位「${u}」？`))saveUnits(D.units.filter(x=>x!==u),`已刪除單位「${u}」`)}
+  if(b.dataset.pal){choosePalette(b.dataset.pal);return}
   if(b.dataset.popen!=null){const i=+b.dataset.popen;openP=openP===i?-1:i;renderProducts();return}
   if(b.dataset.pdel){const i=+b.dataset.pdel;if(confirm(`刪除「${P[i].name}」？舊訂單紀錄不受影響。`)){P.splice(i,1);openP=-1;pDirty=true;renderProducts()}}
   if(b.dataset.rmonth){rmonth=addMonths(R?.month||D.month,+b.dataset.rmonth);if(rDirty&&!confirm('成本還沒儲存，確定換月份？'))return;loadReport()}

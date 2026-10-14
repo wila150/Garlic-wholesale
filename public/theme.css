@@ -131,3 +131,37 @@ body.admin #themeBtn{font-size:1.05rem;padding:4px 8px}
 body.admin header.top h1{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
 body.admin .brand{flex:1;min-width:0}
 @media (max-width:420px){body.admin header.top h1{font-size:1.1rem}}
+
+/* ===== 配色方案（後台「設定」選，全部的人一起換）=====
+   主色 20%：導覽、主要按鈕、選取狀態；底色＋白卡 70%；點綴 10%：狀態提示。紅色只留給缺貨、未收款這類警示 */
+:root[data-palette="blue"]{
+  --bg:#F5F7FA; --surface:#FFFFFF; --surface-2:#FAFBFD; --ink:#1A2433; --muted:#5F6B7A; --line:#E3E8EF;
+  --leaf:#1B365D; --leaf-2:#1890FF; --leaf-soft:#E8F1FD; --gold:#1890FF;
+  --tag:#FAAD14; --tag-soft:#FFF7E6; --tag-ink:#874D00; --alert:#D9363E;
+  --shadow:0 1px 2px rgba(20,40,70,.05),0 6px 20px -8px rgba(20,40,70,.12);
+}
+:root[data-palette="mint"]{
+  --bg:#F4F6F4; --surface:#FFFFFF; --surface-2:#F9FBF9; --ink:#17221F; --muted:#5E6E69; --line:#E1E8E5;
+  --leaf:#00796B; --leaf-2:#00A99D; --leaf-soft:#E0F2EF; --gold:#1890FF;
+  --tag:#ED6C02; --tag-soft:#FFF1E5; --tag-ink:#8A3D00; --alert:#D32F2F;
+  --shadow:0 1px 2px rgba(10,50,40,.05),0 6px 20px -8px rgba(10,50,40,.12);
+}
+:root[data-palette="gray"]{
+  --bg:#FAFAFA; --surface:#FFFFFF; --surface-2:#FCFCFC; --ink:#1F2326; --muted:#62686D; --line:#E6E8EA;
+  --leaf:#37474F; --leaf-2:#1890FF; --leaf-soft:#ECEFF1; --gold:#1890FF;
+  --tag:#FAAD14; --tag-soft:#FFF7E6; --tag-ink:#874D00; --alert:#D9363E;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 6px 20px -8px rgba(0,0,0,.12);
+}
+/* 深色時：底色一律深灰，只換主色 */
+:root[data-theme="dark"][data-palette="blue"]{--bg:#0E1218;--surface:#151B23;--surface-2:#19202A;--ink:#E7ECF2;--muted:#8D97A3;--line:#252D38;--leaf:#2B6CB0;--leaf-2:#4AA3FF;--leaf-soft:#132235;--gold:#4AA3FF;--tag-soft:#33270F;--tag-ink:#F5C26B;--alert:#F07A7E;--shadow:none}
+:root[data-theme="dark"][data-palette="mint"]{--bg:#0E1312;--surface:#151C1A;--surface-2:#19211F;--ink:#E6EEEC;--muted:#8B9A96;--line:#24302D;--leaf:#00897B;--leaf-2:#26BFB2;--leaf-soft:#0F2824;--gold:#4AA3FF;--tag-soft:#33220F;--tag-ink:#F5A55B;--alert:#F07A7E;--shadow:none}
+:root[data-theme="dark"][data-palette="gray"]{--bg:#111213;--surface:#1A1C1E;--surface-2:#1E2123;--ink:#ECEDEE;--muted:#93989C;--line:#2A2D30;--leaf:#546E7A;--leaf-2:#4AA3FF;--leaf-soft:#1F272B;--gold:#4AA3FF;--tag-soft:#33270F;--tag-ink:#F5C26B;--alert:#F07A7E;--shadow:none}
+
+/* 設定頁：配色選擇 */
+.palettes{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;margin-bottom:22px}
+.pal{border:1px solid var(--line);background:var(--surface);border-radius:var(--r);padding:12px;text-align:left;display:flex;flex-direction:column;gap:8px;box-shadow:var(--shadow)}
+.pal[aria-pressed="true"]{border-color:var(--leaf);box-shadow:0 0 0 2px var(--leaf)}
+.pal .sw3{display:flex;gap:4px}
+.pal .sw3 i{flex:1;height:26px;border-radius:6px;border:1px solid rgba(0,0,0,.06)}
+.pal b{font-size:.92rem}
+.pal small{color:var(--muted);font-size:.78rem;line-height:1.4}

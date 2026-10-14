@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<script>/* 預設淺色；在後台按「深色」才切換，記在這台裝置 */try{document.documentElement.dataset.theme=localStorage.getItem('theme')==='dark'?'dark':'light'}catch(e){document.documentElement.dataset.theme='light'}</script>
+<script>/* 預設淺色；在後台按「深色」才切換，記在這台裝置 */try{document.documentElement.dataset.theme=localStorage.getItem('theme')==='dark'?'dark':'light';document.documentElement.dataset.palette=localStorage.getItem('palette')||'garlic'}catch(e){document.documentElement.dataset.theme='light'}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
 <title>確認配送單</title>
@@ -98,9 +98,12 @@ function qtyText(q,unit){q=Number(q)||0;if(unit==='斤'&&!Number.isInteger(q)){l
 const T=new URLSearchParams(location.search).get('t')||'';
 let D=null;
 
+// 老闆在後台選的配色
+function applyPalette(p){if(!p)return;document.documentElement.dataset.palette=p;try{localStorage.setItem('palette',p)}catch{}}
 async function load(){
   let r;
   try{r=await fetch('/api/sign?t='+encodeURIComponent(T));D=await r.json()}catch{D={error:'載入失敗，請重新整理'}}
+  applyPalette(D.palette);
   if(!r?.ok){$('msg').textContent=D.error;return}
   document.title=`${D.store} 確認配送單`;
   $('title').textContent=`${D.store}・確認配送單`;

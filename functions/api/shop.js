@@ -3,7 +3,7 @@ import { SHOP, CATEGORIES } from '../lib/config.js';
 import { verify, orderLink } from '../lib/token.js';
 import { json, fail, readJSON, originOf, UserError } from '../lib/http.js';
 import { push, notifyAdmins } from '../lib/line.js';
-import { openDate, label, cutoffLabel, addonDate, addonUntilLabel } from '../lib/dates.js';
+import { openDate, label, cutoffLabel, addonDate, addonUntilLabel, getRulesNow } from '../lib/dates.js';
 import { qtyText } from '../lib/qty.js';
 import * as shop from '../lib/shop.js';
 import { orderMessage } from '../lib/messages.js';
@@ -28,6 +28,7 @@ export async function GET(request) {
     ]);
     return json({
       shopName: SHOP.name,
+      palette: getRulesNow().palette,
       liffId: SHOP.liffId,
       store: { name: store.name },
       date: D,

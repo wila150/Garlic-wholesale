@@ -2,7 +2,7 @@
 import { CUTOFF_HOUR, CLOSED_WEEKDAYS } from './config.js';
 
 // 營業規則：rules.js 從資料庫讀到後用 setRules 套進來
-let R = { cutoff: `${String(CUTOFF_HOUR).padStart(2, '0')}:00`, closed: CLOSED_WEEKDAYS, addon: true, addonUntil: '12:00' };
+let R = { palette: 'garlic', cutoff: `${String(CUTOFF_HOUR).padStart(2, '0')}:00`, closed: CLOSED_WEEKDAYS, addon: true, addonUntil: '12:00' };
 export const setRules = (r) => { R = { ...R, ...r }; };
 export const getRulesNow = () => ({ ...R });
 const minutes = (hhmm) => { const [h, m] = hhmm.split(':').map(Number); return h * 60 + m; };

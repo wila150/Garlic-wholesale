@@ -2,7 +2,7 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
-<script>/* 預設淺色；在後台按「深色」才切換，記在這台裝置 */try{document.documentElement.dataset.theme=localStorage.getItem('theme')==='dark'?'dark':'light'}catch(e){document.documentElement.dataset.theme='light'}</script>
+<script>/* 預設淺色；在後台按「深色」才切換，記在這台裝置 */try{document.documentElement.dataset.theme=localStorage.getItem('theme')==='dark'?'dark':'light';document.documentElement.dataset.palette=localStorage.getItem('palette')||'garlic'}catch(e){document.documentElement.dataset.theme='light'}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>叫貨單</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -124,9 +124,12 @@ let MODE='order';
 let D=null,cart={},cat='常叫',liffReady=false;
 const PM=()=>Object.fromEntries(D.products.map(p=>[p.id,p]));
 
+// 老闆在後台選的配色
+function applyPalette(p){if(!p)return;document.documentElement.dataset.palette=p;try{localStorage.setItem('palette',p)}catch{}}
 async function load(){
   let r;
   try{r=await fetch('/api/shop?t='+encodeURIComponent(T)+(DRAFT?'&d='+encodeURIComponent(DRAFT):''));D=await r.json()}catch{D={error:'載入失敗，請重新整理'}}
+  applyPalette(D.palette);
   if(D.shopName){$('title').textContent=D.shopName}
   if(!r?.ok){$('subtitle').textContent='';$('msg').hidden=false;$('msg').textContent=D.error;return}
   D.main={date:D.date,dateLabel:D.dateLabel,cutoff:D.cutoff,order:D.order};

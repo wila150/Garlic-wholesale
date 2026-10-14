@@ -106,9 +106,28 @@ export async function saveUnits(input) {
   return list;
 }
 
+/* ---------- 分類（後台品項頁「分類管理」可以自己加刪）---------- */
+//   settings/categories { items: 分類清單 }
+export async function getCategories() {
+  const list = (await data('settings/categories'))?.items ?? CATEGORIES;
+  // 品項用到、但清單裡沒有的分類也列出來，免得品項看不到
+  const extra = [...new Set((await getProducts()).map((p) => p.cat).filter((c) => c && !list.includes(c)))];
+  return [...list, ...extra];
+}
+export async function saveCategories(input) {
+  if (!Array.isArray(input)) throw new UserError('分類格式錯誤');
+  const list = [...new Set(input.map((c) => clean(c, 12)).filter(Boolean))];
+  if (!list.length) throw new UserError('至少要有一個分類');
+  const used = (await getProducts()).filter((p) => !list.includes(p.cat));
+  if (used.length) throw new UserError(`「${used[0].cat}」還有品項在用（${used[0].name}），先把品項改到別的分類`);
+  await doc('settings/categories').set({ items: list });
+  return list;
+}
+
 // 品項只管名稱、分類、單位、上下架；單價每天在「單價」頁輸入
 export async function saveProducts(input) {
   if (!Array.isArray(input)) throw new UserError('品項格式錯誤');
+  const cats = (await data('settings/categories'))?.items ?? CATEGORIES;
   const old = new Map((await getProducts()).map((p) => [p.id, p]));
   const units = await getUnits();
   const names = new Set();
@@ -121,7 +140,7 @@ export async function saveProducts(input) {
     const id = clean(p.id, 30) || rid('p');
     return {
       id,
-      cat: CATEGORIES.includes(p.cat) ? p.cat : CATEGORIES[0],
+      cat: cats.includes(p.cat) ? p.cat : cats[0],
       name,
       unit: units.includes(p.unit) ? p.unit : units[0],
       price: old.get(id)?.price ?? 0, // 最近一次輸入的單價，新訂單先用這個

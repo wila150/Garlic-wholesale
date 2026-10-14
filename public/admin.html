@@ -504,12 +504,13 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
     </form>
     <input id="pSearch" class="psearch" type="search" placeholder="搜尋品項或叫法" aria-label="搜尋品項">
     <div id="adminList"></div>
+    <details class="unitsbox"><summary>分類管理</summary><div class="units" id="catBox"></div></details>
     <details class="unitsbox"><summary>單位管理</summary><div class="units" id="unitBox"></div></details>
     <div class="savebar"><button class="ok" id="saveP" disabled>儲存品項</button><span id="pDirty"></span></div>
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 101509</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 101510</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div id="rulesBox">
     <h2>配色</h2>
@@ -693,7 +694,7 @@ function renderAll(){
   renderBoard();renderSlips();
   if(may('prices'))renderPrices();
   if(may('bills'))renderBills();
-  if(may('products')){renderUnits();renderProducts()}
+  if(may('products')){renderCats();renderUnits();renderProducts()}
   if(may('stores'))renderStores();
   $('userBox').hidden=$('rulesBox').hidden=!may('users');
   if(may('users')){renderRules();renderPalettes()}
@@ -927,6 +928,13 @@ function addAliasTag(i,raw){
   if(!added.length)return false;
   p.alias=[...list,...added];pDirty=true;renderProducts();
   document.querySelector(`[data-anew="${i}"]`)?.focus();return true;
+}
+function renderCats(){
+  $('catBox').innerHTML=D.categories.map(c=>`<span>${esc(c)}<button data-cdel="${esc(c)}" aria-label="刪除分類 ${esc(c)}">✕</button></span>`).join('')+
+    `<input id="newCat" placeholder="新分類" maxlength="12" aria-label="新分類"><button class="add-u" id="addCat">新增</button>`;
+}
+async function saveCats(categories,msg){
+  try{const j=await api('POST',{action:'categories',categories});D.categories=j.categories;$('nCat').innerHTML=D.categories.map(c=>`<option>${esc(c)}</option>`).join('');renderCats();renderProducts();toast(msg)}catch(e){toast(e.message)}
 }
 function renderUnits(){
   $('unitBox').innerHTML=D.units.map(u=>`<span>${esc(u)}<button data-udel="${esc(u)}" aria-label="刪除單位 ${esc(u)}">✕</button></span>`).join('')+
@@ -1316,6 +1324,8 @@ document.addEventListener('click',async e=>{
   if(b.dataset.close)$('pv').classList.remove('on');
   if(b.dataset.doprint){fitPage();try{window.print()}catch{toast('請用瀏覽器選單的列印')}}
   if(b.id==='addUnit'){const u=$('newUnit').value.trim();if(!u){toast('請先填單位');$('newUnit').focus();return}if(D.units.includes(u)){toast(`「${u}」已經有了`);return}saveUnits([...D.units,u],`已新增單位「${u}」`)}
+  if(b.id==='addCat'){const c=$('newCat').value.trim();if(!c){toast('請先填分類名稱');$('newCat').focus();return}if(D.categories.includes(c)){toast(`「${c}」已經有了`);return}saveCats([...D.categories,c],`已新增分類「${c}」，新增品項時就可以選`)}
+  if(b.dataset.cdel){const c=b.dataset.cdel;if(P.some(p=>p.cat===c)){toast(`還有品項在「${c}」，先把品項改到別的分類`);return}if(confirm(`刪除分類「${c}」？`))saveCats(D.categories.filter(x=>x!==c),`已刪除分類「${c}」`)}
   if(b.dataset.udel){const u=b.dataset.udel;if(P.some(p=>p.unit===u)){toast(`還有品項用「${u}」，先改成別的單位`);return}if(confirm(`刪除單位「${u}」？`))saveUnits(D.units.filter(x=>x!==u),`已刪除單位「${u}」`)}
   if(b.dataset.pal){choosePalette(b.dataset.pal);return}
   if(b.dataset.popen!=null){const i=+b.dataset.popen;openP=openP===i?-1:i;renderProducts();return}
@@ -1402,6 +1412,7 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'){$('pv').classList.remove('on');$('aiEd').classList.remove('on');$('helpBox').classList.remove('on')}
   if(e.key==='Enter'&&!e.isComposing&&e.target.dataset?.sqin)e.target.blur();
   if(e.key==='Enter'&&!e.isComposing&&e.target.id==='newUnit')$('addUnit').click();
+  if(e.key==='Enter'&&!e.isComposing&&e.target.id==='newCat')$('addCat').click();
   if((e.key==='Enter'||e.key===',')&&!e.isComposing&&e.target.dataset?.anew!=null){e.preventDefault();if(e.target.value.trim())addAliasTag(+e.target.dataset.anew,e.target.value)}
   if(e.key==='Backspace'&&e.target.dataset?.anew!=null&&!e.target.value){const i=+e.target.dataset.anew,l=aliasArr(P[i]);if(l.length){P[i].alias=l.slice(0,-1);pDirty=true;renderProducts();document.querySelector(`[data-anew="${i}"]`)?.focus()}}
 });

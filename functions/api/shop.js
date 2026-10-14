@@ -1,5 +1,5 @@
 // 店家叫貨頁用的 API（不回傳任何價格）
-import { SHOP, CATEGORIES } from '../lib/config.js';
+import { SHOP } from '../lib/config.js';
 import { verify, orderLink } from '../lib/token.js';
 import { json, fail, readJSON, originOf, UserError } from '../lib/http.js';
 import { push, notifyAdmins } from '../lib/line.js';
@@ -34,7 +34,7 @@ export async function GET(request) {
       date: D,
       dateLabel: label(D),
       cutoff: cutoffLabel(D),
-      categories: CATEGORIES,
+      categories: await shop.getCategories(),
       products: products.map(({ price, ...p }) => p),
       order: order?.items.length ? noPrice(order) : null,
       last: last ? noPrice(last) : null,

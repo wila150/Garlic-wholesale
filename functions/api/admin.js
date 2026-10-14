@@ -1,5 +1,5 @@
 // 後台 API：用 Firebase 登入，依角色決定能做什麼（見 lib/auth.js）
-import { SHOP, CATEGORIES } from '../lib/config.js';
+import { SHOP } from '../lib/config.js';
 import { saveRules, savePalette } from '../lib/rules.js';
 import { json, fail, readJSON, UserError } from '../lib/http.js';
 import { push } from '../lib/line.js';
@@ -86,7 +86,7 @@ export async function GET(request) {
       me: { ...me, roleName: ROLES[me.role], can: ['bills', 'prices', 'editOrders', 'products', 'stores', 'remind', 'statement', 'users', 'sign', 'deleteOrders'].filter((w) => can(me.role, w)) },
       roles: ROLES,
       shop: { name: SHOP.name, phone: SHOP.phone, payTerms: SHOP.payTerms },
-      categories: CATEGORIES,
+      categories: await shop.getCategories(),
       units,
       cutoffLabel: cutoffLabel(openDate()),
       rules: getRulesNow(),
@@ -160,6 +160,9 @@ export async function POST(request) {
       case 'dayPrices':
         need(me, 'prices');
         return json({ dayPrices: await shop.setDayPrices(b.date, b.prices, b.costs) });
+      case 'categories':
+        need(me, 'products');
+        return json({ categories: await shop.saveCategories(b.categories) });
       case 'units':
         need(me, 'products');
         return json({ units: await shop.saveUnits(b.units) });

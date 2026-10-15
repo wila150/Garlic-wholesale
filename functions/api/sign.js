@@ -54,7 +54,7 @@ export async function POST(request) {
     const png = String(b.png || '');
     if (!/^data:image\/png;base64,/.test(png) || png.length > 300000) throw new UserError('請先簽名');
     const rec = { date: t.date, storeId: t.storeId, seq: t.seq, key: t.key, png, signer: String(b.signer || '').trim().slice(0, 20), by: '店家線上確認', at: new Date().toISOString() };
-    await getFirestore().doc(`signatures/${t.date}_${t.key}`).set(rec);
+    await getFirestore().doc(`signatures/${t.date}_${t.key}`).create(rec).catch((e) => { if (e.code === 6) throw new UserError('這張配送單剛剛已經確認過了', 409); throw e; }); // create：已經有人確認就失敗，不會互相蓋掉
     return json({ confirmed: { at: rec.at, signer: rec.signer } });
   } catch (e) {
     return fail(e);

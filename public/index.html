@@ -137,10 +137,12 @@ async function load(){
   // 訂單裡有、但已經下架的品項，也要顯示出來
   [...(D.order?.items||[]),...(D.addon?.order?.items||[])].forEach(i=>{if(!PM()[i.pid])D.products.push({id:i.pid,name:i.name,unit:i.unit,cat:'',on:false})});
   // 原本的單已經被老闆確認（鎖住）：直接進補單
-  setMode((Q.get('m')==='addon'||D.addon?.mainLocked)&&D.addon&&!D.draft?'addon':'order');
+  // 進補單：網址指定、原本的單已確認、或 AI 整理的單那天已經截單（只能補單）
+  const draftToAddon=D.draft&&D.addon&&D.draft.date!==D.main.date&&D.addon.date===D.draft.date;
+  setMode((Q.get('m')==='addon'||D.addon?.mainLocked||draftToAddon)&&D.addon?'addon':'order');
   // 從 LINE「用叫貨單修改」進來：把 AI 整理的品項加進去
-  if(D.draft){D.draft.items.forEach(i=>{cart[i.pid]=Math.round(((cart[i.pid]||0)+i.qty)*10000)/10000});cat='全部';render()}
-  if(D.draft)toast(D.draft.unknown.length?`已帶入 AI 整理的品項。看不懂的：${D.draft.unknown.join('、')}`:'已帶入 AI 整理的品項，確認後按送出');
+  if(D.draft&&D.draft.addonDate&&MODE==='order')toast(`已帶入 AI 整理的品項。要補 ${D.addon?.dateLabel||''} 的貨，請按上面「補單」`);
+  else if(D.draft)toast(D.draft.unknown.length?`已帶入 AI 整理的品項。看不懂的：${D.draft.unknown.join('、')}`:'已帶入 AI 整理的品項，確認後按送出');
   if(D.liffId)initLiff();
 }
 function setMode(m){
@@ -148,6 +150,7 @@ function setMode(m){
   const A=D.addon,src=m==='addon'?{date:A.date,dateLabel:A.dateLabel,cutoff:A.until,order:A.order}:D.main;
   Object.assign(D,{date:src.date,dateLabel:src.dateLabel,cutoff:src.cutoff,order:src.order});
   cart={};(D.order?.items||[]).forEach(i=>cart[i.pid]=i.qty);
+  if(D.draft)for(const i of D.draft.items){const op=i.op||'add';if(op==='remove')delete cart[i.pid];else if(op==='set')cart[i.pid]=i.qty;else cart[i.pid]=Math.round(((cart[i.pid]||0)+i.qty)*10000)/10000}
   document.title=D.store.name+(m==='addon'?' 補單':' 叫貨單');
   $('title').textContent=D.store.name+(m==='addon'?'・補單':'・叫貨單');
   $('subtitle').textContent=m==='addon'?`${D.dateLabel} 配送，${D.cutoff} 前可以補`:`${D.dateLabel} 配送，${D.cutoff} 前可以改`;
@@ -157,7 +160,7 @@ function setMode(m){
     const n=A.others.reduce((a,o)=>a+o.items.length,0);
     bar.innerHTML=`<span>這是另外一張補單${n?`<small>原本的訂單 ${n} 樣${A.mainLocked?'老闆已經確認，':''}不會變</small>`:''}</span>${A.mainLocked?'':`<button data-mode="order">回到叫 ${esc(D.main.dateLabel)}</button>`}`;
   }
-  cat=m==='addon'?'全部':frequent().size?'常叫':'全部';
+  cat=m==='addon'||D.draft?'全部':frequent().size?'常叫':'全部';
   $('q').value='';render();$('plist').scrollTop=0;
 }
 function initLiff(){
@@ -172,7 +175,7 @@ function render(){renderChips();renderList();renderBar()}
 function renderChips(){
   const cnt={};const pm=PM();Object.keys(cart).forEach(pid=>{if(cart[pid]>0&&pm[pid]){const c=pm[pid].cat;cnt[c]=(cnt[c]||0)+1}});
   const list=['常叫','全部',...D.categories];
-  $('chips').innerHTML=list.map(c=>`<button data-cat="${c}" aria-pressed="${c===cat}">${c==='常叫'?'我常叫的':c}${cnt[c]?`<span class="ct">${cnt[c]}</span>`:''}</button>`).join('');
+  $('chips').innerHTML=list.map(c=>`<button data-cat="${esc(c)}" aria-pressed="${c===cat}">${c==='常叫'?'我常叫的':esc(c)}${cnt[c]?`<span class="ct">${cnt[c]}</span>`:''}</button>`).join('');
 }
 function visible(){
   const q=$('q').value.trim();
@@ -233,8 +236,10 @@ async function submit(){
   const btn=$('submit');btn.disabled=true;btn.textContent='送出中…';
   try{
     const items=Object.entries(cart).filter(([,q])=>q>0).map(([pid,qty])=>({pid,qty}));
-    const r=await fetch('/api/shop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:T,date:D.date,items,mode:MODE,viaLiff:liffReady,draftId:D.draft?.id})});
+    const r=await fetch('/api/shop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:T,date:D.date,items,v:D.order?.v??null,mode:MODE,viaLiff:liffReady,draftId:D.draft?.id})});
     const j=await r.json();
+    // 訂單剛被別的手機或 AI 改過：重新載入最新的單，請店家再確認一次
+    if(r.status===409&&/剛剛有變動/.test(j.error||'')){const m=MODE;$('sheet').classList.remove('on');await load();if(m==='addon'&&D.addon)setMode('addon');toast(j.error);return}
     if(!r.ok)throw new Error(j.error||'送出失敗');
     const wasHad=had();
     D.order=j.order.items.length?j.order:null;D.draft=null;
@@ -267,7 +272,7 @@ document.addEventListener('click',e=>{
 document.addEventListener('input',e=>{
   const t=e.target;
   if(t.dataset.qin)setQty(t.dataset.qin,+t.value||0);
-  if(t.dataset.jin){const l=+t.closest('.prow').querySelector('select').value;setQty(t.dataset.jin,Math.floor(+t.value||0)+l/16)}
+  if(t.dataset.jin){const v=+t.value||0,l=+t.closest('.prow').querySelector('select').value;setQty(t.dataset.jin,Number.isInteger(v)?v+l/16:Math.round(v*16)/16)}
 });
 document.addEventListener('focusin',e=>{if(e.target.dataset?.qin||e.target.dataset?.jin)e.target.select()});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.target.dataset?.qin||e.target.dataset?.jin))e.target.blur()});

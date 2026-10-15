@@ -172,3 +172,12 @@ body.admin .brand{flex:1;min-width:0}
 :root[data-theme="dark"] .kpi,:root[data-theme="dark"] .bill,:root[data-theme="dark"] .slip,:root[data-theme="dark"] .board,:root[data-theme="dark"] .plist,:root[data-theme="dark"] .card{border-color:var(--line)}
 
 body.admin .savebar .ok:disabled{background:var(--line);color:var(--muted);box-shadow:none}
+
+/* 字和按鈕大一點：忙的時候、戴老花眼鏡也按得準、看得清楚 */
+body.shop .head small,body.sign .head small{font-size:.95rem;color:var(--ink);font-weight:500}
+body.shop .stp button{width:46px;height:46px}
+body.shop .stp input{height:46px}
+body.shop .ctl select{height:46px;font-size:1.05rem}
+body.sign .row .q{font-size:1.25rem;font-weight:700;white-space:nowrap}
+body.sign .row .q.chg{color:var(--alert)}
+body.sign .row small.diff{color:var(--alert);font-weight:700}

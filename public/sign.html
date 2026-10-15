@@ -108,8 +108,9 @@ async function load(){
   document.title=`${D.store} 確認配送單`;
   $('title').textContent=`${D.store}・確認配送單`;
   $('sub').textContent=`${D.shopName}　${D.dateLabel} 配送${D.seq>1?`（補單 #${D.seq}）`:''}`;
-  $('items').innerHTML=D.items.map(i=>`<div class="row"><span>${esc(i.name)}${i.qty!==i.ordered?`<small>叫 ${esc(qtyText(i.ordered,i.unit))}</small>`:''}${i.price!=null&&i.qty?`<small>${esc(qtyText(i.qty,i.unit))} × ${money(i.price)}</small>`:''}</span>
-    <b>${i.qty?(i.amount!=null?money(i.amount):esc(qtyText(i.qty,i.unit))):'缺貨'}</b></div>`).join('');
+  // 核對的重點是數量：數量放大放右邊；實出和叫的不一樣用紅字標出來；金額放小字
+  $('items').innerHTML=D.items.map(i=>`<div class="row"><span>${esc(i.name)}${i.qty!==i.ordered?`<small class="diff">叫 ${esc(qtyText(i.ordered,i.unit))}，實際 ${i.qty?esc(qtyText(i.qty,i.unit)):'缺貨'}</small>`:''}${i.amount!=null&&i.qty?`<small>${money(i.price)} × ${esc(qtyText(i.qty,i.unit))} ＝ ${money(i.amount)}</small>`:''}</span>
+    <b class="q ${i.qty!==i.ordered?'chg':''}">${i.qty?esc(qtyText(i.qty,i.unit)):'缺貨'}</b></div>`).join('');
   if(D.total!=null){$('total').hidden=false;$('total').innerHTML=`<span>合計</span><span>${money(D.total)}</span>`}else $('pnote').hidden=false;
   $('msg').hidden=true;$('main').hidden=false;
   // 「數量不對」：打開聊天室帶好開頭，店家補上哪裡不對

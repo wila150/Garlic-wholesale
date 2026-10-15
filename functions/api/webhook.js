@@ -7,7 +7,7 @@ import { openDate, today, addDays } from '../lib/dates.js';
 import * as shop from '../lib/shop.js';
 import { welcome, orderMessage, orderCard, myOrders, addonCard, flex } from '../lib/messages.js';
 import { looksLikeOrder } from '../lib/ai.js';
-import { queue, confirmDraft } from '../lib/aiorder.js';
+import { queue, confirmDraft, aiQuotaOk } from '../lib/aiorder.js';
 
 export async function POST(request) {
   const raw = await request.text();
@@ -44,14 +44,19 @@ async function handle(e, origin) {
 
   // 還沒開通的人
   if (!store) {
-    if (wantsOrder || wantsMine) {
+    // 已經綁定、但店家被設成暫停合作：不要當成新申請
+    if (await shop.isPausedMember(uid)) return say({ type: 'text', text: '您的店家目前暫停叫貨，有問題請直接在這裡留言給老闆。' });
+    if (wantsOrder || wantsMine || said === '拍照叫貨' || action === 'photo' || (e.type === 'message' && e.message.type === 'image')) {
       const name = await displayName(uid);
       const isNew = await shop.addPending(uid, name);
       if (isNew) await notifyAdmins(`🧄 有人申請叫貨帳號：${name || '（未知名稱）'}\n到後台「店家」開通：${origin}/admin`);
       return say({ type: 'text', text: '您還沒開通叫貨帳號，已經通知老闆了。\n請直接回覆您的「店名」，方便老闆幫您開通，開通後會再通知您。' });
     }
-    // 申請中的人回覆的文字（通常是店名）記下來給老闆看
-    if (said && (await shop.listPending()).some((p) => p.userId === uid)) await shop.addPending(uid, '', said);
+    // 申請中的人回覆的文字（通常是店名）記下來給老闆看；只記第一句，不會被後來的話蓋掉
+    if (said && (await shop.getPending(uid))) {
+      const saved = await shop.addPending(uid, '', said, { keepText: true });
+      return say({ type: 'text', text: saved ? `收到「${said.slice(0, 20)}」，老闆開通後會通知您。` : '已經通知老闆了，開通後會通知您。' });
+    }
     return;
   }
 
@@ -71,9 +76,15 @@ async function handle(e, origin) {
   }
 
   // AI 叫貨（放在關鍵字前面，「幫我叫貨 大蒜3」才會走 AI）：直接打字（像「大蒜3、去皮15斤」）或傳手寫單照片，交給 aiOrder 函式處理
+  const isAiText = said && looksLikeOrder(said) && !/有問題|不對|少了|壞|爛|\?|？/.test(said);
+  const isAiImage = e.type === 'message' && e.message.type === 'image';
+  if (process.env.AI_ORDER !== 'off' && (isAiText || isAiImage) && !(await aiQuotaOk(store.id))) {
+    return say({ type: 'text', text: '今天用 AI 整理的次數太多了，請點下方「我要叫貨」用叫貨單叫，或直接留言給老闆。' });
+  }
   if (process.env.AI_ORDER !== 'off') {
     // AI 讀的時候先顯示「…」（文字約 5 秒、照片約 20 秒）
-    if (said && looksLikeOrder(said)) return loading(uid, 20).then(() => queue({ type: 'text', text: said, userId: uid, replyToken: e.replyToken, origin }, e.webhookEventId));
+    // 回報配送單有問題、問問題這類訊息不要送去 AI 叫貨
+    if (said && looksLikeOrder(said) && !/有問題|不對|少了|壞|爛|\?|？/.test(said)) return loading(uid, 20).then(() => queue({ type: 'text', text: said, userId: uid, replyToken: e.replyToken, origin }, e.webhookEventId));
     if (e.type === 'message' && e.message.type === 'image') return loading(uid, 60).then(() => queue({ type: 'image', messageId: e.message.id, userId: uid, replyToken: e.replyToken, origin }, e.webhookEventId));
   }
 
@@ -116,7 +127,7 @@ async function handle(e, origin) {
     return say(myOrders(store, cards.slice(-12)));
   }
   // AI 叫貨：店家按「確認送出」
-  if (action === 'aiok') return say(await confirmDraft(uid, pb.get('id'), origin));
+  if (action === 'aiok') { const r = await confirmDraft(uid, pb.get('id'), origin, pb.get('to') || '', pb.get('force') === '1'); return say(...(Array.isArray(r) ? r : [r])); }
 
   // 其他訊息不自動回覆，讓老闆在 LINE 官方帳號後台手動回
 }

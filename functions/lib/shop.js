@@ -164,6 +164,7 @@ export async function saveProducts(input) {
       unit: units.includes(p.unit) ? p.unit : units[0],
       price: old.get(id)?.price ?? 0, // 最近一次輸入的單價，新訂單先用這個
       cost: old.get(id)?.cost ?? null, // 最近一次輸入的進價
+      priceDate: old.get(id)?.priceDate || '', // 最近單價是哪一天的
       on: !!p.on,
       // 別名（客人常打的寫法，給 AI 對照用）。畫面沒送 alias 時保留原本的，免得存品項時被清空
       alias: p.alias === undefined ? aliasList(old.get(id)?.alias) : aliasList(p.alias),
@@ -288,15 +289,22 @@ export async function setDayPrices(date, input, costInput = {}) {
       batch.set(doc('monthly/' + date.slice(0, 7)), { amounts: { [monthKey(date, o.storeId, o.seq)]: amountOf(o) } }, { merge: true });
     }
   }
-  // 記成最近的單價，之後的新訂單先帶這個
-  const products = await getProducts();
-  let changed = false;
-  for (const p of products) {
-    if (p.id in prices && p.price !== prices[p.id]) { p.price = prices[p.id]; changed = true; }
-    if (p.id in costs && p.cost !== costs[p.id]) { p.cost = costs[p.id]; changed = true; }
-  }
-  if (changed) batch.set(doc('settings/products'), { items: products });
   await batch.commit();
+  // 記成最近的單價，之後的新訂單先帶這個。補填「過去某天」的價格時不要蓋掉比較新的價格；
+  // 用 transaction 只改價格欄位，免得蓋掉同時在改的品項或叫法
+  const pref = doc('settings/products');
+  await db().runTransaction(async (tx) => {
+    const items = (await tx.get(pref)).data()?.items ?? structuredClone(DEFAULT_PRODUCTS);
+    let changed = false;
+    for (const p of items) {
+      if (!(p.id in prices || p.id in costs) || (p.priceDate && date < p.priceDate)) continue;
+      if (p.id in prices) p.price = prices[p.id];
+      if (p.id in costs) p.cost = costs[p.id];
+      p.priceDate = date;
+      changed = true;
+    }
+    if (changed) tx.set(pref, { items });
+  });
   return day;
 }
 
@@ -324,6 +332,12 @@ export async function saveStores(input) {
       members: old.get(s.id)?.members || [], // 綁定的 LINE 帳號只能用開通／解除改
     };
   });
+  // 有訂單紀錄的店家不能刪：刪了它的應收帳款、對帳就看不到了。不合作了請取消「合作中」
+  const kept0 = new Set(list.map((s) => s.id));
+  for (const s of old.values()) {
+    if (kept0.has(s.id)) continue;
+    if (!(await db().collection('orders').where('storeId', '==', s.id).limit(1).get()).empty) throw new UserError(`「${s.name}」有訂單紀錄，不能刪除（刪了應收帳款會看不到）。不合作了請取消「合作中」`);
+  }
   const batch = db().batch();
   for (const s of list) batch.set(doc('stores/' + s.id), s);
   // 被刪掉的店家，連同它的 LINE 綁定一起刪
@@ -347,15 +361,23 @@ export async function storeOfUser(userId) {
 
 export const listPending = async () => (await db().collection('pending').get()).docs.map((d) => d.data()).sort((a, b) => a.at.localeCompare(b.at));
 
-export async function addPending(userId, name, text) {
+// keepText：已經回覆過店名就不再覆蓋（回傳 false＝沒有改），第一次回覆回傳 true
+export async function addPending(userId, name, text, { keepText = false } = {}) {
   const old = await data('pending/' + userId);
+  if (keepText && old?.text) return false;
   await doc('pending/' + userId).set({
     userId,
     name: name || old?.name || '',
     text: clean(text, 60) || old?.text || '',
     at: old?.at || new Date().toISOString(),
   });
-  return !old;
+  return keepText ? true : !old;
+}
+export const getPending = (userId) => data('pending/' + userId);
+// 綁定過、但店家暫停合作
+export async function isPausedMember(userId) {
+  const sid = (await data('members/' + userId))?.storeId;
+  return !!sid && (await data('stores/' + sid))?.on === false;
 }
 
 export async function approve(userId, { storeId, newStore }) {
@@ -429,7 +451,7 @@ export async function monthAmounts(month) {
 // 整張訂單覆蓋。by：'店家' 或 '後台'；who：後台是誰改的
 // items 可以是陣列，或 (舊訂單) => 陣列：要「在舊的單上加減」時用函式，才不會跟同時間的修改互相蓋掉
 // 用 transaction：同一張單同時有人改（店家改單、理貨填實出量、AI 確認），Firestore 會自動重跑，不會遺失修改
-export async function saveOrder(sid, date, items, by, who = '', seq = 1) {
+export async function saveOrder(sid, date, items, by, who = '', seq = 1, opts = {}) {
   if (!isDate(date)) throw new UserError('配送日不正確');
   if (by === '店家' && date !== openDate()) throw new UserError('這一天已經截單了，請重新整理後再叫貨', 409);
   seq = Math.max(1, Math.floor(Number(seq)) || 1);
@@ -443,6 +465,8 @@ export async function saveOrder(sid, date, items, by, who = '', seq = 1) {
   // 這裡面可能被重跑好幾次，不要有寄訊息之類的副作用
   const [sigSnap, oldSnap] = await Promise.all([tx.get(sigRef), tx.get(ref)]);
   if (sigSnap.exists) throw new UserError('這張配送單已經確認，不能再修改；要追加請開補單', 409);
+  // 開新單（補單）時這個序號已經被用過（包含清空的單）：交給 saveNewSlip 換下一號
+  if (opts.fresh && oldSnap.exists) throw Object.assign(new Error('SEQ_TAKEN'), { code: 'SEQ_TAKEN' });
   const old = oldSnap.data() ?? null;
   // 交易撞到別人同時改單會重跑：每次都要用這次讀到的最新的單重算，不能改掉外面的 items
   const list = typeof items === 'function' ? items(old) : items;
@@ -485,7 +509,7 @@ export async function saveOrder(sid, date, items, by, who = '', seq = 1) {
     month: date.slice(0, 7),
     storeId: sid,
     seq,
-    ...(old?.addon || by === '店家補單' ? { addon: true } : {}), // 店家自己開的補單
+    ...((old?.items.length && old.addon) || by === '店家補單' ? { addon: true } : {}), // 店家自己開的補單
     items: next,
     createdAt: old?.items.length ? old.createdAt : at,
     updatedAt: at,
@@ -527,9 +551,19 @@ export async function slipsOfDay(sid, date) {
 
 // 後台開補單：跟原本的單分開，另開一張（原本的單有沒有確認都可以）
 export async function newSlip(sid, date, pid, qty, who) {
-  const seqs = (await slipsOfDay(sid, date)).map((o) => o.seq || 1);
-  if (!seqs.length) throw new UserError('這家店這天還沒有出貨單，直接加品項就好');
-  return saveOrder(sid, date, [{ pid, qty }], '後台', who, Math.max(...seqs) + 1);
+  if (!(await slipsOfDay(sid, date)).length) throw new UserError('這家店這天還沒有出貨單，直接加品項就好');
+  return saveNewSlip(sid, date, [{ pid, qty }], '後台', who);
+}
+
+// 開一張新的單：用沒用過的序號（清空的單也不重用，舊的確認連結才不會對到新單）；同時有人開單撞號就換下一號
+export async function saveNewSlip(sid, date, items, by, who = '') {
+  const snap = await db().collection('orders').where('date', '==', date).where('storeId', '==', sid).get();
+  let seq = Math.max(0, ...snap.docs.map((d) => d.data().seq || 1)) + 1;
+  for (let i = 0; i < 5; i++, seq++) {
+    try { return await saveOrder(sid, date, items, by, who, seq, { fresh: true }); }
+    catch (e) { if (e.code !== 'SEQ_TAKEN') throw e; }
+  }
+  throw new UserError('剛好有人同時在開單，請再按一次');
 }
 
 // 店家自己補單（截單後加點）：跟原本的訂單分開。還沒確認的店家補單就繼續加在同一張，確認過了再另開一張
@@ -552,13 +586,8 @@ export async function addonFor(sid) {
 export async function saveAddon(sid, date, items) {
   if (date !== (await addonFor(sid))?.date) throw new UserError('補單時間已經過了，要追加請直接留言給老闆', 409);
   const cur = await addonSlipOf(sid, date);
-  let seq = cur?.seq;
-  if (!seq) {
-    // 用沒用過的序號（包含已經清空的單），補單才不會蓋到別張
-    const snap = await db().collection('orders').where('date', '==', date).where('storeId', '==', sid).get();
-    seq = Math.max(0, ...snap.docs.map((d) => d.data().seq || 1)) + 1;
-  }
-  return saveOrder(sid, date, items, '店家補單', '', seq);
+  // 還沒確認的店家補單就加在同一張；沒有的話另開一張新的
+  return cur ? saveOrder(sid, date, items, '店家補單', '', cur.seq) : saveNewSlip(sid, date, items, '店家補單');
 }
 
 // 計價用的數量：理貨秤過就用實出量，沒秤就用叫貨量

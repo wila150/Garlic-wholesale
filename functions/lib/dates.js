@@ -18,7 +18,8 @@ export const addDays = (s, n) => {
   return ymd(d);
 };
 export const weekday = (s) => new Date(s + 'T00:00:00Z').getUTCDay();
-export const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s));
+// 嚴格檢查：2026-02-31 這種不存在的日期也要擋
+export const isDate = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && !isNaN(Date.parse(s)) && ymd(new Date(s + 'T00:00:00Z')) === s;
 export const isMonth = (s) => /^\d{4}-(0[1-9]|1[0-2])$/.test(s);
 
 // 配送日 D 的截單時刻：D 前一天的截單時間

@@ -34,6 +34,10 @@ async function pushToStore(store, messages) {
   return ok;
 }
 
+// 理貨、司機看不到單價：單價（price）、基本價（base）、進價（cost）都拿掉
+const noPriceItem = ({ price, base, ...i }) => i;
+const noPriceProduct = ({ price, cost, ...p }) => p;
+
 export async function GET(request) {
   try {
     const me = await signedIn(request);
@@ -96,9 +100,9 @@ export async function GET(request) {
       month,
       stores,
       // 理貨、司機看不到單價
-      products: showPrices ? products : products.map(({ price, ...p }) => p),
+      products: can(me.role, 'prices') ? products : products.map(noPriceProduct),
       pending,
-      orders: (showPrices ? dayOrders : dayOrders.map((o) => ({ ...o, items: o.items.map(({ price, ...i }) => i) }))).filter((o) => o.items.length),
+      orders: (showPrices ? dayOrders : dayOrders.map((o) => ({ ...o, items: o.items.map(noPriceItem) }))).filter((o) => o.items.length),
       // 被取消／刪除的單只留紀錄
       emptyLogs: dayOrders.filter((o) => !o.items.length).map((o) => ({ storeId: o.storeId, seq: o.seq || 1, log: o.log || [] })),
       signatures: await signaturesOf(date),
@@ -130,14 +134,14 @@ export async function POST(request) {
         need(me, 'editOrders');
         await store();
         const r = await shop.setQty(b.storeId, b.date, b.pid, b.qty, me.name, b.seq);
-        if (!can(me.role, 'prices')) r.order.items = r.order.items.map(({ price, ...i }) => i);
+        if (!can(me.role, 'prices')) r.order.items = r.order.items.map(noPriceItem);
         return json(r);
       }
       case 'setShip': {
         need(me, 'editOrders');
         await store();
         const r = await shop.setShip(b.storeId, b.date, b.pid, b.ship, me.name, b.seq);
-        if (!can(me.role, 'prices')) r.order.items = r.order.items.map(({ price, ...i }) => i);
+        if (!can(me.role, 'prices')) r.order.items = r.order.items.map(noPriceItem);
         return json(r);
       }
       case 'resetTestData': {
@@ -154,7 +158,7 @@ export async function POST(request) {
         need(me, 'editOrders');
         await store();
         const r = await shop.newSlip(b.storeId, b.date, b.pid, b.qty, me.name);
-        if (!can(me.role, 'prices')) r.order.items = r.order.items.map(({ price, ...i }) => i);
+        if (!can(me.role, 'prices')) r.order.items = r.order.items.map(noPriceItem);
         return json(r);
       }
       case 'dayPrices':
@@ -251,7 +255,7 @@ export async function POST(request) {
         if (!(await shop.getOrder(b.date, s.id, seq))?.items.length) throw new UserError('這張出貨單沒有品項');
         const signer = String(b.signer || '').trim().slice(0, 20);
         const rec = { date: b.date, storeId: s.id, seq, key, ...(png ? { png } : {}), signer, by: me.name, at: new Date().toISOString() };
-        await getFirestore().doc(`signatures/${b.date}_${key}`).set(rec);
+        await getFirestore().doc(`signatures/${b.date}_${key}`).create(rec).catch((e) => { if (e.code === 6) throw new UserError('這張配送單剛剛已經確認過了', 409); throw e; }); // create：已經有人確認就失敗，不會互相蓋掉
         return json({ signature: { ...rec, png: undefined, hasPng: !!png } });
       }
       case 'palette':

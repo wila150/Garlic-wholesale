@@ -5,7 +5,7 @@
 | 網址 | 用途 |
 |---|---|
 | `https://garlic-wholesale.web.app/?t=…` | 店家叫貨頁（從 LINE 機器人給的連結開） |
-| `https://garlic-wholesale.web.app/admin` | 後台，用 Email 登入 |
+| `https://garlic-wholesale.web.app/admin` | 後台，用 Google 帳號登入 |
 | `https://garlic-wholesale.web.app/api/webhook` | 填到 LINE Developers 的 Webhook URL |
 
 ## 架構
@@ -16,7 +16,7 @@
 | Cloud Functions（asia-east1 台灣） | `functions/`：API、LINE webhook |
 | Firestore | 所有資料（各集合的說明在 `functions/lib/shop.js` 開頭） |
 | Firebase Authentication | 後台帳號 |
-| Secret Manager | LINE 金鑰 |
+| Secret Manager | LINE 金鑰、NVIDIA AI 金鑰 |
 
 ## 功能
 
@@ -29,7 +29,8 @@
 | 報表 | 營收、進貨成本、毛利、出貨重量、自訂成本項目（每天／每月）、應收帳齡與 LINE 催款、匯出 Excel |
 | 品項 | 品名、分類、單位（可自訂，斤可叫幾斤幾兩）、上下架 |
 | 店家 | 店家、路線站號、開通申請、**報價組**（打折／每單位減／個別固定價） |
-| 帳號 | 員工 Google 帳號與角色 |
+| AI 紀錄 | 店家打字、傳照片叫貨的內容；看照片改單、教 AI 認新叫法 |
+| 設定 | 配色、截單和補單、單位、員工 Google 帳號與角色 |
 
 LINE 端：圖文選單（`scripts/richmenu/setup.mjs` 建立）、叫貨頁、我的訂單、**AI 叫貨**（直接打字或傳手寫單照片，AI 整理後請店家按「確認送出」）。
 
@@ -42,14 +43,14 @@ LINE 端：圖文選單（`scripts/richmenu/setup.mjs` 建立）、叫貨頁、�
 | 理貨 | 採買總表、出貨單、改實出量、簽收、提醒叫貨。**看不到單價** |
 | 司機 | 看採買總表和出貨單、簽收 |
 
-老闆登入後，在「帳號」分頁新增員工：填 Email、初始密碼、選角色。
+老闆登入後，在「設定」分頁新增員工：填他的 Gmail、選角色，不用設密碼，員工用自己的 Google 帳號登入。
 
 ## 第一次上線
 
 ### 1. Firebase Console（console.firebase.google.com → garlic-wholesale）
 1. **升級 Blaze 方案**：左下角「升級」。Cloud Functions 要呼叫 LINE，一定要用 Blaze，以這個規模費用大多落在免費額度內。可以順便在 Google Cloud 設預算提醒。
 2. **Firestore Database** → 建立資料庫：位置選 **asia-east1（台灣）**，模式選「正式版」。
-3. **Authentication** → 開始使用 → 登入方式 → 啟用「**電子郵件／密碼**」。
+3. **Authentication** → 開始使用 → 登入方式 → 啟用「**Google**」。
 4. **專案設定** → 一般 → 你的應用程式 → 新增「**網頁**」應用程式，名稱隨意。後台登入需要它。
 
 ### 2. 電腦上（只要做一次）
@@ -60,17 +61,18 @@ cd functions && npm install && cd ..
 cp functions/.env.example functions/.env   # 填 OWNER_EMAILS（你自己的 Email）、SHOP_NAME 等
 firebase functions:secrets:set LINE_CHANNEL_SECRET
 firebase functions:secrets:set LINE_CHANNEL_ACCESS_TOKEN
+firebase functions:secrets:set NVIDIA_API_KEY      # AI 叫貨用（build.nvidia.com）
 firebase deploy
 ```
 
 ### 3. 老闆帳號
-Firebase Console → Authentication → 新增使用者：Email 用 `OWNER_EMAILS` 裡的那個，自己設密碼。之後就能登入 `/admin`。
+`OWNER_EMAILS` 填你自己的 Gmail，部署後用這個 Google 帳號登入 `/admin` 就是老闆。
 
 ### 4. LINE 設定
 1. **LINE Developers** → Messaging API：Webhook URL 填 `https://garlic-wholesale.web.app/api/webhook`，按 Verify，再打開 **Use webhook**。
 2. **官方帳號管理後台** → 回應設定：「聊天」打開、「Webhook」打開、「自動回應訊息」關掉。
 3. 用你自己的 LINE 傳「我的ID」給機器人，把回覆的 userId 填到 `functions/.env` 的 `ADMIN_LINE_USER_IDS`，再跑一次 `firebase deploy --only functions`。之後有店家申請開通時，你會收到通知。
-4. **圖文選單**：版型選左邊一大格、右邊兩格，動作都選「文字」，分別設成 `我要叫貨`、`我的訂單`、`聯絡老闆`。
+4. **圖文選單**：跑 `node scripts/richmenu/setup.mjs` 建立（我要叫貨、拍照叫貨、我的訂單、聯絡老闆 四格）。
 
 ## 資料保存與備份
 
@@ -80,7 +82,8 @@ Firebase Console → Authentication → 新增使用者：Email 用 `OWNER_EMAIL
 
 ## 叫貨流程和截單
 
-- 每家店每個配送日一張訂單，配送日**前一天 `CUTOFF_HOUR` 點**截單，預設 22:00。截單後叫貨頁會自動切到下一個配送日；`CLOSED_WEEKDAYS` 設定的公休日會跳過。
+- 每家店每個配送日一張訂單，配送日前一天截單（預設 22:00）。截單時間、公休日、補單截止在後台「設定」改（存在 `settings/rules`，`CUTOFF_HOUR`、`CLOSED_WEEKDAYS` 只是第一次的預設值）。
+- 截單後，或原本的單已經被確認，店家可以自己「補單」，另開一張，跟原本的單分開。
 - 單價：「單價」頁只列出當天有人叫的品項，先帶入上次的價格，確認後套用到當天所有出貨單和對帳。
 - 「斤」的品項可以叫幾斤幾兩（1 斤 = 16 兩）；單位可以在「品項」分頁自己新增。
 
@@ -92,7 +95,7 @@ cd functions && npm install && cd ..
 # functions/.secret.local 放 LINE_CHANNEL_SECRET=…，以及 LINE_CHANNEL_ACCESS_TOKEN=dry-run（不真的送 LINE）
 # functions/.env.local 放 OWNER_EMAILS=owner@test.com
 npm run emulators      # 另開一個視窗：
-npm run seed           # 寫入示範資料和測試帳號（密碼 test1234）
+npm run seed           # 寫入示範資料和測試帳號（Google 登入視窗按 Add new account，輸入 owner@test.com 等）
 npm run link -- 4      # 印出第 4 家店的叫貨連結
 ```
 - 後台：http://localhost:5050/admin
@@ -100,7 +103,7 @@ npm run link -- 4      # 印出第 4 家店的叫貨連結
 
 ## 訊息額度
 
-回覆（reply）不算額度，**主動推播（push）會算**，台灣免費方案每月 200 則。目前只有開通通知、提醒叫貨、傳對帳單、開通申請通知會用到推播。之後如果每天推電子收據，70 家店一個月約 2,100 則，就需要付費方案。
+回覆（reply）不算額度，**主動推播（push）會算**，台灣免費方案每月 200 則。會用到推播的：開通通知、開通申請通知（給老闆）、店家補單通知（給老闆）、提醒叫貨、傳收據、傳對帳單、催款、AI 出錯通知（一天最多一次）。每個綁定的 LINE 帳號各算 1 則。
 
 ## 安全
 

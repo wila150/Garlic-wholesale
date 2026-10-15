@@ -30,9 +30,12 @@ ${mine.join('\n')}
 - 對不到清單的品項放進 unknown，保留客人原本的寫法，不要硬塞到相近的品項。
 - 照片：先把每一行字照原樣抄到 lines（看不清楚的字用 ? 代替），再一行一行對應品項。手寫的「斤」常寫成「斤」「f」「厂」，「包」常寫成「包」「勹」「ㄅ」，阿拉伯數字和國字都要認。
 - 照片裡的日期、店名、電話不是品項，不要放進 items 或 unknown。
+- op 表示要怎麼改這次的單：一般叫貨是 "add"（加上去）；客人說「改成」「改為」「只要」某數量是 "set"（qty 是改完的數量）；說「不要了」「取消」「刪掉」是 "remove"（qty 填 0）。
+- 叫貨的數量，斤以下用兩（1/16 斤）為單位，例如 1 公斤換成斤是 1.6875（1斤11兩），不要有很多位小數。
+- 不是叫貨的訊息（例如抱怨品質、問問題、聊天、回報配送單有問題）items 和 unknown 都留空陣列。
 - note 放客人的其他交代（例如送貨時間），沒有就留空字串。
 
-輸出格式：{"lines":["大蒜3","香菜兩把"],"items":[{"pid":"p1","qty":3,"raw":"大蒜3"}],"unknown":["香菜兩把"],"note":""}（打字叫貨時 lines 可以是空陣列）`;
+輸出格式：{"lines":["大蒜3","香菜兩把"],"items":[{"pid":"p1","qty":3,"op":"add","raw":"大蒜3"}],"unknown":["香菜兩把"],"note":""}（打字叫貨時 lines 可以是空陣列）`;
 }
 
 // text 或 image（data:image/jpeg;base64,…）擇一
@@ -72,11 +75,15 @@ export async function parseOrder({ text, image, products, storeAliases = [] }) {
   const items = [];
   for (const it of Array.isArray(j.items) ? j.items : []) {
     const p = pm.get(it?.pid);
-    const qty = roundQty(it?.qty);
-    if (!p || !(qty > 0) || qty > 999) { if (it?.raw) (j.unknown ||= []).push(String(it.raw)); continue; }
+    const op = it?.op === 'set' || it?.op === 'remove' ? it.op : 'add'; // 加上去／改成／不要了
+    // 斤的品項對齊到兩（1/16 斤），公斤換算後才不會出現 1.6667 斤這種數字
+    const raw = op === 'remove' ? 0 : Number(it?.qty);
+    const qty = p?.unit === '斤' ? Math.round(raw * 16) / 16 : roundQty(raw);
+    if (!p || (op !== 'remove' && !(qty > 0)) || qty > 999) { if (it?.raw) (j.unknown ||= []).push(String(it.raw)); continue; }
     const same = items.find((x) => x.pid === p.id);
-    if (same) same.qty = roundQty(same.qty + qty);
-    else items.push({ pid: p.id, name: p.name, unit: p.unit, qty, raw: String(it.raw || '').slice(0, 40) });
+    if (same && same.op === 'add' && op === 'add') same.qty = roundQty(same.qty + qty);
+    else if (same) Object.assign(same, { op, qty });
+    else items.push({ pid: p.id, name: p.name, unit: p.unit, qty, op, raw: String(it.raw || '').slice(0, 40) });
   }
   const unknown = (Array.isArray(j.unknown) ? j.unknown : []).map((s) => String(s).slice(0, 40)).filter(Boolean).slice(0, 10);
   const lines = (Array.isArray(j.lines) ? j.lines : []).map((s) => String(s).slice(0, 40)).filter(Boolean).slice(0, 30);

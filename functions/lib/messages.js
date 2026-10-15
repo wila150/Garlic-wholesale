@@ -80,15 +80,31 @@ export function statementMessage(store, month, rows, total) {
 }
 
 // AI 整理好的叫貨單，請店家確認
-export function draftMessage(store, date, draft, existingCount, editUrl) {
-  const body = draft.items.map((i) => row(i.name, qtyText(i.qty, i.unit), { weight: 'bold' }));
+// AI 整理好的叫貨單：直接寫出送出後會變成多少（加上去／改成／不要了）
+//   choice：截單後還能補單的日期，讓店家選「補這天」或「叫下一個配送日」
+export function draftMessage(store, draft, { existing = [], toAddon = false, choice = null, editUrl }) {
+  const before = new Map(existing.map((i) => [i.pid, i.qty]));
+  const body = draft.items.map((i) => {
+    const op = i.op || 'add';
+    if (choice) return row(i.name, op === 'remove' ? '不要了' : `${op === 'set' ? '改成 ' : ''}${qtyText(i.qty, i.unit)}`, { weight: 'bold' });
+    const b = before.get(i.pid) || 0;
+    const after = op === 'remove' ? 0 : op === 'set' ? i.qty : b + i.qty;
+    const right = after === 0 ? (b ? '不要了' : '—') : b ? `${qtyText(b, i.unit)} → ${qtyText(after, i.unit)}` : qtyText(after, i.unit);
+    return row(i.name, right, { weight: 'bold' });
+  });
   if (draft.unknown.length) {
     body.push(sep, text('看不懂、沒有加進來的：', { size: 'xs', color: C.muted, margin: 'md' }), text(draft.unknown.join('、'), { size: 'sm', color: '#B23A2E' }));
   }
   if (draft.note) body.push(text(`備註：${draft.note}`, { size: 'xs', color: C.muted }));
-  body.push(sep, text(existingCount ? `按「確認送出」會加進您這次已叫的 ${existingCount} 項。${cutoffLabel(date)} 截單。` : `按「確認送出」才會成立訂單。${cutoffLabel(date)} 截單。`, { size: 'xs', color: C.muted, margin: 'md', wrap: true }));
-  return flex('幫您整理的叫貨單，請確認', bubble('幫您整理的叫貨單', `${store.name}・${label(date)} 配送`, body, [
-    ...(draft.items.length ? [{ type: 'button', style: 'primary', color: C.green, height: 'sm', action: { type: 'postback', label: '確認送出', data: `action=aiok&id=${draft.id}`, displayText: '確認送出' } }] : []),
+  const D = draft.date;
+  const tip = choice ? `${label(choice)} 的貨已經截單了。要補到 ${label(choice)}（另開補單），還是叫 ${label(D)} 的貨？`
+    : toAddon ? `原本的單老闆已經確認了，會加進另一張補單。${cutoffLabel(D)} 前可以補。`
+    : existing.length ? `會改到您這次已叫的單（右邊是送出後的數量）。${cutoffLabel(D)} 截單。` : `按「確認送出」才會成立訂單。${cutoffLabel(D)} 截單。`;
+  body.push(sep, text(tip, { size: 'sm', color: C.text, margin: 'md', wrap: true }));
+  const btn = (labelText, to) => ({ type: 'button', style: 'primary', color: C.green, height: 'sm', action: { type: 'postback', label: labelText, data: `action=aiok&id=${draft.id}${to ? `&to=${to}` : ''}`, displayText: labelText } });
+  const buttons = !draft.items.length ? [] : choice ? [btn(`補 ${md(choice)} 的貨`, 'addon'), btn(`叫 ${md(D)} 的貨`, 'next')] : [btn('確認送出', '')];
+  return flex('幫您整理的叫貨單，請確認', bubble('幫您整理的叫貨單', `${store.name}・${choice ? '請選配送日' : `${label(D)} 配送${toAddon ? '（補單）' : ''}`}`, body, [
+    ...buttons,
     { type: 'button', style: 'secondary', height: 'sm', action: { type: 'uri', label: '用叫貨單修改', uri: editUrl } },
   ]));
 }

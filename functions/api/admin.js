@@ -224,6 +224,10 @@ export async function POST(request) {
         if (!isDate(b.date)) throw new UserError('日期不正確');
         const stores = (await shop.getStores()).filter((s) => b.storeIds?.includes(s.id) && s.members.length);
         const orders = await shop.ordersOfDate(b.date);
+        // 當天單價沒填完不能傳收據（不然收據用的是上次的價格，之後填了正式價格就對不上）
+        const dp = await shop.getDayPrices(b.date);
+        const missing = [...new Set(orders.filter((o) => stores.some((s) => s.id === o.storeId)).flatMap((o) => o.items).filter((i) => !(i.pid in dp)).map((i) => i.name))];
+        if (missing.length) throw new UserError(`${b.date.slice(5).replace('-', '/')} 還有 ${missing.length} 個品項沒填單價（${missing.slice(0, 3).join('、')}${missing.length > 3 ? '…' : ''}），先到「單價」頁填完再傳收據`);
         // 一家店有補單的話，每張各一則收據（LINE 一次最多 5 則）
         const res = await Promise.allSettled(stores.map((s) => {
           const mine = orders.filter((x) => x.storeId === s.id).sort((a, c) => (a.seq || 1) - (c.seq || 1)).slice(0, 5);

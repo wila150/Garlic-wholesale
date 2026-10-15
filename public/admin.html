@@ -519,7 +519,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 101512</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 101513</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div id="unitsSet" hidden>
     <h2>單位</h2>
@@ -787,7 +787,10 @@ function slipActs(s,o,k){
 }
 async function sendReceipts(ids){
   const n=ids.length;if(!n){toast('沒有可以傳的店家（要有訂單、綁定 LINE）');return}
-  if(!confirm(`用 LINE 傳 ${md(D.date)} 的收據給 ${n} 家店？每個綁定的帳號用掉 1 則訊息額度。${D.orders.some(o=>o.items.some(i=>!(i.pid in D.dayPrices)))?'\n\n注意：還有品項的單價沒確認。':''}`))return;
+  // 單價沒填完不能傳：收據會用上次的價格，之後填了正式價格就對不上
+  const miss=[...new Set(D.orders.filter(o=>ids.includes(o.storeId)).flatMap(o=>o.items).filter(i=>!(i.pid in D.dayPrices)).map(i=>i.name))];
+  if(miss.length){toast(`還有 ${miss.length} 個品項沒填單價（${miss.slice(0,3).join('、')}${miss.length>3?'…':''}），先到「單價」頁填完再傳收據`);return}
+  if(!confirm(`用 LINE 傳 ${md(D.date)} 的收據給 ${n} 家店？每個綁定的帳號用掉 1 則訊息額度。`))return;
   try{const j=await api('POST',{action:'receipt',date:D.date,storeIds:ids});toast(`已傳 ${j.sent}/${j.total} 家`);load()}catch(e){toast(e.message)}
 }
 async function sigImg(sid){try{return (await api('GET',null,`?sig=${D.date}_${sid}`)).signature?.png||''}catch{return ''}}

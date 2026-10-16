@@ -42,6 +42,21 @@ async function handle(e, origin) {
     return say({ type: 'text', text: `直接在這裡留言就可以，老闆看到會回覆您。${SHOP.phone ? `\n急事請打 ${SHOP.phone}` : ''}` });
   }
 
+  // 掃店家的綁定 QR Code：聊天室帶好「綁定 XXXXXXXX」，送出就自動綁好（回覆不算訊息額度）
+  const bindCode = said.match(/^綁定\s*([A-Za-z0-9]{6,12})$/)?.[1];
+  if (bindCode) {
+    try {
+      const name = await displayName(uid);
+      const r = await shop.bindByInvite(uid, name, bindCode);
+      if (r.already) return say({ type: 'text', text: `您已經綁定「${r.store.name}」了，點下方「我要叫貨」就可以叫貨。` });
+      if (process.env.BIND_NOTIFY !== 'off') await notifyAdmins(`🔗 ${r.store.name} 多綁了一個 LINE：${name || '（未知名稱）'}\n不是你們的人的話，到後台「店家」解除：${origin}/admin`).catch(() => {});
+      return say({ type: 'text', text: `✅ 已綁定「${r.store.name}」，可以叫貨了！\n\n・點下方「我要叫貨」選品項\n・或在紙上寫好，點「拍照叫貨」拍照\n・也可以直接打字，例如「蒜頭10斤」` });
+    } catch (err) {
+      if (err.status) return say({ type: 'text', text: err.message });
+      throw err;
+    }
+  }
+
   // 還沒開通的人
   if (!store) {
     // 已經綁定、但店家被設成暫停合作：不要當成新申請

@@ -433,6 +433,15 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
 .addcat input{border:1px dashed var(--line);background:var(--surface);border-radius:10px;padding:9px 12px}
 .addcat button{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:0 14px;font-weight:700}
 #unitsSet{margin-bottom:22px}
+.invbtn{border:1px dashed var(--leaf);background:none;color:var(--leaf);border-radius:12px;padding:1px 10px;font-weight:700;font-size:.82rem}
+.inv{text-align:center}
+.inv .invtip{color:var(--muted);font-size:.9rem;margin:6px 0 12px}
+.inv .qr{display:flex;justify-content:center;padding:12px;background:#fff;border-radius:12px;width:max-content;margin:0 auto}
+.inv .invcode{margin:10px 0 4px;font-size:.95rem}.inv .invcode b{font-size:1.2rem;letter-spacing:.12em}.inv .invcode small{color:var(--muted)}
+.inv .sa .danger{color:var(--alert)}
+.invcard{text-align:center}.invcard .invname{font-size:1.6em;font-weight:900;margin:4px 0}
+.invsteps{text-align:left;font-size:1.25em;line-height:1.9;margin:8px auto;max-width:120mm}
+.invfoot{color:#555;font-size:.95em;margin-top:10px}
 </style>
 <link rel="stylesheet" href="/theme.css">
 </head>
@@ -519,7 +528,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 101513</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 101601</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div id="unitsSet" hidden>
     <h2>單位</h2>
@@ -576,6 +585,14 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
     <div class="add"><select id="aeAdd" aria-label="加品項"></select><input id="aeAddQ" type="text" placeholder="如 2斤4兩" aria-label="數量"><button id="aeAddBtn" type="button">加入</button></div>
     <div class="sa"><button id="aeClose" type="button">關閉</button><button class="go" id="aeSave" type="button">儲存</button></div>
   </div>
+</div></div>
+<div class="sheetbg" id="inviteBox" role="dialog" aria-modal="true" aria-labelledby="invTitle"><div class="sigin inv">
+  <h3 id="invTitle"></h3>
+  <p class="invtip">送貨時用店家的手機 LINE 掃這個，聊天室會帶好一句話，<b>按「傳送」</b>就綁好了。同一家店的老闆、員工都可以掃。</p>
+  <div class="qr" id="invQr"></div>
+  <p class="invcode">綁定碼 <b id="invCode"></b><small id="invExp"></small></p>
+  <div class="sa"><button id="invCopy">複製連結</button><button id="invPrint">列印卡片</button></div>
+  <div class="sa"><button id="invRenew" class="danger">重新產生（舊的作廢）</button><button class="go" id="invClose">關閉</button></div>
 </div></div>
 <div class="sheetbg" id="linkBox" role="dialog" aria-modal="true" aria-labelledby="linkTitle"><div class="sigin">
   <h3 id="linkTitle">確認配送單連結</h3>
@@ -986,7 +1003,7 @@ function renderStores(){
     <input type="text" data-sf="name" data-i="${i}" value="${esc(s.name)}" placeholder="店名" aria-label="店名">
     <input type="text" data-sf="phone" data-i="${i}" value="${esc(s.phone)}" placeholder="電話" aria-label="電話">
     <input type="text" class="wide" data-sf="address" data-i="${i}" value="${esc(s.address)}" placeholder="送貨地址" aria-label="送貨地址" style="grid-column:1/4">
-    <div class="mem">LINE：${s.members?.length?s.members.map(m=>`<span>${esc(m.name||'未命名')}<button data-unbind="${m.userId}" aria-label="解除 ${esc(m.name)}">✕</button></span>`).join(''):'還沒綁定'}
+    <div class="mem">LINE：${s.members?.length?s.members.map(m=>`<span>${esc(m.name||'未命名')}<button data-unbind="${m.userId}" aria-label="解除 ${esc(m.name)}">✕</button></span>`).join(''):'還沒綁定'}${s.id&&D.stores.some(x=>x.id===s.id)?`<button class="invbtn" data-invite="${s.id}">＋ 邀請綁定</button>`:''}
       <select data-sf="groupId" data-i="${i}" aria-label="${esc(s.name)} 的報價組"><option value="">基本價</option>${(D.priceGroups||[]).map(g=>`<option value="${g.id}" ${g.id===s.groupId?'selected':''}>${esc(g.name)}</option>`).join('')}</select>
       <label><input type="checkbox" data-sf="on" data-i="${i}" ${s.on?'checked':''}>合作中</label>
       <button class="x" data-sdel="${i}" aria-label="刪除${esc(s.name)}">刪除</button></div>
@@ -1164,6 +1181,32 @@ function renderPalettes(){
 async function choosePalette(k){
   const old=D.rules.palette;applyPalette(k);D.rules.palette=k;renderPalettes();
   try{await api('POST',{action:'palette',palette:k});toast(`已換成「${PALS.find(p=>p[0]===k)[1]}」，店家叫貨頁也會一起換`)}catch(e){applyPalette(old);D.rules.palette=old;renderPalettes();toast(e.message)}
+}
+/* ---------- 綁定 QR Code ---------- */
+let INV=null;
+function loadQrLib(){return window.QRCode?Promise.resolve():new Promise((ok,no)=>{const sc=document.createElement('script');sc.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';sc.onload=ok;sc.onerror=()=>no(new Error('QR Code 元件載入失敗，請檢查網路'));document.head.appendChild(sc)})}
+const inviteUrl=code=>`https://line.me/R/oaMessage/${encodeURIComponent(D.shop.basicId||'')}/?${encodeURIComponent('綁定 '+code)}`;
+async function openInvite(sid,renew=false){
+  try{
+    if(!D.shop.basicId){toast('還沒設定官方帳號 ID（LINE_ADD_FRIEND_URL），沒辦法產生 QR Code');return}
+    const [j]=await Promise.all([api('POST',{action:'invite',storeId:sid,renew}),loadQrLib()]);
+    INV={sid,...j.invite,url:inviteUrl(j.invite.code)};
+    $('invTitle').textContent=`${SM()[sid]?.name||''}・綁定 QR Code`;
+    $('invCode').textContent=INV.code;
+    $('invExp').textContent=`　${new Date(INV.exp).toLocaleDateString('zh-TW',{timeZone:'Asia/Taipei',month:'numeric',day:'numeric'})} 前有效`;
+    $('invQr').innerHTML='';new QRCode($('invQr'),{text:INV.url,width:220,height:220,correctLevel:QRCode.CorrectLevel.M});
+    $('inviteBox').classList.add('on');
+    if(renew)toast('已重新產生，舊的 QR Code 不能用了');
+  }catch(e){toast(e.message)}
+}
+// 列印給店家的卡片：字大、步驟少
+function printInvite(){
+  const img=$('invQr').querySelector('img')?.src||$('invQr').querySelector('canvas')?.toDataURL();
+  const name=SM()[INV.sid]?.name||'';
+  $('paper').innerHTML=`<div class="doc invcard"><h3>${esc(D.shop.name)}・LINE 叫貨</h3><p class="invname">${esc(name)}</p><p style="text-align:center"><img src="${img}" style="width:60mm;height:60mm" alt="綁定 QR Code"></p>
+    <ol class="invsteps"><li>打開手機 <b>LINE</b>，掃上面這個方塊</li><li>按「<b>加入好友</b>」（已經加過就跳過）</li><li>按「<b>傳送</b>」就完成了</li></ol>
+    <p class="invfoot">之後叫貨：點下方「我要叫貨」，或在紙上寫好按「拍照叫貨」。綁定碼 ${esc(INV.code)}</p></div>`;
+  $('inviteBox').classList.remove('on');$('pv').classList.add('on');setPaper(localStorage.getItem('paper')==='r80'?'r80':'a4');
 }
 /* ---------- 截單和補單 ---------- */
 function renderRules(){
@@ -1348,6 +1391,11 @@ document.addEventListener('click',async e=>{
   if(b.dataset.cdel){const c=b.dataset.cdel;if(P.some(p=>p.cat===c)){toast(`還有品項在「${c}」，先把品項改到別的分類`);return}if(confirm(`刪除分類「${c}」？`)){openCat=-1;saveCats(D.categories.filter(x=>x!==c),`已刪除分類「${c}」`)}}
   if(b.dataset.udel){const u=b.dataset.udel;if(P.some(p=>p.unit===u)){toast(`還有品項用「${u}」，先改成別的單位`);return}if(confirm(`刪除單位「${u}」？`))saveUnits(D.units.filter(x=>x!==u),`已刪除單位「${u}」`)}
   if(b.dataset.pal){choosePalette(b.dataset.pal);return}
+  if(b.dataset.invite){if(sDirty){toast('請先按「儲存店家」');return}openInvite(b.dataset.invite);return}
+  if(b.id==='invCopy'){try{await navigator.clipboard.writeText(INV.url);toast('已複製，可以貼到店家的 LINE 給他按')}catch{prompt('複製這個連結：',INV.url)}return}
+  if(b.id==='invPrint'){printInvite();return}
+  if(b.id==='invRenew'){if(confirm('重新產生後，舊的 QR Code 和綁定碼就不能用了（已經綁好的不受影響）。確定？'))openInvite(INV.sid,true);return}
+  if(b.id==='invClose'){$('inviteBox').classList.remove('on');return}
   if(b.dataset.popen!=null){const i=+b.dataset.popen;openP=openP===i?-1:i;renderProducts();return}
   if(b.dataset.pdel){const i=+b.dataset.pdel;if(confirm(`刪除「${P[i].name}」？舊訂單紀錄不受影響。`)){P.splice(i,1);openP=-1;pDirty=true;renderProducts()}}
   if(b.dataset.rmonth){rmonth=addMonths(R?.month||D.month,+b.dataset.rmonth);if(rDirty&&!confirm('成本還沒儲存，確定換月份？'))return;loadReport()}

@@ -89,7 +89,7 @@ export async function GET(request) {
     return json({
       me: { ...me, roleName: ROLES[me.role], can: ['bills', 'prices', 'editOrders', 'products', 'stores', 'remind', 'statement', 'users', 'sign', 'deleteOrders'].filter((w) => can(me.role, w)) },
       roles: ROLES,
-      shop: { name: SHOP.name, phone: SHOP.phone, payTerms: SHOP.payTerms },
+      shop: { name: SHOP.name, phone: SHOP.phone, payTerms: SHOP.payTerms, basicId: SHOP.basicId },
       categories: await shop.getCategories(),
       units,
       cutoffLabel: cutoffLabel(openDate()),
@@ -182,6 +182,10 @@ export async function POST(request) {
       case 'stores':
         need(me, 'stores');
         return json({ stores: await shop.saveStores(b.stores) });
+      case 'invite':
+        need(me, 'stores');
+        await store();
+        return json({ invite: await shop.storeInvite(b.storeId, !!b.renew) });
       case 'approve': {
         need(me, 'stores');
         const s = await shop.approve(b.userId, { storeId: b.storeId, newStore: b.newStore });

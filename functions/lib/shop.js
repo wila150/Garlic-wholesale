@@ -11,6 +11,7 @@
 //   settings/priceGroups { items: 報價組 }：店家 groupId 對到這裡，決定拿基本價的幾折或固定價
 //   users/{uid}         後台帳號的角色（見 lib/auth.js）
 //   storeAliases/{店}    { items: [{ text, pid }] }：只有這家店用的叫法（例如這家說「大的」是指某個品項）
+import crypto from 'node:crypto';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { DEFAULT_PRODUCTS, CATEGORIES, DEFAULT_UNITS, UNITS_VERSION, UNITS_ADDED } from './config.js';
 import { qtyText, roundQty } from './qty.js';
@@ -330,6 +331,7 @@ export async function saveStores(input) {
       on: s.on !== false,
       groupId: clean(s.groupId, 30),
       members: old.get(s.id)?.members || [], // 綁定的 LINE 帳號只能用開通／解除改
+      ...(old.get(s.id)?.invite ? { invite: old.get(s.id).invite } : {}), // 綁定 QR Code
     };
   });
   // 有訂單紀錄的店家不能刪：刪了它的應收帳款、對帳就看不到了。不合作了請取消「合作中」
@@ -404,6 +406,40 @@ export async function approve(userId, { storeId, newStore }) {
 }
 
 export const reject = (userId) => doc('pending/' + userId).delete();
+
+/* ---------- 綁定 QR Code：每家店一組綁定碼，店家掃了送出「綁定 XXXX」就自動綁好（不用老闆開通）---------- */
+const INVITE_DAYS = 30;
+const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789'; // 拿掉 0/O、1/I/L 這些容易看錯的
+export async function storeInvite(storeId, renew = false) {
+  const s = await data('stores/' + storeId);
+  if (!s) throw new UserError('找不到這家店', 404);
+  if (!renew && s.invite && s.invite.exp > new Date().toISOString()) return s.invite;
+  const code = Array.from(crypto.randomBytes(8), (b) => CODE_CHARS[b % CODE_CHARS.length]).join('');
+  const invite = { code, exp: new Date(Date.now() + INVITE_DAYS * 86400e3).toISOString() };
+  await doc('stores/' + storeId).update({ invite });
+  return invite;
+}
+// 回傳 { store, already }；碼不對丟 UserError。同一個 LINE 一天最多錯 5 次
+export async function bindByInvite(userId, name, code) {
+  code = String(code || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const tryRef = doc(`bindTries/${today()}_${userId}`);
+  if (((await tryRef.get()).data()?.n || 0) >= 5) throw new UserError('今天輸入錯太多次了，請明天再試，或直接留言給老闆。');
+  const snap = await db().collection('stores').where('invite.code', '==', code).limit(1).get();
+  const s = snap.docs[0]?.data();
+  if (!s || !(s.invite.exp > new Date().toISOString())) {
+    await tryRef.set({ n: FieldValue.increment(1) }, { merge: true });
+    throw new UserError(s ? '這個綁定碼已經過期了，請老闆重新給您一個。' : '綁定碼不對，請再確認一次，或直接留言給老闆。');
+  }
+  const prev = (await data('members/' + userId))?.storeId;
+  if (prev === s.id) return { store: s, already: true };
+  if (prev) { const p = await data('stores/' + prev); if (p) throw new UserError(`您的 LINE 已經綁定「${p.name}」了。要換店請直接留言給老闆。`); }
+  const batch = db().batch();
+  batch.update(doc('stores/' + s.id), { members: [...(s.members || []).filter((m) => m.userId !== userId), { userId, name: clean(name, 30) }] });
+  batch.set(doc('members/' + userId), { storeId: s.id });
+  batch.delete(doc('pending/' + userId));
+  await batch.commit();
+  return { store: s, already: false };
+}
 
 export async function unbind(userId) {
   const sid = (await data('members/' + userId))?.storeId;

@@ -529,7 +529,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102707</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102711</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div id="unitsSet" hidden>
     <h2>單位</h2>
@@ -651,14 +651,21 @@ async function initAuth(){
   const local=['localhost','127.0.0.1'].includes(location.hostname);
   // 正式站：Firebase Hosting 會提供 /__/firebase/init.json；本機：連到模擬器
   const config=local?{apiKey:'demo-key',authDomain:location.host,projectId:'garlic-wholesale'}:await (await fetch('/__/firebase/init.json')).json();
+  // 登入視窗走跟網站同一個網域（xxx.web.app），手機 Safari、主畫面 App 才不會把登入狀態隔開而失敗
+  if(!local)config.authDomain=location.host;
   const auth=A.getAuth(initializeApp(config));
+  if(!local)A.getRedirectResult(auth).catch(e=>{$('login').hidden=false;$('loginErr').textContent='登入失敗：'+e.code});
   if(local)A.connectAuthEmulator(auth,'http://127.0.0.1:9099',{disableWarnings:true});
   FB={auth,...A};
   A.onAuthStateChanged(auth,u=>{if(u)load();else if($('loginErr').textContent==='')showLogin()});
 }
 async function login(){
   $('loginBtn').disabled=true;$('loginErr').textContent='';
-  try{const p=new FB.GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});await FB.signInWithPopup(FB.auth,p)}
+  try{const p=new FB.GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});
+    // 從主畫面打開（沒有網址列）時彈出視窗常被擋，改成整頁跳去 Google 再跳回來
+    const standalone=navigator.standalone||matchMedia('(display-mode: standalone)').matches;
+    if(standalone){await FB.signInWithRedirect(FB.auth,p);return}
+    await FB.signInWithPopup(FB.auth,p)}
   catch(e){if(!/popup-closed|cancelled-popup/.test(e.code))$('loginErr').textContent=/popup-blocked/.test(e.code)?'登入視窗被擋住了，請允許這個網站開啟彈出視窗':'登入失敗：'+e.code}
   finally{$('loginBtn').disabled=false}
 }

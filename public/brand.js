@@ -8,6 +8,17 @@
     if (!b) return;
     if (b.logo && LOGOS[b.logo]) document.querySelectorAll('.logo').forEach((el) => { el.innerHTML = LOGOS[b.logo]; });
     if (b.name) document.querySelectorAll('[data-shopname]').forEach((el) => { el.textContent = b.name; });
+    // 分頁小圖示、加到手機主畫面的圖示和名稱
+    if (b.logo && LOGOS[b.logo]) for (const rel of ['icon', 'apple-touch-icon']) {
+      let l = document.querySelector(`link[rel="${rel}"]`);
+      if (!l) { l = document.createElement('link'); l.rel = rel; document.head.appendChild(l); }
+      l.href = `/icon-${b.logo}.png`;
+    }
+    if (b.name) {
+      let m = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+      if (!m) { m = document.createElement('meta'); m.name = 'apple-mobile-web-app-title'; document.head.appendChild(m); }
+      m.content = b.name;
+    }
     if (b.palette) { document.documentElement.dataset.palette = b.palette; try { localStorage.setItem('palette', b.palette); } catch {} }
     try { localStorage.setItem('brand', JSON.stringify({ logo: b.logo, name: b.name })); } catch {}
   };

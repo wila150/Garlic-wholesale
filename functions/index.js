@@ -24,7 +24,8 @@ const secrets = [defineSecret('LINE_CHANNEL_SECRET'), defineSecret('LINE_CHANNEL
 const aiSecrets = [...secrets, defineSecret('NVIDIA_API_KEY')];
 const routes = { webhook, shop, admin, sign, info };
 
-export const api = onRequest({ secrets, cors: false }, async (req, res) => {
+// invoker: 'public'：LINE、店家、後台都要能呼叫（權限在程式裡檢查）。寫明白，新專案部署時才會自動打開
+export const api = onRequest({ secrets, cors: false, invoker: 'public' }, async (req, res) => {
   const name = req.path.replace(/^\/api\//, '').replace(/^\//, '').split('/')[0];
   const fn = routes[name]?.[req.method];
   if (!fn) return res.status(404).send('Not found');

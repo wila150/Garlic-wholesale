@@ -31,6 +31,7 @@ export async function GET(request) {
     return json({
       shopName: SHOP.name,
       palette: getRulesNow().palette,
+      logo: SHOP.logo,
       basicId: SHOP.basicId,
       store: store.name,
       date: t.date,

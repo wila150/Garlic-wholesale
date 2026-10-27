@@ -89,7 +89,7 @@ export async function GET(request) {
     return json({
       me: { ...me, roleName: ROLES[me.role], can: ['bills', 'prices', 'editOrders', 'products', 'stores', 'remind', 'statement', 'users', 'sign', 'deleteOrders'].filter((w) => can(me.role, w)) },
       roles: ROLES,
-      shop: { name: SHOP.name, phone: SHOP.phone, payTerms: SHOP.payTerms, basicId: SHOP.basicId },
+      shop: { name: SHOP.name, phone: SHOP.phone, payTerms: SHOP.payTerms, basicId: SHOP.basicId, logo: SHOP.logo },
       categories: await shop.getCategories(),
       units,
       cutoffLabel: cutoffLabel(openDate()),

@@ -1,5 +1,5 @@
 // 店家叫貨頁用的 API（不回傳任何價格）
-import { SHOP } from '../lib/config.js';
+import { SHOP, PRESET } from '../lib/config.js';
 import { verify, orderLink } from '../lib/token.js';
 import { json, fail, readJSON, originOf, UserError } from '../lib/http.js';
 import { push, notifyAdmins } from '../lib/line.js';
@@ -36,6 +36,8 @@ export async function GET(request) {
     return json({
       shopName: SHOP.name,
       palette: getRulesNow().palette,
+      logo: SHOP.logo,
+      search: PRESET.search,
       liffId: SHOP.liffId,
       store: { name: store.name },
       date: D,

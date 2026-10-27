@@ -1,6 +1,7 @@
 // AI 辨識叫貨：把店家在 LINE 打的字或手寫單照片，對應到品項清單
 // 用 NVIDIA（build.nvidia.com）的 OpenAI 相容 API；要換模型或服務，改 AI_MODEL／AI_BASE_URL 就好
 import { roundQty } from './qty.js';
+import { SHOP, PRESET } from './config.js';
 
 const BASE = process.env.AI_BASE_URL || 'https://integrate.api.nvidia.com/v1';
 const MODEL = process.env.AI_MODEL || 'z-ai/glm-5.3-flash';
@@ -15,7 +16,7 @@ function systemPrompt(products, storeAliases = []) {
   const catalog = products.map((p) => { const a = aliasesOf(p); return `${p.id}｜${p.name}｜${p.unit}${a.length ? `｜也寫作：${a.join('、')}` : ''}`; }).join('\n');
   const pm = new Map(products.map((p) => [p.id, p]));
   const mine = storeAliases.filter((a) => pm.has(a.pid)).map((a) => `「${a.text}」→ ${a.pid}（${pm.get(a.pid).name}）`);
-  return `你是台灣蒜頭批發行的叫貨助理。把客人（餐廳、小吃店）傳來的叫貨內容，對應到下面的品項清單，只輸出 JSON，不要任何解釋。
+  return `你是台灣${SHOP.kind}的叫貨助理。把客人（餐廳、小吃店）傳來的叫貨內容，對應到下面的品項清單，只輸出 JSON，不要任何解釋。
 
 品項清單（編號｜品名｜單位｜客人常見的其他寫法）：
 ${catalog}
@@ -25,7 +26,7 @@ ${mine.join('\n')}
 ` : ''}
 規則：
 - 先比對「也寫作」和專屬叫法，客人寫的跟這些叫法一樣或只差錯字、簡寫時，直接對到那個品項。
-- 台灣慣用說法：「去皮」「蒜仁」是蒜仁；「大蒜」「蒜頭」沒說大小就用清單裡第一個蒜頭；「半斤」＝0.5 斤；1 斤＝16 兩，例如「一斤二兩」＝1.125 斤。「斤」「台斤」是同一個（600 公克）；1 公斤＝1000 公克＝約 1.667 台斤，清單單位是斤、客人寫公斤時要換算（例如 3 公斤＝5 斤），清單單位是公斤、客人寫斤時反過來換算。
+- 台灣慣用說法：${PRESET.aiRule}「半斤」＝0.5 斤；1 斤＝16 兩，例如「一斤二兩」＝1.125 斤。「斤」「台斤」是同一個（600 公克）；1 公斤＝1000 公克＝約 1.667 台斤，清單單位是斤、客人寫公斤時要換算（例如 3 公斤＝5 斤），清單單位是公斤、客人寫斤時反過來換算。
 - 數量沒寫單位時，用該品項的單位。客人寫的單位和清單不同時（例如清單是「包」客人寫「斤」），照清單單位換算不了就放進 unknown。
 - 對不到清單的品項放進 unknown，保留客人原本的寫法，不要硬塞到相近的品項。
 - 照片：先把每一行字照原樣抄到 lines（看不清楚的字用 ? 代替），再一行一行對應品項。手寫的「斤」常寫成「斤」「f」「厂」，「包」常寫成「包」「勹」「ㄅ」，阿拉伯數字和國字都要認。

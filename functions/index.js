@@ -12,6 +12,7 @@ import * as webhook from './api/webhook.js';
 import * as shop from './api/shop.js';
 import * as admin from './api/admin.js';
 import * as sign from './api/sign.js';
+import * as info from './api/info.js';
 import { processJob, cleanOldPhotos } from './lib/aiorder.js';
 import { loadRules } from './lib/rules.js';
 
@@ -21,7 +22,7 @@ setGlobalOptions({ region: 'asia-east1', maxInstances: 5 });
 // 金鑰放在 Secret Manager：firebase functions:secrets:set LINE_CHANNEL_SECRET
 const secrets = [defineSecret('LINE_CHANNEL_SECRET'), defineSecret('LINE_CHANNEL_ACCESS_TOKEN')];
 const aiSecrets = [...secrets, defineSecret('NVIDIA_API_KEY')];
-const routes = { webhook, shop, admin, sign };
+const routes = { webhook, shop, admin, sign, info };
 
 export const api = onRequest({ secrets, cors: false }, async (req, res) => {
   const name = req.path.replace(/^\/api\//, '').replace(/^\//, '').split('/')[0];

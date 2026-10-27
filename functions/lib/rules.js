@@ -11,7 +11,7 @@ export const DEFAULT_RULES = {
   closed: CLOSED_WEEKDAYS, // 不配送的星期幾（0＝週日）
   addon: true, // 截單後店家可以自己補單
   addonUntil: '12:00', // 配送當天幾點前可以補單
-  palette: 'garlic', // 整個 App 的配色：garlic 蒜頭行、blue 科技藍、mint 薄荷綠、gray 商務灰
+  palette: 'garlic', // 整個 App 的配色：garlic 墨綠暖白、blue 科技藍、mint 薄荷綠、gray 商務灰
 };
 export const PALETTES = ['garlic', 'blue', 'mint', 'gray'];
 

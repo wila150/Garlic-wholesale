@@ -88,7 +88,8 @@ export async function GET(request) {
     const showPrices = can(me.role, 'prices') || bills;
     return json({
       me: { ...me, roleName: ROLES[me.role], can: ['bills', 'prices', 'editOrders', 'products', 'stores', 'remind', 'statement', 'users', 'sign', 'deleteOrders'].filter((w) => can(me.role, w)) },
-      roles: ROLES,
+      // 工程師這個角色只有工程師自己看得到
+      roles: me.role === 'engineer' ? ROLES : Object.fromEntries(Object.entries(ROLES).filter(([k]) => k !== 'engineer')),
       shop: { name: SHOP.name, phone: SHOP.phone, payTerms: SHOP.payTerms, basicId: SHOP.basicId, logo: SHOP.logo },
       categories: await shop.getCategories(),
       units,

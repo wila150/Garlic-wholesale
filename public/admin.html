@@ -529,7 +529,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102701</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102707</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div id="unitsSet" hidden>
     <h2>單位</h2>
@@ -1228,10 +1228,10 @@ async function resetData(){
   try{const j=await api('POST',{action:'resetTestData',confirm:'重置'});await load();toast(`已重置，刪掉 ${j.deleted.orders} 張訂單`)}catch(e){toast(e.message)}
 }
 function renderUsers(){
-  if(!$('uRole').options.length)$('uRole').innerHTML=Object.entries(D.roles).filter(([k])=>k!=='owner').map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
+  if(!$('uRole').options.length)$('uRole').innerHTML=Object.entries(D.roles).filter(([k])=>k!=='owner'&&k!=='engineer').map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
   $('userList').innerHTML=D.users.map(u=>`<div class="urow ${u.disabled?'off':''}">
     <span><b>${esc(u.name||u.email)}</b><small>${esc(u.email)}${u.disabled?'・已停用':''}${u.email===D.me.email?'・你自己':''}</small></span>
-    ${u.fixed?`<span>${D.roles.owner}</span><span class="meta">在 OWNER_EMAILS 設定</span>`:`<select data-urole="${esc(u.email)}" aria-label="${esc(u.email)} 的角色">${Object.entries(D.roles).filter(([k])=>k!=='owner').map(([k,v])=>`<option value="${k}" ${k===u.role?'selected':''}>${v}</option>`).join('')}</select>
+    ${u.fixed?`<span>${D.roles.owner}</span><span class="meta">在 OWNER_EMAILS 設定</span>`:`<select data-urole="${esc(u.email)}" aria-label="${esc(u.email)} 的角色">${Object.entries(D.roles).filter(([k])=>k!=='owner'&&k!=='engineer').map(([k,v])=>`<option value="${k}" ${k===u.role?'selected':''}>${v}</option>`).join('')}</select>
     <span class="ua"><button data-uoff="${esc(u.email)}" data-off="${u.disabled?0:1}">${u.disabled?'恢復':'停用'}</button><button data-urm="${esc(u.email)}">刪除</button></span>`}</div>`).join('')||'<div class="empty">還沒有其他帳號</div>';
 }
 async function userAction(body,msg){

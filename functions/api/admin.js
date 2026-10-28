@@ -15,8 +15,10 @@ import { resetTestData } from '../lib/reset.js';
 import { applyDraft } from '../lib/aiorder.js';
 
 async function statement(month, storeId) {
-  const rows = (await shop.monthAmounts(month)).filter((r) => r.storeId === storeId).sort((a, b) => a.date.localeCompare(b.date));
-  return { rows, total: rows.reduce((a, r) => a + r.amount, 0) };
+  const [all, paid] = await Promise.all([shop.monthAmounts(month), shop.getPaid(month)]);
+  const rows = all.filter((r) => r.storeId === storeId).sort((a, b) => a.date.localeCompare(b.date));
+  const total = rows.reduce((a, r) => a + r.amount, 0);
+  return { rows, total, got: shop.paidSum(paid[storeId], total) };
 }
 
 // 這天各店的簽收紀錄（不含圖片）
@@ -212,9 +214,9 @@ export async function POST(request) {
         need(me, 'statement');
         if (!isMonth(b.month)) throw new UserError('月份不正確');
         const s = await store();
-        const { rows, total } = await statement(b.month, s.id);
+        const { rows, total, got } = await statement(b.month, s.id);
         if (!rows.length) throw new UserError('這個月沒有送貨紀錄');
-        await pushToStore(s, [statementMessage(s, b.month, rows, total)]);
+        await pushToStore(s, [statementMessage(s, b.month, rows, total, got)]);
         return json({ ok: true });
       }
       case 'paid': {
@@ -224,6 +226,15 @@ export async function POST(request) {
         await shop.setPaid(b.month, b.storeId, !!b.paid);
         return json({ paid: await shop.getPaid(b.month) });
       }
+      case 'payment':
+        need(me, 'bills');
+        if (!isMonth(b.month)) throw new UserError('月份不正確');
+        await store();
+        return json({ paid: await shop.addPayment(b.month, b.storeId, b, me.name || me.email) });
+      case 'removePayment':
+        need(me, 'bills');
+        if (!isMonth(b.month)) throw new UserError('月份不正確');
+        return json({ paid: await shop.removePayment(b.month, b.storeId, String(b.id || '')) });
       case 'receipt': {
         need(me, 'statement');
         if (!isDate(b.date)) throw new UserError('日期不正確');

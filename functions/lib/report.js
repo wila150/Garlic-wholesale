@@ -88,7 +88,7 @@ export async function monthReport(month) {
   return { month, days: out, costTypes, costs };
 }
 
-// 應收帳齡：最近 12 個月沒勾「已收款」的金額
+// 應收帳齡：最近 12 個月還沒收完的金額（扣掉已經收的部分）
 export async function receivables() {
   const months = [];
   for (let m = thisMonth(), i = 0; i < 12; i++, m = addDays(m + '-01', -1).slice(0, 7)) months.push(m);
@@ -97,9 +97,9 @@ export async function receivables() {
   months.forEach((m, i) => {
     const amounts = docs[i * 2], paid = docs[i * 2 + 1];
     for (const s of list) {
-      if (paid[s.storeId]) continue;
-      const amt = amounts.filter((r) => r.storeId === s.storeId).reduce((a, r) => a + r.amount, 0);
-      if (amt) { s.months.push({ month: m, amount: amt, age: i }); s.total += amt; }
+      const billed = amounts.filter((r) => r.storeId === s.storeId).reduce((a, r) => a + r.amount, 0);
+      const left = billed - shop.paidSum(paid[s.storeId], billed);
+      if (left >= 1) { s.months.push({ month: m, amount: left, billed, age: i }); s.total += left; }
     }
   });
   return list.filter((s) => s.total).sort((a, b) => b.total - a.total);

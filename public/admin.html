@@ -121,8 +121,17 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .bill-d .scroll{max-height:240px;overflow-y:auto;border-top:1px solid var(--line)}
 .bill-d .row{display:flex;justify-content:space-between;padding:4px 0;font-size:.9rem;border-bottom:1px dashed var(--line)}
 .bill-d .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+.pays{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}
+.pays h4{margin:0 0 6px;font-size:.92rem;display:flex;justify-content:space-between}
+.pay{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center;padding:5px 0;font-size:.9rem;border-bottom:1px dashed var(--line)}
+.pay em{font-style:normal;color:var(--muted);font-size:.82rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pay .x{border:0;background:transparent;color:var(--muted);min-width:36px;min-height:36px}
+.payf{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.payf input,.payf select{width:100%;min-width:0}
+.payf .full{grid-column:1/-1;display:flex;gap:6px}
+.payf .full button{flex:1}
 .send{border:0;background:var(--line-green);color:#fff;border-radius:6px;padding:7px 14px;font-weight:700}
-.sumline{display:flex;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-weight:700}
+.sumline{display:flex;flex-wrap:wrap;gap:4px 12px;justify-content:space-between;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin-bottom:12px;font-weight:700}
 
 .addform{background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px;display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px;align-items:end;margin-bottom:18px}
 .addform label{display:flex;flex-direction:column;font-size:.82rem;color:var(--muted);gap:2px}
@@ -529,7 +538,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102711</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102902</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div id="unitsSet" hidden>
     <h2>單位</h2>
@@ -836,9 +845,10 @@ function xlsDay(){
 }
 function xlsBills(){
   const [y,m]=D.month.split('-'),n=new Date(Date.UTC(+y,+m,0)).getUTCDate();
-  const head=['店家',...Array.from({length:n},(_,i)=>`${+m}/${i+1}`),'合計','收款'];
-  const rows=[head,...D.stores.filter(s=>monthRows(s.id).length).map(s=>{const r=monthRows(s.id),by=Object.fromEntries(r.map(x=>[+x.date.slice(8),x.amount]));return [s.name,...Array.from({length:n},(_,i)=>by[i+1]??''),r.reduce((a,x)=>a+x.amount,0),D.paid[s.id]?'已收':'未收']})];
-  xlsx(`對帳_${D.month}.xlsx`,{[`${+m}月對帳`]:rows});
+  const head=['店家',...Array.from({length:n},(_,i)=>`${+m}/${i+1}`),'合計','已收','未收'];
+  const rows=[head,...D.stores.filter(s=>monthRows(s.id).length).map(s=>{const r=monthRows(s.id),by=Object.fromEntries(r.map(x=>[+x.date.slice(8),x.amount])),t=r.reduce((a,x)=>a+x.amount,0),P=payOf(s.id,t);return [s.name,...Array.from({length:n},(_,i)=>by[i+1]??''),t,P.got,P.left]})];
+  const pays=[['收款日','店家','方式','金額','備註','經手人'],...D.stores.flatMap(s=>payOf(s.id,0).list.map(p=>[p.date,s.name,p.method,p.amount,p.note||'',p.by||''])).sort((a,b)=>a[0].localeCompare(b[0]))];
+  xlsx(`對帳_${D.month}.xlsx`,{[`${+m}月對帳`]:rows,[`${+m}月收款明細`]:pays});
 }
 function xlsReport(){
   if(!R)return;
@@ -901,23 +911,44 @@ async function setQty(k,pid,qty,undo=true,mode='qty'){
 
 /* ---------- 對帳 ---------- */
 function monthRows(sid){return D.monthRows.filter(r=>r.storeId===sid).sort((a,b)=>a.date.localeCompare(b.date))}
+// 收款：每筆記在這個月貨款底下，可以分次付；舊資料（整月打勾）沒有明細，當作收清
+const PAYM=['現金','匯款','支票','折讓'];
+function payOf(sid,total){
+  const rec=D.paid[sid],list=Array.isArray(rec?.list)?rec.list.slice().sort((a,b)=>a.date.localeCompare(b.date)||a.at.localeCompare(b.at)):[];
+  const got=!rec?0:rec.list?list.reduce((a,p)=>a+p.amount,0):total;
+  return {list,got,left:Math.max(0,total-got),legacy:!!rec&&!rec.list};
+}
 function renderBills(){
   const [y,m]=D.month.split('-');
   $('billTitle').textContent=`${+m} 月對帳`;
   const stores=D.stores.filter(s=>s.on||monthRows(s.id).length);
-  let all=0,unpaid=0;
+  let all=0,unpaid=0;const byM={};
   $('billBox').innerHTML=stores.map(s=>{
-    const rows=monthRows(s.id),total=rows.reduce((a,r)=>a+r.amount,0),paid=D.paid[s.id];
-    all+=total;if(!paid)unpaid+=total;
+    const rows=monthRows(s.id),total=rows.reduce((a,r)=>a+r.amount,0),P=payOf(s.id,total);
+    all+=total;unpaid+=P.left;P.list.forEach(p=>byM[p.method]=(byM[p.method]||0)+p.amount);
     const open=openBill===s.id;
+    const tag=!total?'':!P.left?['paid','已收清']:P.got?['unpaid','還差 '+money(P.left)]:['unpaid','未收款'];
     return `<div class="bill"><button class="bill-h" data-bill="${s.id}" aria-expanded="${open}">
       <span><b>${esc(s.name)}</b><small>本月送貨 ${rows.length} 天</small></span>
-      <span class="amt">${money(total)}<small class="${paid?'paid':total?'unpaid':''}" style="display:block;font-size:.78rem">${paid?'已收款':total?'未收款':''}</small></span></button>
+      <span class="amt">${money(total)}${tag?`<small class="${tag[0]}" style="display:block;font-size:.78rem">${tag[1]}</small>`:''}</span></button>
       ${open?`<div class="bill-d"><div class="scroll">${rows.map(r=>`<div class="row"><span>${dlabel(r.date)}</span><span>${money(r.amount)}</span></div>`).join('')||'<div class="row"><span>這個月沒有送貨</span></div>'}</div>
-      <div class="acts">${rows.length?`<button class="send" data-send="${s.id}">用 LINE 傳對帳單</button><button class="pbtn" data-print="stmt" data-store="${s.id}">列印對帳單</button>`:''}
-      ${total?`<label><input type="checkbox" data-paid="${s.id}" ${paid?'checked':''}> 已收款</label>`:''}</div></div>`:''}</div>`;
+      <div class="acts">${rows.length?`<button class="send" data-send="${s.id}">用 LINE 傳對帳單</button><button class="pbtn" data-print="stmt" data-store="${s.id}">列印對帳單</button>`:''}</div>
+      ${total||P.list.length?payBox(s,P):''}</div>`:''}</div>`;
   }).join('')||'<div class="empty">這個月沒有送貨紀錄</div>';
-  $('billSum').innerHTML=`<span>${+m} 月應收 ${money(all)}</span><span class="${unpaid?'unpaid':'paid'}">未收 ${money(unpaid)}</span>`;
+  const mx=Object.entries(byM).map(([k,v])=>`${k} ${money(v)}`).join('・');
+  $('billSum').innerHTML=`<span>${+m} 月應收 ${money(all)}</span><span class="paid">已收 ${money(all-unpaid)}</span><span class="${unpaid?'unpaid':'paid'}">未收 ${money(unpaid)}</span>${mx?`<small style="flex-basis:100%;color:var(--muted)">${mx}</small>`:''}`;
+}
+function payBox(s,P){
+  if(P.legacy)return `<div class="pays"><h4><span>收款</span><span class="paid">已整月收清</span></h4>
+    <div class="acts"><button class="pbtn" data-unpaid="${s.id}">取消收清（改記明細）</button></div></div>`;
+  return `<div class="pays"><h4><span>收款 ${P.list.length?P.list.length+' 筆':''}</span><span class="${P.left?'unpaid':'paid'}">${P.left?'還差 '+money(P.left):'已收清'}</span></h4>
+    ${P.list.map(p=>`<div class="pay"><span>${md(p.date)}</span><em>${esc(p.method)}${p.note?'・'+esc(p.note):''}${p.by?'・'+esc(p.by):''}</em><b>${money(p.amount)}</b><button class="x" data-paydel="${p.id}" data-store="${s.id}" aria-label="刪除這筆收款">✕</button></div>`).join('')}
+    ${P.left?`<div class="payf" data-payf="${s.id}">
+      <input type="number" inputmode="numeric" min="1" step="1" name="amount" value="${P.left}" aria-label="收款金額">
+      <select name="method" aria-label="收款方式">${PAYM.map(x=>`<option>${x}</option>`).join('')}</select>
+      <input type="date" name="date" value="${D.today}" aria-label="收款日期">
+      <input name="note" maxlength="40" placeholder="備註（選填）" aria-label="備註">
+      <div class="full"><button class="send" data-payadd="${s.id}">記一筆收款</button></div></div>`:''}</div>`;
 }
 
 /* ---------- 品項 ---------- */
@@ -1297,17 +1328,18 @@ function docStmt(s){
   <div class="meta"><span>客戶：${esc(s.name)}</span><span>期間：${y}/${m}/01 – ${m}/${last}</span></div>
   <table><thead><tr><th>日期</th><th class="n">金額</th></tr></thead>
   <tbody>${r.map(x=>`<tr><td>${dlabel(x.date)}</td><td class="n">${money(x.amount)}</td></tr>`).join('')}</tbody>
-  <tfoot><tr><td>本月應付（${r.length} 天）</td><td class="n">${money(total)}</td></tr></tfoot></table>
+  <tfoot><tr><td>本月應付（${r.length} 天）</td><td class="n">${money(total)}</td></tr>${(P=>P.got?`<tr><td>已收</td><td class="n">${money(P.got)}</td></tr><tr><td>尚欠</td><td class="n">${money(P.left)}</td></tr>`:'')(payOf(s.id,total))}</tfoot></table>
   <div class="foot">${esc(D.shop.payTerms)}如有疑問請在 LINE 留言。</div>
   <div class="sign"><div>收款人：＿＿＿＿＿＿</div><div>付款日：＿＿＿＿＿＿</div></div></div>`;
 }
 function docMonth(){
   let sum=0;const [y,m]=D.month.split('-');
-  const rows=D.stores.map(s=>{const r=monthRows(s.id);const t=r.reduce((a,x)=>a+x.amount,0);sum+=t;return t?`<tr><td>${esc(s.name)}</td><td class="n">${r.length}</td><td class="n">${money(t)}</td><td>${D.paid[s.id]?'☑ 已收':'□ 已收'}</td></tr>`:''}).join('');
+  let got=0;
+  const rows=D.stores.map(s=>{const r=monthRows(s.id);const t=r.reduce((a,x)=>a+x.amount,0),P=payOf(s.id,t);sum+=t;got+=t-P.left;return t?`<tr><td>${esc(s.name)}</td><td class="n">${r.length}</td><td class="n">${money(t)}</td><td class="n">${money(t-P.left)}</td><td class="n">${P.left?money(P.left):'收清'}</td></tr>`:''}).join('');
   return `<div class="doc"><h3>${esc(SHOPN())}　${+m} 月應收總表</h3>
   <div class="meta"><span>期間：${y}/${m}</span></div>
-  <table><thead><tr><th>店家</th><th class="n">送貨天數</th><th class="n">應收</th><th>收款</th></tr></thead>
-  <tbody>${rows}</tbody><tfoot><tr><td colspan="2">合計</td><td class="n">${money(sum)}</td><td></td></tr></tfoot></table></div>`;
+  <table><thead><tr><th>店家</th><th class="n">送貨天數</th><th class="n">應收</th><th class="n">已收</th><th class="n">未收</th></tr></thead>
+  <tbody>${rows}</tbody><tfoot><tr><td colspan="2">合計</td><td class="n">${money(sum)}</td><td class="n">${money(got)}</td><td class="n">${money(sum-got)}</td></tr></tfoot></table></div>`;
 }
 async function openPrint(kind,sid){
   const s=sid&&SM()[sidOf(sid)];
@@ -1382,6 +1414,23 @@ document.addEventListener('click',async e=>{
     try{const j=await api('POST',{action:'remind',storeIds:ids});toast(`已提醒 ${j.sent}/${j.total} 家`)}catch(err){toast(err.message)}
   }
   if(b.dataset.bill){openBill=openBill===b.dataset.bill?null:b.dataset.bill;renderBills()}
+  if(b.dataset.payadd){
+    const sid=b.dataset.payadd,f=document.querySelector(`[data-payf="${sid}"]`),v=n=>f.querySelector(`[name=${n}]`).value;
+    const amount=Math.round(+v('amount')),total=monthRows(sid).reduce((a,r)=>a+r.amount,0),P=payOf(sid,total);
+    if(!(amount>0)){toast('請填收款金額');return}
+    if(amount>P.left&&!confirm(`收 ${money(amount)} 比還差的 ${money(P.left)} 多，確定嗎？`))return;
+    b.disabled=true;
+    try{const j=await api('POST',{action:'payment',month:D.month,storeId:sid,amount,method:v('method'),date:v('date'),note:v('note')});D.paid=j.paid;renderBills();toast(`已記 ${SM()[sid].name} 收款 ${money(amount)}`)}catch(err){toast(err.message);b.disabled=false}
+  }
+  if(b.dataset.paydel){
+    const sid=b.dataset.store,p=D.paid[sid]?.list?.find(x=>x.id===b.dataset.paydel);if(!p)return;
+    if(!confirm(`刪除 ${md(p.date)} ${p.method} ${money(p.amount)} 這筆收款？`))return;
+    try{const j=await api('POST',{action:'removePayment',month:D.month,storeId:sid,id:p.id});D.paid=j.paid;renderBills();toast('已刪除這筆收款')}catch(err){toast(err.message)}
+  }
+  if(b.dataset.unpaid){
+    if(!confirm('取消這個月的「已收清」？之後可以一筆一筆記收款。'))return;
+    try{const j=await api('POST',{action:'paid',month:D.month,storeId:b.dataset.unpaid,paid:false});D.paid=j.paid;renderBills()}catch(err){toast(err.message)}
+  }
   if(b.dataset.send){
     const s=SM()[b.dataset.send];
     if(!confirm(`把 ${+D.month.slice(5)} 月對帳單用 LINE 傳給「${s.name}」？`))return;
@@ -1482,7 +1531,6 @@ document.addEventListener('change',async e=>{
     setQty(sid,pid,q,true,'ship');
   }
   if(t.dataset.urole){userAction({action:'updateUser',email:t.dataset.urole,role:t.value},'角色已更新')}
-  if(t.dataset.paid){try{const j=await api('POST',{action:'paid',month:D.month,storeId:t.dataset.paid,paid:t.checked});D.paid=j.paid;renderBills()}catch(err){toast(err.message);t.checked=!t.checked}}
 });
 document.addEventListener('click',e=>{const im=e.target.closest('img[data-zoom]');if(im){$('paper').innerHTML=`<div class="doc"><img src="${im.src}" style="width:100%" alt="店家傳的照片"></div>`;$('pv').classList.add('on')}});
 document.addEventListener('keydown',e=>{

@@ -7,7 +7,7 @@
 //   orders/{日期}_{店}   訂單（每家店每個配送日一張；簽收後追加的「補單」是 {日期}_{店}-2、-3…，seq 欄位記第幾張）
 //   dayPrices/{日期}     { prices: { pid: 單價 } }：老闆確認過的當天單價
 //   monthly/{YYYY-MM}   { amounts: { "日期|店[-補單號]": 金額 } }：對帳用的每日金額，一次讀完一整個月
-//   paid/{YYYY-MM}      { stores: { 店: { at } } }：收款紀錄
+//   paid/{YYYY-MM}      { stores: { 店: { list: [{ id, amount, date, method, note, by, at }] } } }：這個月貨款的每一筆收款（舊資料只有 { at }＝整月收清）
 //   settings/priceGroups { items: 報價組 }：店家 groupId 對到這裡，決定拿基本價的幾折或固定價
 //   users/{uid}         後台帳號的角色（見 lib/auth.js）
 //   storeAliases/{店}    { items: [{ text, pid }] }：只有這家店用的叫法（例如這家說「大的」是指某個品項）
@@ -655,7 +655,40 @@ export async function setShip(sid, date, pid, ship, who, seq = 1) {
 }
 
 /* ---------- 收款 ---------- */
+// 每筆收款記在「付的是哪個月的貨款」底下，可以分好幾次付；折讓＝抹零、扣款，不收錢但算進已收
+export const PAY_METHODS = ['現金', '匯款', '支票', '折讓'];
 export const getPaid = async (month) => (await data('paid/' + month))?.stores || {};
+// 已收多少：舊資料（整月打勾、沒有明細）當作全部收清
+export const paidSum = (rec, billed) => (!rec ? 0 : Array.isArray(rec.list) ? rec.list.reduce((a, p) => a + p.amount, 0) : billed);
+
+// 取消這個月的所有收款（給舊的整月打勾用）
 export async function setPaid(month, sid, paid) {
   await doc('paid/' + month).set({ stores: { [sid]: paid ? { at: new Date().toISOString() } : FieldValue.delete() } }, { merge: true });
+}
+
+export async function addPayment(month, sid, input, who) {
+  const amount = Math.round(Number(input.amount));
+  if (!(amount > 0 && amount < 1e8)) throw new UserError('收款金額不正確');
+  const date = input.date ? String(input.date) : today();
+  if (!isDate(date)) throw new UserError('收款日期不正確');
+  const method = PAY_METHODS.includes(input.method) ? input.method : '現金';
+  const entry = { id: rid('p'), amount, date, method, note: clean(input.note, 40), by: clean(who, 40), at: new Date().toISOString() };
+  const ref = doc('paid/' + month);
+  await db().runTransaction(async (tx) => {
+    const rec = (await tx.get(ref)).data()?.stores?.[sid];
+    if (rec && !Array.isArray(rec.list)) throw new UserError('這個月之前已經整月打勾收清，要記明細請先按「取消收清」');
+    tx.set(ref, { stores: { [sid]: { list: [...(rec?.list || []), entry] } } }, { merge: true });
+  });
+  return getPaid(month);
+}
+
+export async function removePayment(month, sid, id) {
+  const ref = doc('paid/' + month);
+  await db().runTransaction(async (tx) => {
+    const list = (await tx.get(ref)).data()?.stores?.[sid]?.list || [];
+    const next = list.filter((p) => p.id !== id);
+    if (next.length === list.length) throw new UserError('找不到這筆收款，可能已經刪掉了', 404);
+    tx.set(ref, { stores: { [sid]: next.length ? { list: next } : FieldValue.delete() } }, { merge: true });
+  });
+  return getPaid(month);
 }

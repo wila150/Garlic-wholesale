@@ -69,12 +69,13 @@ export function remindText(date) {
   return { type: 'text', text: `提醒您：${label(date)} 配送的貨，${cutoffLabel(date)} 截單，今天還沒叫貨喔！點下方「我要叫貨」就可以叫。` };
 }
 
-export function statementMessage(store, month, rows, total) {
+export function statementMessage(store, month, rows, total, got = 0) {
   const [y, m] = month.split('-');
   return flex(`${+m} 月對帳單 ${money(total)}`, bubble(`${+m} 月對帳單`, `${store.name}・${y}/${m}`, [
     ...rows.map((r) => row(md(r.date), money(r.amount))),
     sep,
     row(`本月應付（${rows.length} 天）`, money(total), { weight: 'bold', size: 'md', margin: 'md' }),
+    ...(got ? [row('已收', money(got)), row('尚欠', money(Math.max(0, total - got)), { weight: 'bold' })] : []),
     text(SHOP.payTerms, { size: 'xs', color: C.muted }),
   ]));
 }
@@ -131,7 +132,7 @@ export function receiptMessage(store, date, order, billQty) {
 }
 
 export function dunningText(store, ar) {
-  const lines = ar.months.slice().reverse().map((m) => `・${+m.month.slice(5)} 月 ${money(m.amount)}`);
+  const lines = ar.months.slice().reverse().map((m) => `・${+m.month.slice(5)} 月 ${money(m.amount)}${m.billed > m.amount ? `（已付 ${money(m.billed - m.amount)}，還差這些）` : ''}`);
   return { type: 'text', text: `${store.name} 您好，提醒您以下貨款還沒收到：\n${lines.join('\n')}\n合計 ${money(ar.total)}\n${SHOP.payTerms}\n已經付款的話請忽略，謝謝！` };
 }
 

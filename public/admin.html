@@ -214,6 +214,13 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .aer{display:grid;grid-template-columns:1fr auto 28px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line)}
 .aer em{font-style:normal;font-size:.72rem;background:var(--tag);color:#2A2400;border-radius:8px;padding:0 6px}
 .aer .x{border:0;background:transparent;color:var(--muted);font-size:1rem}
+.aefind input{width:100%}
+.aehits{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.aehits:empty{display:none}
+.aehits button{border:1px solid var(--line);background:var(--bg);border-radius:16px;padding:6px 12px;font-size:.92rem;min-height:36px}
+.aehits button:first-child{border-color:var(--ink);font-weight:700}
+.aehits small{color:var(--muted);margin-left:4px}
+.aehits .none{color:var(--muted);font-size:.88rem}
 .aeform .sa{display:flex;gap:8px;margin-top:auto;padding-top:8px}.aeform .sa button{flex:1;border-radius:20px;padding:9px;font-weight:700;border:1px solid var(--line);background:var(--bg)}.aeform .sa .go{background:var(--leaf);border-color:var(--leaf);color:#fff}
 .aid .aied{margin-top:6px}
 @media (max-width:700px){.aiedin{grid-template-columns:1fr;max-height:96vh;overflow:auto}.aeimg{max-height:45vh}.aeform{overflow:visible}}
@@ -538,7 +545,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102902</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102904</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div id="unitsSet" hidden>
     <h2>單位</h2>
@@ -553,6 +560,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
       <label class="chkl"><input type="checkbox" id="rAddon"> 截單後店家可以自己補單</label>
       <label>補單截止（配送當天）<input id="rAddonUntil" type="time" step="60"></label>
       <fieldset class="wds"><legend>公休日（不配送）</legend><div id="rClosed"></div></fieldset>
+      <label class="chkl"><input type="checkbox" id="rAutoJoin"> 新店家自己填店名、地址、電話就開通（不用審核）</label>
       <button id="saveRules" type="button">儲存</button>
     </form>
     </div>
@@ -592,7 +600,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
     <p class="sub" id="aeHint"></p>
     <div class="unk" id="aeUnk"></div>
     <div id="aeList"></div>
-    <div class="add"><select id="aeAdd" aria-label="加品項"></select><input id="aeAddQ" type="text" placeholder="如 2斤4兩" aria-label="數量"><button id="aeAddBtn" type="button">加入</button></div>
+    <div class="aefind"><input id="aeFind" type="search" enterkeyhint="done" autocomplete="off" placeholder="＋ 打品名加品項，例如 高麗菜 3" aria-label="打品名加品項"><div class="aehits" id="aeHits"></div></div>
     <div class="sa"><button id="aeClose" type="button">關閉</button><button class="go" id="aeSave" type="button">儲存</button></div>
   </div>
 </div></div>
@@ -1115,11 +1123,30 @@ async function openAiEd(id){
   }catch(e){toast(e.message)}
 }
 function renderAiEd(){
-  const on=D.products.filter(p=>p.on);
   $('aeList').innerHTML=AE.items.map((i,k)=>`<div class="aer"><span>${esc(i.name)}${i.ai?' <em>AI</em>':''}</span>
     <span class="stepper"><button data-aes="-1" data-k="${k}" aria-label="${esc(i.name)}減少">−</button><input type="text" inputmode="decimal" value="${esc(editText(i.qty,i.unit))}" data-aeq="${k}" aria-label="${esc(i.name)}數量">${/斤|兩/.test(editText(i.qty,i.unit))?'':`<span class="u">${esc(i.unit)}</span>`}<button data-aes="1" data-k="${k}" aria-label="${esc(i.name)}增加">+</button></span>
     <button class="x" data-aex="${k}" aria-label="移除${esc(i.name)}">✕</button></div>`).join('')||'<div class="empty">還沒有品項，從下面加</div>';
-  $('aeAdd').innerHTML='<option value="">＋ 加品項</option>'+D.categories.map(c=>{const ps=on.filter(p=>p.cat===c&&!AE.items.some(i=>i.pid===p.id));return ps.length?`<optgroup label="${esc(c)}">${ps.map(p=>`<option value="${p.id}">${esc(p.name)}（${esc(p.unit)}）</option>`).join('')}</optgroup>`:''}).join('');
+  aeHits();
+}
+// 加品項：打品名或叫法就跳出符合的品項，後面可以直接接數量（高麗菜 3、蒜頭 2斤4兩），不用在長長的選單裡找
+function aeSplit(){
+  const t=$('aeFind').value.trim(),m=t.match(/^(.*?)\s*(\d[\d.]*\s*(?:斤)?\s*(?:\d+\s*兩)?\D{0,2})$/);
+  return m&&m[1]?{q:m[1].trim(),qty:m[2]}:{q:t,qty:''};
+}
+function aeMatches(){
+  const {q}=aeSplit();if(!q)return [];
+  const score=p=>{const names=[p.name,...aliasArr(p)];return names.includes(q)?0:names.some(n=>n.startsWith(q))?1:names.some(n=>n.includes(q))?2:names.some(n=>q.includes(n))?3:9};
+  return D.products.filter(p=>p.on&&!AE.items.some(i=>i.pid===p.id)).map(p=>({p,s:score(p)})).filter(x=>x.s<9).sort((a,b)=>a.s-b.s||a.p.name.length-b.p.name.length).slice(0,8).map(x=>x.p);
+}
+function aeHits(){
+  const {q,qty}=aeSplit(),ps=aeMatches();
+  $('aeHits').innerHTML=!q?'':ps.length?ps.map(p=>`<button type="button" data-aepick="${p.id}">${esc(p.name)}<small>${qty?esc(qty.trim()):'1'+esc(p.unit)}</small></button>`).join(''):'<span class="none">找不到這個品項</span>';
+}
+function aePick(pid){
+  const p=PM()[pid];if(!p)return;
+  const q=parseQty(aeSplit().qty.replace(/[^\d.斤兩]/g,'')||'1',p.unit);
+  if(!(q>0)){toast('數量看不懂，例如 高麗菜 3 或 蒜頭 2斤4兩');return}
+  AE.items.push({pid,name:p.name,unit:p.unit,qty:q});$('aeFind').value='';renderAiEd();$('aeFind').focus();
 }
 async function saveAiEd(){
   const items=AE.items.filter(i=>i.qty>0).map(i=>({pid:i.pid,qty:i.qty}));
@@ -1251,11 +1278,11 @@ function printInvite(){
 /* ---------- 截單和補單 ---------- */
 function renderRules(){
   const r=D.rules;if(!r||$('rulesForm').dataset.dirty)return;
-  $('rCutoff').value=r.cutoff;$('rAddon').checked=r.addon;$('rAddonUntil').value=r.addonUntil;$('rAddonUntil').disabled=!r.addon;
+  $('rCutoff').value=r.cutoff;$('rAddon').checked=r.addon;$('rAutoJoin').checked=r.autoJoin!==false;$('rAddonUntil').value=r.addonUntil;$('rAddonUntil').disabled=!r.addon;
   $('rClosed').innerHTML='日一二三四五六'.split('').map((w,i)=>`<label><input type="checkbox" value="${i}" ${r.closed.includes(i)?'checked':''}>週${w}</label>`).join('');
 }
 async function saveRules(){
-  const rules={cutoff:$('rCutoff').value,addon:$('rAddon').checked,addonUntil:$('rAddonUntil').value,closed:[...$('rClosed').querySelectorAll('input:checked')].map(x=>+x.value)};
+  const rules={cutoff:$('rCutoff').value,addon:$('rAddon').checked,autoJoin:$('rAutoJoin').checked,addonUntil:$('rAddonUntil').value,closed:[...$('rClosed').querySelectorAll('input:checked')].map(x=>+x.value)};
   try{const j=await api('POST',{action:'rules',rules});D.rules=j.rules;delete $('rulesForm').dataset.dirty;await load();toast(`已儲存：配送日前一天 ${j.rules.cutoff} 截單${j.rules.addon?`，補單到配送當天 ${j.rules.addonUntil}`:'，不開放店家補單'}`)}catch(e){toast(e.message)}
 }
 /* ---------- 帳號 ---------- */
@@ -1389,6 +1416,8 @@ $('month').addEventListener('change',e=>{if(e.target.value){month=e.target.value
 $('toOpen').addEventListener('click',()=>{date='';load()});
 $('saveP').addEventListener('click',saveProducts);
 $('pSearch').addEventListener('input',()=>{openP=-1;renderProducts()});
+$('aeFind').addEventListener('input',aeHits);
+$('aeFind').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();const p=aeMatches()[0];if(p)aePick(p.id)}});
 $('saveDP').addEventListener('click',saveDayPrices);
 $('saveS').addEventListener('click',saveStores);
 $('saveG').addEventListener('click',saveGroups);
@@ -1476,7 +1505,7 @@ document.addEventListener('click',async e=>{
   if(b.dataset.aied)openAiEd(b.dataset.aied);
   if(b.dataset.aes){const i=AE.items[+b.dataset.k];i.qty=Math.max(0,Math.round((i.qty+(+b.dataset.aes))*10000)/10000);renderAiEd()}
   if(b.dataset.aex){AE.items.splice(+b.dataset.k,1);renderAiEd()}
-  if(b.id==='aeAddBtn'){const pid=$('aeAdd').value,p=PM()[pid];if(!p){toast('先選品項');return}const q=parseQty($('aeAddQ').value||'1',p.unit);if(!(q>0)){toast('數量看不懂，例如 2 或 2斤4兩');return}AE.items.push({pid,name:p.name,unit:p.unit,qty:q});$('aeAddQ').value='';renderAiEd()}
+  if(b.dataset.aepick)aePick(b.dataset.aepick);
   if(b.id==='aeClose')$('aiEd').classList.remove('on');
   if(b.id==='aeSave')saveAiEd();
   if(b.dataset.delslip){

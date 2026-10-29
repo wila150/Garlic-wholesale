@@ -2,7 +2,7 @@
 import { SHOP, PRESET } from '../lib/config.js';
 import { verify, orderLink } from '../lib/token.js';
 import { json, fail, readJSON, originOf, UserError } from '../lib/http.js';
-import { push, notifyAdmins } from '../lib/line.js';
+import { push, notifyAdmins, displayName } from '../lib/line.js';
 import { openDate, label, cutoffLabel, addonDate, addonUntilLabel, getRulesNow } from '../lib/dates.js';
 import { qtyText } from '../lib/qty.js';
 import * as shop from '../lib/shop.js';
@@ -25,7 +25,11 @@ export async function GET(request) {
     const uid = verify(t);
     if (!uid) return json({ error: t ? '這個叫貨連結過期了，請回到 LINE 再點一次「我要叫貨」' : '請從 LINE 點「我要叫貨」開啟這個頁面', shopName: SHOP.name }, 401);
     const store = await shop.storeOfUser(uid);
-    if (!store) return json({ error: '您的帳號還沒開通，老闆開通後就能叫貨', shopName: SHOP.name }, 403);
+    if (!store) {
+      // 新店家：填店名、地址、電話就開通（後台「設定」可以關掉，改成老闆審核）
+      if (getRulesNow().autoJoin !== false && !(await shop.isPausedMember(uid))) return json({ join: true, shopName: SHOP.name, palette: getRulesNow().palette, logo: SHOP.logo, liffId: SHOP.liffId });
+      return json({ error: '您的帳號還沒開通，老闆開通後就能叫貨', shopName: SHOP.name }, 403);
+    }
     const D = openDate();
     const AF = await shop.addonFor(store.id);
     const A = AF?.date;
@@ -68,6 +72,15 @@ export async function POST(request) {
     const body = await readJSON(request);
     const uid = verify(body.t);
     if (!uid) throw new UserError('這個叫貨連結過期了，請回到 LINE 再點一次「我要叫貨」', 401);
+    if (body.action === 'join') {
+      if (getRulesNow().autoJoin === false) throw new UserError('目前要等老闆開通，請在 LINE 留言您的店名', 403);
+      const r = await shop.selfJoin(uid, await displayName(uid).catch(() => ''), body);
+      const msg = r.isNew
+        ? `🆕 新店家自己開通了：${r.store.name}\n電話 ${r.store.phone}\n地址 ${r.store.address}\n不認識的話到後台「店家」取消合作中：${originOf(request)}/admin`
+        : `🔗 ${r.store.name} 多綁了一個 LINE（填的店名、電話跟這家一樣）\n不是你們的人的話，到後台「店家」解除：${originOf(request)}/admin`;
+      await notifyAdmins(msg).catch((err) => console.error(err));
+      return json({ ok: true, store: { name: r.store.name }, order: r.order, example: SHOP.example || PRESET.example });
+    }
     const store = await shop.storeOfUser(uid);
     if (!store) throw new UserError('您的帳號還沒開通', 403);
     if (body.mode === 'addon') {

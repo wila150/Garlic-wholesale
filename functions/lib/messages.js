@@ -35,7 +35,7 @@ export function welcome(bound) {
   return {
     type: 'text',
     text: bound
-      ? `您好，點下方「我要叫貨」就可以叫貨，不用打字。前一天 ${cutoffTime()} 截單，隔天送到。`
+      ? `您好，要叫貨直接打字傳過來就好，例如「${SHOP.example}」，也可以拍手寫單。前一天 ${cutoffTime()} 截單，隔天送到。`
       : `您好，這裡是${SHOP.name}。\n第一次使用請點下方「我要叫貨」申請開通，老闆開通後就能直接在 LINE 叫貨。`,
   };
 }

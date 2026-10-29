@@ -364,13 +364,15 @@ export async function storeOfUser(userId) {
 export const listPending = async () => (await db().collection('pending').get()).docs.map((d) => d.data()).sort((a, b) => a.at.localeCompare(b.at));
 
 // keepText：已經回覆過店名就不再覆蓋（回傳 false＝沒有改），第一次回覆回傳 true
-export async function addPending(userId, name, text, { keepText = false } = {}) {
+// order：還沒開通前傳的叫貨內容，開通後幫他送去 AI 整理（只留最後一次）
+export async function addPending(userId, name, text, { keepText = false, order = '' } = {}) {
   const old = await data('pending/' + userId);
   if (keepText && old?.text) return false;
   await doc('pending/' + userId).set({
     userId,
     name: name || old?.name || '',
     text: clean(text, 60) || old?.text || '',
+    order: clean(order, 500) || old?.order || '',
     at: old?.at || new Date().toISOString(),
   });
   return keepText ? true : !old;
@@ -406,6 +408,30 @@ export async function approve(userId, { storeId, newStore }) {
 }
 
 export const reject = (userId) => doc('pending/' + userId).delete();
+
+// 新店家自己開通：填店名、地址、電話就建好店家並綁定。
+// 店名＋電話都跟已經有的店一樣（後台先建好的，或同一家店的員工第二個來填），就綁到那家，不會多一家重複的
+export async function selfJoin(userId, name, input) {
+  const s = { name: clean(input.name, 30), address: clean(input.address, 80), phone: clean(input.phone, 20).replace(/[^\d#+-]/g, '') };
+  if (!s.name) throw new UserError('請填店家名稱');
+  if (!s.address) throw new UserError('請填地址');
+  if (!/^\d{8,12}$/.test(s.phone.replace(/\D/g, ''))) throw new UserError('電話號碼看起來不對，例如 0912345678 或 0223456789');
+  if (await storeOfUser(userId)) throw new UserError('這個 LINE 已經開通了，回到 LINE 直接打字叫貨就可以', 409);
+  if (await isPausedMember(userId)) throw new UserError('您的店家目前暫停叫貨，有問題請在 LINE 留言給老闆', 403);
+  const stores = await getStores();
+  const digits = (x) => String(x || '').replace(/\D/g, '');
+  let store = stores.find((x) => x.on && x.name === s.name && digits(x.phone) === digits(s.phone));
+  if (!store) store = { id: rid('s'), name: s.name, route: Math.max(0, ...stores.map((x) => x.route)) + 1, phone: s.phone, address: s.address, on: true, members: [], selfJoined: new Date().toISOString() };
+  else store = { ...store, address: store.address || s.address };
+  const pending = await data('pending/' + userId);
+  store.members = [...store.members, { userId, name: clean(name, 40) || pending?.name || '' }];
+  const batch = db().batch();
+  batch.set(doc('stores/' + store.id), store);
+  batch.set(doc('members/' + userId), { storeId: store.id });
+  batch.delete(doc('pending/' + userId));
+  await batch.commit();
+  return { store, isNew: !stores.some((x) => x.id === store.id), order: pending?.order || '' };
+}
 
 /* ---------- 綁定 QR Code：每家店一組綁定碼，店家掃了送出「綁定 XXXX」就自動綁好（不用老闆開通）---------- */
 const INVITE_DAYS = 30;

@@ -3,7 +3,8 @@ import { SHOP } from '../lib/config.js';
 import { verifySignature, reply, displayName, notifyAdmins, loading } from '../lib/line.js';
 import { orderLink } from '../lib/token.js';
 import { originOf } from '../lib/http.js';
-import { openDate, today, addDays } from '../lib/dates.js';
+import { openDate, today, addDays, label, cutoffLabel, getRulesNow } from '../lib/dates.js';
+import { qtyText } from '../lib/qty.js';
 import * as shop from '../lib/shop.js';
 import { welcome, orderMessage, orderCard, myOrders, addonCard, flex } from '../lib/messages.js';
 import { looksLikeOrder } from '../lib/ai.js';
@@ -48,9 +49,9 @@ async function handle(e, origin) {
     try {
       const name = await displayName(uid);
       const r = await shop.bindByInvite(uid, name, bindCode);
-      if (r.already) return say({ type: 'text', text: `您已經綁定「${r.store.name}」了，點下方「我要叫貨」就可以叫貨。` });
+      if (r.already) return say({ type: 'text', text: `您已經綁定「${r.store.name}」了，要叫貨直接打字傳過來就好。` });
       if (process.env.BIND_NOTIFY !== 'off') await notifyAdmins(`🔗 ${r.store.name} 多綁了一個 LINE：${name || '（未知名稱）'}\n不是你們的人的話，到後台「店家」解除：${origin}/admin`).catch(() => {});
-      return say({ type: 'text', text: `✅ 已綁定「${r.store.name}」，可以叫貨了！\n\n・點下方「我要叫貨」選品項\n・或在紙上寫好，點「拍照叫貨」拍照\n・也可以直接打字，例如「${SHOP.example}」` });
+      return say({ type: 'text', text: `✅ 已綁定「${r.store.name}」，可以叫貨了！\n\n・直接打字傳過來，例如「${SHOP.example}」\n・或在紙上寫好，點「拍照叫貨」拍照` });
     } catch (err) {
       if (err.status) return say({ type: 'text', text: err.message });
       throw err;
@@ -61,6 +62,21 @@ async function handle(e, origin) {
   if (!store) {
     // 已經綁定、但店家被設成暫停合作：不要當成新申請
     if (await shop.isPausedMember(uid)) return say({ type: 'text', text: '您的店家目前暫停叫貨，有問題請直接在這裡留言給老闆。' });
+    // 新店家自己開通：請他填店名、地址、電話（叫貨頁的表單），填完馬上能叫貨；先傳的叫貨內容會留著，開通後幫他整理
+    if (getRulesNow().autoJoin !== false) {
+      const orderText = said && looksLikeOrder(said) ? said : '';
+      if (!(wantsOrder || wantsMine || orderText || said === '拍照叫貨' || action === 'photo' || (e.type === 'message' && e.message.type === 'image'))) return;
+      await shop.addPending(uid, await displayName(uid), '', { order: orderText });
+      return say({
+        type: 'template',
+        altText: '第一次叫貨，請先填店家資料',
+        template: {
+          type: 'buttons',
+          text: `第一次使用，請先填店家資料（店名、地址、電話），填完馬上就能叫貨。${orderText ? '\n剛剛傳的叫貨內容會幫您留著。' : ''}`,
+          actions: [{ type: 'uri', label: '📝 填店家資料', uri: url }],
+        },
+      });
+    }
     if (wantsOrder || wantsMine || said === '拍照叫貨' || action === 'photo' || (e.type === 'message' && e.message.type === 'image')) {
       const name = await displayName(uid);
       const isNew = await shop.addPending(uid, name);
@@ -77,6 +93,8 @@ async function handle(e, origin) {
 
   // 店家確認配送單後按「回傳給老闆」帶過來的訊息
   if (/^已(確認|簽收)/.test(said)) return say({ type: 'text', text: '收到您的確認，謝謝！' });
+  // 開通表單送出後，叫貨頁用店家的身分傳這句進來
+  if (said === '開通完成') return say({ type: 'text', text: `✅「${store.name}」開通好了！\n\n要叫貨直接打字傳過來就好，例如：\n${SHOP.example}\n也可以點下方「拍照叫貨」拍手寫單。` });
 
   // 圖文選單「拍照叫貨」：回快速回覆按鈕，點了直接開相機或相簿（圖文選單本身不能開相機）
   if (said === '拍照叫貨' || action === 'photo') {
@@ -94,7 +112,7 @@ async function handle(e, origin) {
   const isAiText = said && looksLikeOrder(said) && !/有問題|不對|少了|壞|爛|\?|？/.test(said);
   const isAiImage = e.type === 'message' && e.message.type === 'image';
   if (process.env.AI_ORDER !== 'off' && (isAiText || isAiImage) && !(await aiQuotaOk(store.id))) {
-    return say({ type: 'text', text: '今天用 AI 整理的次數太多了，請點下方「我要叫貨」用叫貨單叫，或直接留言給老闆。' });
+    return say({ type: 'text', text: '今天用 AI 整理的次數太多了，請點下方「我要叫貨」→「用清單選」，或直接留言給老闆。' });
   }
   if (process.env.AI_ORDER !== 'off') {
     // AI 讀的時候先顯示「…」（文字約 5 秒、照片約 20 秒）
@@ -114,6 +132,25 @@ async function handle(e, origin) {
     if (said === '取消補單') return say({ type: 'text', text: '好的，補單已取消。' });
     const o = await shop.addonSlipOf(store.id, A);
     return say(flex(said.startsWith('補單已') ? said : '補單', addonCard(store, A, o, addonUrl, AF.until)));
+  }
+  // 圖文選單「我要叫貨」：店家平常都直接傳訊息，所以請他直接打字（AI 整理好再給他確認），點選單選品項只留成備用
+  if (!fromLiff && wantsOrder && process.env.AI_ORDER !== 'off') {
+    const D = openDate();
+    const o = await shop.getOrder(D, store.id);
+    const has = o?.items?.length ? o.items : [];
+    const lines = has.slice(0, 8).map((i) => `・${i.name} ${qtyText(i.qty, i.unit)}`).join('\n') + (has.length > 8 ? `\n…共 ${has.length} 樣` : '');
+    const text = has.length
+      ? `${label(D)} 配送已經叫了：\n${lines}\n\n要加或改，直接打字傳過來就好，例如：\n「再加 ${SHOP.example.split(/[、,，]/)[0]}」「${has[0].name}改成 5」「${has[0].name}不要了」`
+      : `要叫什麼，直接打字傳過來就好 👇\n例如：${SHOP.example}\n\n一行一樣，或用頓號隔開都可以，傳了會整理好給您確認。`;
+    return say({
+      type: 'text',
+      text: `${text}\n${cutoffLabel(D)} 截單，${label(D)} 送到。`,
+      quickReply: { items: [
+        { type: 'action', action: { type: 'message', label: '📷 拍照叫貨', text: '拍照叫貨' } },
+        { type: 'action', action: { type: 'message', label: '📋 我的訂單', text: '我的訂單' } },
+        { type: 'action', action: { type: 'uri', label: '☰ 用清單選', uri: url } },
+      ] },
+    });
   }
   if (fromLiff || wantsOrder) {
     const D = openDate();

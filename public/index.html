@@ -75,6 +75,14 @@ button{cursor:pointer}
 .sa .go{background:var(--line-green);border-color:var(--line-green);color:#fff}
 .done{position:absolute;inset:0;background:var(--surface);display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;z-index:6}
 .done.on{display:flex}
+.join{padding:18px 16px;display:flex;flex-direction:column;gap:14px;overflow:auto}
+.join h2{margin:0;font-size:1.3rem}
+.join p{margin:0;color:var(--muted);font-size:.95rem}
+.join label{display:flex;flex-direction:column;gap:6px;font-weight:700;font-size:1.05rem}
+.join input{font-size:1.15rem;padding:12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);color:var(--ink)}
+.join button{border:0;background:var(--line-green);color:#fff;border-radius:24px;padding:14px;font-size:1.15rem;font-weight:700;margin-top:4px}
+.join button:disabled{opacity:.6}
+.join .err{color:var(--alert);font-weight:700;min-height:1.2em}
 .done .ok{font-size:2.8rem;line-height:1}
 .done p{margin:0;color:var(--muted);font-size:.92rem}
 .done ul{list-style:none;margin:6px 0;padding:0;width:100%;max-width:320px;text-align:left}
@@ -98,6 +106,15 @@ button{cursor:pointer}
 <div class="app">
   <div class="head"><span class="logo" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 2.5c1.3 2.4 1.2 4.7.3 6.6C22 10.4 27.5 14.7 27.5 20.6c0 5.6-5.1 8.9-11.5 8.9S4.5 26.2 4.5 20.6c0-5.9 5.5-10.2 11.2-11.5-.9-1.9-1-4.2.3-6.6z" fill="currentColor"/><path d="M16 11.5c-2.6 2.9-3.6 6.1-3.6 9.3 0 3 1.1 5.5 3.6 7.4m0-16.7c2.6 2.9 3.6 6.1 3.6 9.3 0 3-1.1 5.5-3.6 7.4" stroke="#1F4D3A" stroke-opacity=".55" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg></span><div class="ht"><b id="title">叫貨單</b><small id="subtitle">載入中…</small></div></div>
   <div class="msg" id="msg" hidden></div>
+  <form class="join" id="join" hidden onsubmit="return false">
+    <h2>第一次使用，請填店家資料</h2>
+    <p>填好按「開通」，馬上就能在 LINE 叫貨。</p>
+    <label>店家名稱<input id="jName" maxlength="30" autocomplete="organization" placeholder="例如：阿美麵店"></label>
+    <label>地址<input id="jAddr" maxlength="80" autocomplete="street-address" placeholder="送貨地址"></label>
+    <label>聯絡電話<input id="jPhone" type="tel" inputmode="tel" maxlength="20" autocomplete="tel" placeholder="例如：0912345678"></label>
+    <div class="err" id="jErr" role="alert"></div>
+    <button id="jGo" type="submit">開通</button>
+  </form>
   <div class="tools" id="tools" hidden>
     <input id="q" type="search" placeholder="找品項" aria-label="搜尋品項">
     <div class="chips" id="chips"></div>
@@ -134,6 +151,7 @@ async function load(){
   applyBrand({logo:D.logo});if(D.search)$('q').placeholder=D.search;
   if(D.shopName){$('title').textContent=D.shopName}
   if(!r?.ok){$('subtitle').textContent='';$('msg').hidden=false;$('msg').textContent=D.error;return}
+  if(D.join){$('subtitle').textContent='新店家開通';$('join').hidden=false;if(D.liffId)initLiff();return}
   D.main={date:D.date,dateLabel:D.dateLabel,cutoff:D.cutoff,order:D.order};
   ['tools','plist','bar'].forEach(id=>$(id).hidden=false);
   // 訂單裡有、但已經下架的品項，也要顯示出來
@@ -165,6 +183,23 @@ function setMode(m){
   cat=m==='addon'||D.draft?'全部':frequent().size?'常叫':'全部';
   $('q').value='';render();$('plist').scrollTop=0;
 }
+// 新店家自己開通：填店名、地址、電話
+async function join(){
+  const v={name:$('jName').value.trim(),address:$('jAddr').value.trim(),phone:$('jPhone').value.trim()};
+  const miss=!v.name?['jName','請填店家名稱']:!v.address?['jAddr','請填地址']:!v.phone?['jPhone','請填聯絡電話']:null;
+  if(miss){$('jErr').textContent=miss[1];$(miss[0]).focus();return}
+  $('jGo').disabled=true;$('jErr').textContent='';
+  try{
+    const r=await fetch('/api/shop',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({t:T,action:'join',...v})});
+    const j=await r.json();if(!r.ok)throw new Error(j.error||'開通失敗，請再試一次');
+    // 在 LINE 裡開的：用店家的身分傳「開通完成」（和剛剛先傳的叫貨內容）回聊天室，就會回說明和整理好的叫貨單
+    if(liffReady){try{await liff.sendMessages([{type:'text',text:'開通完成'},...(j.order?[{type:'text',text:j.order}]:[])]);liff.closeWindow();return}catch{}}
+    $('join').hidden=true;
+    $('done').innerHTML=`<div class="ok">✅</div><b>「${esc(j.store.name)}」開通好了！</b><p>回到 LINE 直接打字叫貨就可以，例如：<br>${esc(j.example)}</p>${j.order?'<p>剛剛傳的叫貨內容，請再傳一次。</p>':''}`;
+    $('done').classList.add('on');
+  }catch(e){$('jErr').textContent=e.message;$('jGo').disabled=false}
+}
+$('join').addEventListener('submit',join);
 function initLiff(){
   const s=document.createElement('script');s.src='https://static.line-scdn.net/liff/edge/2/sdk.js';
   s.onload=()=>liff.init({liffId:D.liffId}).then(()=>{liffReady=liff.isInClient()}).catch(()=>{});

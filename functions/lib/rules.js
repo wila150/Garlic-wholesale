@@ -11,6 +11,7 @@ export const DEFAULT_RULES = {
   closed: CLOSED_WEEKDAYS, // 不配送的星期幾（0＝週日）
   addon: true, // 截單後店家可以自己補單
   addonUntil: '12:00', // 配送當天幾點前可以補單
+  autoJoin: true, // 新店家加好友後自己填店名、地址、電話就開通，不用等老闆審核
   palette: 'garlic', // 整個 App 的配色：garlic 墨綠暖白、blue 科技藍、mint 薄荷綠、gray 商務灰
 };
 export const PALETTES = ['garlic', 'blue', 'mint', 'gray'];
@@ -32,6 +33,7 @@ export async function saveRules(input) {
     closed: [...new Set((Array.isArray(input.closed) ? input.closed : []).map(Number).filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))].sort(),
     addon: !!input.addon,
     addonUntil: String(input.addonUntil || ''),
+    autoJoin: input.autoJoin !== false,
   };
   if (!isTime(r.cutoff)) throw new UserError('截單時間格式不對，例如 22:00');
   if (!isTime(r.addonUntil)) throw new UserError('補單截止時間格式不對，例如 12:00');

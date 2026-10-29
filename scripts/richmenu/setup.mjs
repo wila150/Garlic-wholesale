@@ -1,6 +1,6 @@
 // 建立 LINE 圖文選單（會刪掉舊的選單）：
 //   店家選單：所有人的預設（我要叫貨、拍照叫貨、我的訂單、聯絡老闆）
-//   老闆選單：只套用在 ADMIN_LINE_USER_IDS（記帳、還要買、本月支出、開後台、店家模式）
+//   老闆選單：只套用在 ADMIN_LINE_USER_IDS（記帳、還要買、本月支出、開後台、今日支出）；要測試叫貨打「店家選單」，切回來打「老闆選單」
 // 先產生圖片：node scripts/richmenu/render.mjs veg
 // 再建立：LINE_CHANNEL_ACCESS_TOKEN=… node scripts/richmenu/setup.mjs caihang-order
 //   （第二個參數是 Firebase 專案，用來讀 functions/.env.<專案> 的 BASE_URL、ADMIN_LINE_USER_IDS）
@@ -47,8 +47,7 @@ const menus = {
       { bounds: cell(0, 0), action: msg('還要買') },
       { bounds: cell(1, 0), action: msg('本月支出') },
       { bounds: cell(0, 1), action: { type: 'uri', label: '開後台', uri: `${base}/admin` } },
-      // 切到店家選單測試叫貨；要切回來打「老闆選單」
-      { bounds: cell(1, 1), action: { type: 'richmenuswitch', label: '店家模式', richMenuAliasId: 'store', data: 'action=menu&to=store' } },
+      { bounds: cell(1, 1), action: msg('今日支出') },
     ],
   },
 };

@@ -13,7 +13,7 @@ export const looksLikeOrder = (text) =>
 const aliasesOf = (p) => (Array.isArray(p.alias) ? p.alias : String(p.alias || '').split(/[、,，]/)).map((s) => s.trim()).filter(Boolean);
 
 function systemPrompt(products, storeAliases = []) {
-  const catalog = products.map((p) => { const a = aliasesOf(p); return `${p.id}｜${p.name}｜${p.unit}${a.length ? `｜也寫作：${a.join('、')}` : ''}`; }).join('\n');
+  const catalog = products.map((p) => { const a = aliasesOf(p); const k = (p.packs || []).map((x) => `1${x.unit}=${x.n}${p.unit}`); return `${p.id}｜${p.name}｜${p.unit}${k.length ? `｜換算：${k.join('、')}` : ''}${a.length ? `｜也寫作：${a.join('、')}` : ''}`; }).join('\n');
   const pm = new Map(products.map((p) => [p.id, p]));
   const mine = storeAliases.filter((a) => pm.has(a.pid)).map((a) => `「${a.text}」→ ${a.pid}（${pm.get(a.pid).name}）`);
   return `你是台灣${SHOP.kind}的叫貨助理。把客人（餐廳、小吃店）傳來的叫貨內容，對應到下面的品項清單，只輸出 JSON，不要任何解釋。
@@ -27,6 +27,7 @@ ${mine.join('\n')}
 規則：
 - 先比對「也寫作」和專屬叫法，客人寫的跟這些叫法一樣或只差錯字、簡寫時，直接對到那個品項。
 - 台灣慣用說法：${PRESET.aiRule}「半斤」＝0.5 斤；1 斤＝16 兩，例如「一斤二兩」＝1.125 斤。「斤」「台斤」是同一個（600 公克）；1 公斤＝1000 公克＝約 1.667 台斤，清單單位是斤、客人寫公斤時要換算（例如 3 公斤＝5 斤），清單單位是公斤、客人寫斤時反過來換算。
+- 品項有「換算」時，客人用那個包裝單位叫（例如「高麗菜2件」，換算 1件=10斤），qty 要乘成品項的單位（20），raw 保留原本寫法。
 - 數量沒寫單位時，用該品項的單位。客人寫的單位和清單不同時（例如清單是「包」客人寫「斤」），照清單單位換算不了就放進 unknown。
 - 對不到清單的品項放進 unknown，保留客人原本的寫法，不要硬塞到相近的品項。
 - 照片：先把每一行字照原樣抄到 lines（看不清楚的字用 ? 代替），再一行一行對應品項。手寫的「斤」常寫成「斤」「f」「厂」，「包」常寫成「包」「勹」「ㄅ」，阿拉伯數字和國字都要認。

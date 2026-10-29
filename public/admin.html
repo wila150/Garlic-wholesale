@@ -588,7 +588,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102924</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102926</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div class="sgrps">
     <div id="rulesBox">
@@ -815,6 +815,9 @@ function totals(){
   D.orders.forEach(o=>o.items.forEach(i=>{(m[i.pid]??={pid:i.pid,name:i.name,unit:i.unit,qty:0,rows:[]}).qty+=i.qty;m[i.pid].rows.push({sid:o.storeId,qty:i.qty})}));
   return sortItems(Object.values(m));
 }
+// 包裝換算：1件=10斤
+const packText=p=>Array.isArray(p.packs)?p.packs.map(k=>`${k.unit}=${k.n}`).join('、'):String(p.packs||'');
+const packHint=(q,p)=>{const k=Array.isArray(p?.packs)&&p.packs[0];return k&&q>0?`約 ${+(q/k.n).toFixed(1)} ${k.unit}`:''};
 // 採買進度：已買多少（後台填，或老闆在 LINE 記帳「高麗菜20斤 5000」自動加）
 let onlyLeft=false;
 const boughtOf=pid=>+(D.bought?.[pid]||0);
@@ -832,8 +835,9 @@ function renderBoard(){
     const c=pm[t.pid]?.cat||'其他';
     if(c!==last){h+=`<div class="bcat">${esc(c)}</div>`;last=c}
     const open=openRow===t.pid;
-    const st=!got?'':!left?'<em class="bok">✓ 買齊</em>':`<em class="bleft">已買 ${esc(qtyText(got,t.unit))}・還要 ${esc(qtyText(left,t.unit))}</em>`;
-    h+=`<button class="brow ${got&&!left?'done':''}" data-row="${t.pid}" aria-expanded="${open}"><span class="nm">${esc(t.name)}<small>${t.rows.length} 家叫貨${st}</small></span><span class="qty">${qtyHTML(t.qty,t.unit)}</span></button>`;
+    const st=!got?'':!left?'<em class="bok">✓ 買齊</em>':`<em class="bleft">已買 ${esc(qtyText(got,t.unit))}・還要 ${esc(qtyText(left,t.unit))}${packHint(left,pm[t.pid])?`（${packHint(left,pm[t.pid])}）`:''}</em>`;
+    const ph=packHint(t.qty,pm[t.pid]);
+    h+=`<button class="brow ${got&&!left?'done':''}" data-row="${t.pid}" aria-expanded="${open}"><span class="nm">${esc(t.name)}<small>${t.rows.length} 家叫貨${ph?`・${ph}`:''}${st}</small></span><span class="qty">${qtyHTML(t.qty,t.unit)}</span></button>`;
     if(open)h+=`<div class="bdetail"><div class="bbuy"><label>已買<input data-bought="${t.pid}" type="text" inputmode="decimal" value="${got?esc(editText(got,t.unit)):''}" placeholder="0" aria-label="${esc(t.name)} 已買"></label><small>${esc(t.unit)}</small><button class="pbtn" data-buyall="${t.pid}">${left?'買齊了':'清除'}</button></div>${t.rows.sort((a,b)=>(sm[a.sid]?.route||99)-(sm[b.sid]?.route||99)).map(r=>`<div><span>${esc(sm[r.sid]?.name||'（已刪除的店家）')}</span><span>${esc(qtyText(r.qty,t.unit))}</span></div>`).join('')}</div>`;
   });
   $('boardBox').innerHTML=h;
@@ -1035,12 +1039,13 @@ function renderProducts(){
     return head+`<div class="plist">`+items.map(({p,i})=>{
       const n=aliasArr(p).length+D.stores.reduce((a,s)=>a+(D.storeAliases?.[s.id]||[]).filter(x=>x.pid===p.id).length,0);
       return `<div class="prow3 ${p.on?'':'off'} ${openP===i?'open':''}">
-      <button class="pmain" data-popen="${i}" aria-expanded="${openP===i}"><span class="pn">${esc(p.name)}</span><span class="pu">${esc(p.unit)}</span>${n?`<span class="pa">${n} 個叫法</span>`:''}</button>
+      <button class="pmain" data-popen="${i}" aria-expanded="${openP===i}"><span class="pn">${esc(p.name)}</span><span class="pu">${esc(p.unit)}${packText(p)?`・${esc(packText(p))}`:''}</span>${n?`<span class="pa">${n} 個叫法</span>`:''}</button>
       <label class="sw" title="上架"><input type="checkbox" data-pf="on" data-i="${i}" ${p.on?'checked':''} aria-label="${esc(p.name)} 上架"><span></span></label>
       ${openP===i?`<div class="ped">
         <div class="pedrow"><label>品名<input type="text" data-pf="name" data-i="${i}" value="${esc(p.name)}"></label>
         <label>單位<select data-pf="unit" data-i="${i}">${D.units.map(u=>`<option ${u===p.unit?'selected':''}>${esc(u)}</option>`).join('')}</select></label>
-        <label>分類<select data-pf="cat" data-i="${i}">${D.categories.map(x=>`<option ${x===p.cat?'selected':''}>${esc(x)}</option>`).join('')}</select></label></div>
+        <label>分類<select data-pf="cat" data-i="${i}">${D.categories.map(x=>`<option ${x===p.cat?'selected':''}>${esc(x)}</option>`).join('')}</select></label>
+        <label>包裝換算<input type="text" data-pf="packs" data-i="${i}" value="${esc(packText(p))}" placeholder="例如 件=10、箱=20（1件=10${esc(p.unit)}）"></label></div>
         <div class="alias"><span class="lb">客人常打的寫法</span>${aliasArr(p).map((a,k)=>`<span>${esc(a)}<button data-adel="${i}" data-k="${k}" aria-label="刪除叫法 ${esc(a)}">✕</button></span>`).join('')}${storeAliasChips(p)}
           <span class="anew"><select data-ascope="${i}" aria-label="適用的店家"><option value="">全部店家</option>${D.stores.map(s=>`<option value="${s.id}" ${aScope[i]===s.id?'selected':''}>只有${esc(s.name)}</option>`).join('')}</select><input data-anew="${i}" placeholder="打字按 Enter" maxlength="20" aria-label="${esc(p.name)} 新增叫法"></span></div>
         <button class="pdel" data-pdel="${i}">刪除這個品項</button>

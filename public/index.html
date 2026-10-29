@@ -46,6 +46,9 @@ button{cursor:pointer}
 .prow.sel{background:var(--leaf-soft)}
 .prow .pn{font-weight:700;font-size:1.05rem}
 .prow .pn small{font-weight:400;color:var(--muted);font-size:.82rem;margin-left:6px}
+.prow .pks{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-top:4px}
+.prow .pks small{margin-left:0;font-size:.75rem}
+.prow .pk{border:1px solid var(--leaf);background:var(--surface);color:var(--leaf);border-radius:14px;padding:2px 9px;font-size:.82rem;font-weight:700;min-height:30px;white-space:nowrap}
 .prow .pn em{font-style:normal;font-weight:400;color:var(--alert);font-size:.78rem;margin-left:6px}
 .stp{display:flex;align-items:center;gap:4px}
 .stp button{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--bg);font-size:1.3rem;font-weight:700;line-height:1;display:grid;place-items:center}
@@ -229,7 +232,11 @@ function rowHTML(p){
     :`<input type="number" inputmode="decimal" min="0" step="any" value="${q?fmtQ(q):''}" placeholder="0" data-qin="${p.id}" aria-label="${esc(p.name)}數量（${esc(p.unit)}）">`}
   <button class="plus" data-dq="1" data-pid="${p.id}" aria-label="${esc(p.name)}加 1${esc(p.unit)}" ${p.on?'':'disabled'}>+</button></div>`;
   const ctl=jin?`<div class="ctl">${stp}<span class="u">斤</span><select data-liang="${p.id}" aria-label="${esc(p.name)}幾兩">${Array.from({length:16},(_,i)=>`<option value="${i}" ${i===liangOf(q)?'selected':''}>${i}</option>`).join('')}</select><span class="u">兩</span></div>`:stp;
-  return `<div class="prow ${q>0?'sel':''} ${jin?'jin':''}" id="r-${p.id}"><div class="pn">${esc(p.name)}${jin?'':`<small>${esc(p.unit)}</small>`}${p.on?'':'<em>暫停供貨</em>'}</div>${ctl}</div>`;
+  // 有包裝換算（1件=10斤）：顯示換算，按「+1件」一次加一件的量
+  const ks=(p.packs||[]).filter(k=>k.n>0).slice(0,2);
+  const pk=ks.map(k=>`<button class="pk" data-pk="${p.id}" data-n="${k.n}" ${p.on?'':'disabled'} aria-label="${esc(p.name)}加 1${esc(k.unit)}（${k.n}${esc(p.unit)}）">+1${esc(k.unit)}</button>`).join('');
+  const kt=ks.map(k=>`1${esc(k.unit)}=${k.n}${esc(p.unit)}`).join('・');
+  return `<div class="prow ${q>0?'sel':''} ${jin?'jin':''}" id="r-${p.id}"><div class="pn">${esc(p.name)}${jin?'':`<small>${esc(p.unit)}</small>`}${p.on?'':'<em>暫停供貨</em>'}${pk?`<div class="pks">${pk}<small>${kt}</small></div>`:''}</div>${ctl}</div>`;
 }
 function renderList(){
   const items=visible(),q=$('q').value.trim();
@@ -303,6 +310,7 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
   if(b.dataset.mode){setMode(b.dataset.mode);return}
   if(b.dataset.cat){cat=b.dataset.cat;$('q').value='';renderChips();renderList();$('plist').scrollTop=0}
+  if(b.dataset.pk){const pid=b.dataset.pk;setQty(pid,Math.round(((cart[pid]||0)+(+b.dataset.n))*10000)/10000)}
   if(b.dataset.dq){const pid=b.dataset.pid,q=cart[pid]||0,d=+b.dataset.dq;setQty(pid,d<0&&q<1?0:q+d)}
   if(b.dataset.repeat){const pm=PM();let skip=0;D.last.items.forEach(i=>{if(pm[i.pid]?.on)cart[i.pid]=i.qty;else skip++});render();toast(skip?`已帶入上次的品項，有 ${skip} 樣暫停供貨`:'已帶入上次的品項，可以再用 + − 調整')}
 });

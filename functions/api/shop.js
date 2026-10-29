@@ -48,7 +48,7 @@ export async function GET(request) {
       dateLabel: label(D),
       cutoff: cutoffLabel(D),
       categories: await shop.getCategories(),
-      products: products.map(({ id, cat, name, unit, on, alias }) => ({ id, cat, name, unit, on, alias })),
+      products: products.map(({ id, cat, name, unit, on, alias, packs }) => ({ id, cat, name, unit, on, alias, packs: packs || [] })),
       order: order?.items.length ? noPrice(order) : null,
       last: last ? noPrice(last) : null,
       draft: q.get('d') ? await draftFor(uid, q.get('d')) : null,

@@ -298,7 +298,9 @@ async function buyText() {
   if (!list.length) return { type: 'text', text: `${label(D)} 還沒有店家叫貨。` };
   const left = list.filter((x) => x.left > 0), done = list.length - left.length;
   if (!left.length) return { type: 'text', text: `✅ ${label(D)} 的 ${list.length} 樣都買齊了！` };
-  const lines = left.map((x) => `・${x.name} ${qtyText(x.left, x.unit)}${x.bought ? `（要 ${qtyText(x.need, x.unit)}，已買 ${qtyText(x.bought, x.unit)}）` : ''}`);
+  const pk = Object.fromEntries((await shop.getProducts()).map((p) => [p.id, p.packs?.[0]]));
+  const about = (x) => (pk[x.pid] ? `約 ${+(x.left / pk[x.pid].n).toFixed(1)} ${pk[x.pid].unit}` : '');
+  const lines = left.map((x) => `・${x.name} ${qtyText(x.left, x.unit)}${about(x) ? `（${about(x)}）` : ''}${x.bought ? `\n　要 ${qtyText(x.need, x.unit)}，已買 ${qtyText(x.bought, x.unit)}` : ''}`);
   return {
     type: 'text',
     text: `🛒 ${label(D)} 還要買 ${left.length} 樣${done ? `（已買齊 ${done} 樣）` : ''}：\n${lines.slice(0, 40).join('\n')}${lines.length > 40 ? '\n…' : ''}\n\n買了就記帳，例如「${left[0].name}${qtyText(left[0].left, left[0].unit).replace(' ', '')} 金額」，會自動扣掉。`,

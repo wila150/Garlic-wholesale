@@ -32,6 +32,18 @@ export async function getProducts() {
   return (await data('settings/products'))?.items ?? DEFAULT_PRODUCTS;
 }
 
+/* ---------- 包裝換算：1 件＝10 斤、1 箱＝20 斤（數量一律換成品項的單位） ---------- */
+// 輸入「件=10、箱=20」或 [{ unit, n }]，回傳 [{ unit, n }]
+export function packList(v, unit) {
+  const arr = Array.isArray(v) ? v : String(v ?? '').split(/[、,，;；\n]/).map((s) => {
+    const m = s.trim().match(/^1?\s*([^\d=＝\s]+)\s*[=＝]\s*(\d+(?:\.\d+)?)/);
+    if (s.trim() && !m) throw new UserError(`換算「${s.trim()}」看不懂，例如：件=10、箱=20`);
+    return m && { unit: m[1], n: +m[2] };
+  });
+  const seen = new Set();
+  return arr.filter((x) => x && x.unit && x.unit !== unit && +x.n > 0 && !seen.has(x.unit) && seen.add(x.unit)).map((x) => ({ unit: clean(x.unit, 6), n: roundQty(+x.n) })).slice(0, 5);
+}
+
 /* ---------- 別名（客人常打的寫法，給 AI 對照） ---------- */
 // 舊資料是一串字（用、或逗號隔開），新的存成陣列；兩種都讀得懂
 export const ALIAS_MAX = 50; // 每個品項最多幾個叫法
@@ -192,6 +204,7 @@ export async function saveProducts(input) {
       on: !!p.on,
       // 別名（客人常打的寫法，給 AI 對照用）。畫面沒送 alias 時保留原本的，免得存品項時被清空
       alias: p.alias === undefined ? aliasList(old.get(id)?.alias) : aliasList(p.alias),
+      packs: packList(p.packs === undefined ? old.get(id)?.packs : p.packs, units.includes(p.unit) ? p.unit : units[0]),
     };
   });
   for (const p of list) {

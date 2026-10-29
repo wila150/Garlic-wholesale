@@ -138,8 +138,11 @@ export function matchBuy(item, products) {
     .filter(([n]) => n && t.includes(n)).sort((a, b) => b[0].length - a[0].length);
   for (const [n, p] of names) {
     const rest = t.slice(t.indexOf(n) + n.length);
-    const m = p.unit === '斤' ? rest.match(/^(?:(\d+(?:\.\d+)?)斤)?(?:(\d+)兩)?/) : rest.match(new RegExp(`^(\\d+(?:\\.\\d+)?)${p.unit.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
-    const q = p.unit === '斤' ? (m && (m[1] || m[2]) ? (+m[1] || 0) + (+m[2] || 0) / 16 : 0) : m ? +m[1] : 0;
+    const esc = (u) => u.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const m = p.unit === '斤' ? rest.match(/^(?:(\d+(?:\.\d+)?)斤)?(?:(\d+)兩)?/) : rest.match(new RegExp(`^(\\d+(?:\\.\\d+)?)${esc(p.unit)}`));
+    let q = p.unit === '斤' ? (m && (m[1] || m[2]) ? (+m[1] || 0) + (+m[2] || 0) / 16 : 0) : m ? +m[1] : 0;
+    // 包裝單位：「高麗菜3件」＋換算 1件=10斤 → 30 斤
+    if (!q) for (const k of p.packs || []) { const x = rest.match(new RegExp(`^(\\d+(?:\\.\\d+)?)${esc(k.unit)}`)); if (x) { q = +x[1] * k.n; break; } }
     if (q > 0) return { pid: p.id, name: p.name, unit: p.unit, qty: roundQty(q) };
   }
   return null;

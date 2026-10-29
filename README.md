@@ -72,7 +72,7 @@ firebase deploy
 1. **LINE Developers** → Messaging API：Webhook URL 填 `https://garlic-wholesale.web.app/api/webhook`，按 Verify，再打開 **Use webhook**。
 2. **官方帳號管理後台** → 回應設定：「聊天」打開、「Webhook」打開、「自動回應訊息」關掉。
 3. 用你自己的 LINE 傳「我的ID」給機器人，把回覆的 userId 填到 `functions/.env` 的 `ADMIN_LINE_USER_IDS`，再跑一次 `firebase deploy --only functions`。之後有店家申請開通時，你會收到通知。
-4. **圖文選單**：跑 `node scripts/richmenu/setup.mjs` 建立（我要叫貨、拍照叫貨、我的訂單、聯絡老闆 四格）。
+4. **圖文選單**：`node scripts/richmenu/render.mjs veg` 產生圖片，再 `LINE_CHANNEL_ACCESS_TOKEN=… node scripts/richmenu/setup.mjs <專案>` 建立。店家選單（我要叫貨、拍照叫貨、我的訂單、聯絡老闆）是所有人預設；老闆選單（記帳、今天支出、本月支出、開後台、店家模式）只套用在 ADMIN_LINE_USER_IDS，打「老闆選單」切回來。
 
 ## 資料保存與備份
 

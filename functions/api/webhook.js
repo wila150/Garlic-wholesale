@@ -1,6 +1,7 @@
 // LINE Messaging API webhook：https://你的網址/api/webhook
 import { SHOP } from '../lib/config.js';
-import { verifySignature, reply, displayName, notifyAdmins, loading, adminIds } from '../lib/line.js';
+import { verifySignature, reply, displayName, notifyAdmins, loading, adminIds, linkMenu } from '../lib/line.js';
+import { getFirestore } from 'firebase-admin/firestore';
 import * as ex from '../lib/expense.js';
 import { orderLink } from '../lib/token.js';
 import { originOf } from '../lib/http.js';
@@ -60,10 +61,11 @@ async function handle(e, origin) {
   }
 
   // 記帳：老闆的 LINE（ADMIN_LINE_USER_IDS）打「油錢 500」就記一筆支出。
-  // 老闆自己也綁了測試店家的話，要加「記帳」開頭，不然會被當成叫貨
+  // 在老闆選單時「油錢 500」直接記；切到店家選單（測試叫貨）時要加「記帳」開頭，不然會被當成叫貨
   if (adminIds().includes(uid)) {
-    const r = await expenseChat({ said, pb, action, store, uid });
+    const r = await bossChat({ said, pb, action, store, uid });
     if (r) return say(r);
+    if (r === false) return;
   }
 
   // 還沒開通的人
@@ -209,6 +211,23 @@ function savedReply(e, cats, head = '✅ 已記帳') {
   };
 }
 
+// 老闆的 LINE：老闆選單（記帳）和店家選單（測試叫貨）可以切換；在老闆選單時打「品名 金額」就是記帳
+const modeRef = (uid) => getFirestore().doc('adminMode/' + uid);
+async function bossChat({ said, pb, action, store, uid }) {
+  if (action === 'menu') {
+    await modeRef(uid).set({ mode: pb.get('to') === 'store' ? 'store' : 'boss' });
+    return false; // 圖文選單切換，不用回覆
+  }
+  if (/^(老闆選單|老闆模式)$/.test(said) || /^(店家選單|店家模式)$/.test(said)) {
+    const mode = /老闆/.test(said) ? 'boss' : 'store';
+    await linkMenu(uid, mode);
+    await modeRef(uid).set({ mode });
+    return { type: 'text', text: mode === 'boss' ? '已切到老闆選單：打「油錢 500」就能記帳。' : '已切到店家選單，可以測試叫貨。要切回來打「老闆選單」。' };
+  }
+  const mode = (await modeRef(uid).get()).data()?.mode || 'boss';
+  return expenseChat({ said, pb, action, store: mode === 'store' ? store : null, uid });
+}
+
 async function expenseChat({ said, pb, action, store, uid }) {
   if (action === 'expdel') {
     try {
@@ -237,7 +256,7 @@ async function expenseChat({ said, pb, action, store, uid }) {
     const detail = day ? list.map((e) => `・${e.item} ${money(e.amount)}${e.payee ? `（${e.payee}）` : ''}`) : sum.by.map(([c, v]) => `・${c} ${money(v)}`);
     return { type: 'text', text: `${title} ${list.length} 筆，共 ${money(sum.total)}\n${detail.slice(0, 30).join('\n')}${detail.length > 30 ? '\n…' : ''}\n\n明細在後台「報表」頁` };
   }
-  // 綁了測試店家：要「記帳」開頭才算記帳；沒綁：打「品名 金額」就記
+  // 切到店家選單（測試叫貨）時：要「記帳」開頭才算記帳；老闆選單：打「品名 金額」就記
   const prefixed = /^(記帳|支出)\s*[:：]?\s*\S/.test(said);
   if (store && !prefixed) return null;
   const p = ex.parseExpenseText(said);

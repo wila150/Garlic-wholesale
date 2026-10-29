@@ -54,3 +54,12 @@ export async function notifyAdmins(text) {
   const results = await Promise.allSettled(adminIds().map((id) => push(id, [{ type: 'text', text }])));
   results.filter((r) => r.status === 'rejected').forEach((r) => console.error(r.reason));
 }
+
+// 老闆的 LINE 切換圖文選單（老闆選單／店家選單），alias 在 scripts/richmenu/setup.mjs 建立
+export async function linkMenu(userId, alias) {
+  const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
+  if (!token || token === 'dry-run') return console.log('[LINE 未設定，略過] 切換選單', alias);
+  const r = await fetch(`${API}/richmenu/alias/${alias}`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) throw new Error(`找不到圖文選單「${alias}」，請先跑 scripts/richmenu/setup.mjs`);
+  await call(`/user/${encodeURIComponent(userId)}/richmenu/${(await r.json()).richMenuId}`, {});
+}

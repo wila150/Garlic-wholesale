@@ -2,22 +2,35 @@
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0}
-/* 2500×1686：左邊大格 1300 寬；右邊上面「拍照叫貨」，下面「我的訂單｜聯絡老闆」 */
+/* 2500×1686：左邊大格 1300 寬；右邊上下各一列，每列兩格（店家選單右上是一整格） */
 body{width:2500px;height:1686px;font-family:'Noto Sans TC',sans-serif;display:grid;grid-template-columns:1300px 600px 600px;grid-template-rows:843px 843px;background:#16291F}
-.c{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;color:#fff;border:6px solid #16291F}
+.c{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;color:#fff;border:6px solid #16291F;text-align:center}
 .big{grid-row:span 2;background:#F5D547;color:#2A2400}
-.cam{grid-column:span 2;background:#2F6B45}
-.a{background:#23523A}.b{background:#1F4A34}
-.ic{font-size:300px;line-height:1}
+.wide{grid-column:span 2;background:#2F6B45}
+.a{background:#23523A}.b{background:#1F4A34}.d{background:#2F6B45}
+.ic{font-size:180px;line-height:1}
 .big .ic{font-size:420px}
-.t{font-size:150px;font-weight:900;letter-spacing:8px}
-.big .t{font-size:200px}
+.wide .ic{font-size:220px}
+.t{font-size:104px;font-weight:900;letter-spacing:4px}
+.big .t{font-size:200px;letter-spacing:8px}
+.wide .t{font-size:130px;letter-spacing:8px}
 .s{font-size:66px;font-weight:500;opacity:.9}
-.a .t,.b .t{font-size:104px;letter-spacing:4px}
-.a .ic,.b .ic{font-size:180px}
+.a .s,.b .s,.d .s{font-size:52px}
+.boss .big{background:#E9E3D3;color:#1D2A22}
 </style></head><body>
-<div class="c big"><div class="ic">🧄</div><div class="t">我要叫貨</div><div class="s">點選品項，不用打字</div></div>
-<div class="c cam"><div class="ic" style="font-size:220px">📷</div><div class="t" style="font-size:130px">拍照叫貨</div><div class="s">拍叫貨單，AI 幫你整理</div></div>
+<script>
+// ?m=store（店家，所有人預設）或 boss（老闆）；?kind=veg 菜行用菜的圖示
+const q = new URLSearchParams(location.search), boss = q.get('m') === 'boss', icon = q.get('kind') === 'veg' ? '🥬' : '🧄';
+document.body.className = boss ? 'boss' : '';
+document.body.innerHTML = boss ? `
+<div class="c big"><div class="ic">📒</div><div class="t">記帳</div></div>
+<div class="c a"><div class="ic">💰</div><div class="t">今天支出</div></div>
+<div class="c b"><div class="ic">📊</div><div class="t">本月支出</div></div>
+<div class="c d"><div class="ic">🖥</div><div class="t">開後台</div></div>
+<div class="c a"><div class="ic">${icon}</div><div class="t">店家模式</div><div class="s">測試叫貨用</div></div>` : `
+<div class="c big"><div class="ic">${icon}</div><div class="t">我要叫貨</div><div class="s">直接打字或拍照就能叫</div></div>
+<div class="c wide"><div class="ic">📷</div><div class="t">拍照叫貨</div><div class="s">拍叫貨單，AI 幫你整理</div></div>
 <div class="c a"><div class="ic">📋</div><div class="t">我的訂單</div></div>
-<div class="c b"><div class="ic">💬</div><div class="t">聯絡老闆</div></div>
+<div class="c b"><div class="ic">💬</div><div class="t">聯絡老闆</div></div>`;
+</script>
 </body></html>

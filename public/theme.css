@@ -182,14 +182,23 @@ body.sign .row .q{font-size:1.25rem;font-weight:700;white-space:nowrap}
 body.sign .row .q.chg{color:var(--alert)}
 body.sign .row small.diff{color:var(--alert);font-weight:700}
 
+/* 分頁圖示：手機圖示在上、文字在下（像 App 的分頁列） */
+body.admin nav.tabs .ti{width:22px;height:22px;flex:none;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;transition:transform .15s}
+body.admin nav.tabs button{position:relative;display:flex;flex-direction:column;align-items:center;gap:3px;min-width:66px;padding:9px 10px 8px;font-size:.78rem;line-height:1.2}
+body.admin nav.tabs button[aria-selected="true"]{color:var(--leaf)}
+body.admin nav.tabs button[aria-selected="true"] .ti{stroke-width:2.1;transform:translateY(-1px)}
+body.admin nav.tabs .dot{position:absolute;top:3px;left:calc(50% + 7px);margin:0;padding:0 5px;font-size:.66rem;line-height:1.5}
 /* 電腦：分頁改成左側選單，內容放右邊（手機維持在上方） */
 @media (min-width:1024px){
   body.admin .wrap{max-width:1280px;display:grid;grid-template-columns:184px minmax(0,1fr);column-gap:32px;align-items:start}
   body.admin .wrap>header.top{grid-column:1/-1}
   body.admin .wrap>:not(header):not(nav){grid-column:2}
   body.admin nav.tabs{grid-column:1;grid-row:2/span 50;position:sticky;top:16px;flex-direction:column;gap:2px;margin-top:12px;padding:6px 0;overflow:visible;border-bottom:0;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none}
-  body.admin nav.tabs button{text-align:left;padding:10px 14px;border-radius:8px;font-size:.96rem}
+  body.admin nav.tabs button{flex-direction:row;justify-content:flex-start;gap:11px;min-width:0;text-align:left;padding:10px 14px;border-radius:8px;font-size:.96rem}
+  body.admin nav.tabs .ti{width:20px;height:20px}
+  body.admin nav.tabs button[aria-selected="true"] .ti{transform:none}
+  body.admin nav.tabs .dot{position:static;margin-left:auto}
   body.admin nav.tabs button:hover{background:var(--surface);color:var(--ink)}
-  body.admin nav.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:inset 3px 0 0 var(--leaf),0 1px 2px rgba(0,0,0,.06)}
+  body.admin nav.tabs button[aria-selected="true"]{background:var(--surface);color:var(--leaf);box-shadow:inset 3px 0 0 var(--leaf),0 1px 2px rgba(0,0,0,.06)}
   :root[data-theme="dark"] body.admin nav.tabs{background:transparent}
 }

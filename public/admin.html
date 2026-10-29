@@ -244,6 +244,19 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .newver{position:fixed;top:calc(8px + env(safe-area-inset-top,0px));left:50%;transform:translateX(-50%);z-index:50;border:0;background:var(--tag);color:#2A2400;font-weight:700;border-radius:20px;padding:9px 18px;box-shadow:0 4px 14px rgba(0,0,0,.25)}
 .ver{color:var(--muted);font-size:.72rem;white-space:nowrap}
 .manual{display:block;text-decoration:none;color:inherit;background:var(--surface);border:1px solid var(--line);border-left:6px solid var(--leaf);border-radius:10px;padding:12px 14px;margin-bottom:22px}.manual b{font-size:1.05rem}.manual small{display:block;color:var(--muted)}.manual:hover{border-color:var(--leaf)}
+.sgrps{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+.sgrp{background:var(--surface);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+.sgrp>summary{list-style:none;display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;font-weight:700;font-size:1.02rem}
+.sgrp>summary::-webkit-details-marker{display:none}
+.sgrp .si{width:22px;height:22px;flex:none;fill:none;stroke:var(--leaf);stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.sgrp .st{flex:1;display:flex;flex-direction:column;line-height:1.3}
+.sgrp .st small{font-weight:400;font-size:.82rem;color:var(--muted);margin-top:2px}
+.sgrp .sc{width:18px;height:18px;fill:none;stroke:var(--muted);stroke-width:2;transition:transform .15s}
+.sgrp[open] .sc{transform:rotate(90deg)}
+.sgrp[open]>summary{border-bottom:1px solid var(--line)}
+.sgb{padding:12px 16px 16px}
+.sgb>.addform,.sgb>.units,.sgb>.users{margin-top:0}
+.sgb>.addform,.sgb>.units{border:0;background:transparent;box-shadow:none;padding:0}
 .devbox{margin-top:28px;border-top:1px dashed var(--line);padding-top:10px;color:var(--muted)}.devbox summary{cursor:pointer;font-size:.85rem}.devbox .danger{border:1px solid var(--alert);background:transparent;color:var(--alert);font-weight:700;border-radius:8px;padding:8px 14px}
 .sacts .delslip{border:0;background:transparent;color:var(--alert);font-weight:700;margin-left:auto}
 .signed{font-size:.85rem;color:var(--leaf);font-weight:700}
@@ -461,7 +474,6 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
 .addcat{display:grid;grid-template-columns:1fr auto;gap:8px;margin-top:18px}
 .addcat input{border:1px dashed var(--line);background:var(--surface);border-radius:10px;padding:9px 12px}
 .addcat button{border:1px solid var(--line);background:var(--surface);border-radius:10px;padding:0 14px;font-weight:700}
-#unitsSet{margin-bottom:22px}
 .invbtn{border:1px dashed var(--leaf);background:none;color:var(--leaf);border-radius:12px;padding:1px 10px;font-weight:700;font-size:.82rem}
 .inv{text-align:center}
 .inv .invtip{color:var(--muted);font-size:.9rem;margin:6px 0 12px}
@@ -491,15 +503,15 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </header>
 
   <nav class="tabs" role="tablist">
-    <button role="tab" data-tab="board" aria-selected="true">採買總表</button>
-    <button role="tab" data-tab="prices" aria-selected="false">單價<span class="dot" id="priceDot" hidden></span></button>
-    <button role="tab" data-tab="slips" aria-selected="false">出貨單</button>
-    <button role="tab" data-tab="bills" aria-selected="false">對帳</button>
-    <button role="tab" data-tab="ai" aria-selected="false">AI 紀錄</button>
-    <button role="tab" data-tab="report" aria-selected="false">報表</button>
-    <button role="tab" data-tab="admin" aria-selected="false">品項</button>
-    <button role="tab" data-tab="stores" aria-selected="false">店家<span class="dot" id="pendDot" hidden></span></button>
-    <button role="tab" data-tab="users" aria-selected="false">設定</button>
+    <button role="tab" data-tab="board" aria-selected="true"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4M12 16h4M8 11h.01M8 16h.01"/></svg><span class="tl">採買總表</span></button>
+    <button role="tab" data-tab="prices" aria-selected="false"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg><span class="tl">單價</span><span class="dot" id="priceDot" hidden></span></button>
+    <button role="tab" data-tab="slips" aria-selected="false"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg><span class="tl">出貨單</span></button>
+    <button role="tab" data-tab="bills" aria-selected="false"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/></svg><span class="tl">對帳</span></button>
+    <button role="tab" data-tab="ai" aria-selected="false"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/></svg><span class="tl">AI 紀錄</span></button>
+    <button role="tab" data-tab="report" aria-selected="false"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span class="tl">報表</span></button>
+    <button role="tab" data-tab="admin" aria-selected="false"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><path d="m3.3 7 8.7 5 8.7-5"/></svg><span class="tl">品項</span></button>
+    <button role="tab" data-tab="stores" aria-selected="false"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7"/><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4"/><path d="M2 7h20"/><path d="M22 7v3a2 2 0 0 1-4 0 2 2 0 0 1-4 0 2 2 0 0 1-4 0 2 2 0 0 1-4 0 2 2 0 0 1-4 0V7"/></svg><span class="tl">店家</span><span class="dot" id="pendDot" hidden></span></button>
+    <button role="tab" data-tab="users" aria-selected="false"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M10 5H3M12 19H3M14 3v4M16 17v4M21 12h-9M21 19h-5M21 5h-7M8 10v4M8 12H3"/></svg><span class="tl">設定</span></button>
   </nav>
 
   <div class="datebar" id="datebar">
@@ -558,16 +570,11 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102910</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102912</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
-    <div id="unitsSet" hidden>
-    <h2>單位</h2>
-    <div class="units" id="unitBox"></div>
-    </div>
+    <div class="sgrps">
     <div id="rulesBox">
-    <h2>配色</h2>
-    <div class="palettes" id="palBox"></div>
-    <h2>截單和補單</h2>
+    <details class="sgrp"><summary><svg class="si" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="st">營業規則<small id="hRules"></small></span><svg class="sc" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary><div class="sgb">
     <form class="addform rules" id="rulesForm" onsubmit="return false">
       <label>截單時間（配送日前一天）<input id="rCutoff" type="time" step="60"></label>
       <label class="chkl"><input type="checkbox" id="rAddon"> 截單後店家可以自己補單</label>
@@ -576,9 +583,10 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
       <label class="chkl"><input type="checkbox" id="rAutoJoin"> 新店家自己填店名、地址、電話就開通（不用審核）</label>
       <button id="saveRules" type="button">儲存</button>
     </form>
+    </div></details>
     </div>
     <div id="userBox">
-    <h2>後台帳號</h2>
+    <details class="sgrp"><summary><svg class="si" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg><span class="st">後台帳號<small id="hUsers"></small></span><svg class="sc" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary><div class="sgb">
     <form class="addform" id="userForm" onsubmit="return false">
       <label>Google 帳號 Email<input id="uEmail" type="email" autocomplete="off" placeholder="例如 xxx@gmail.com"></label>
       <label>名字<input id="uName" placeholder="例如：會計小美"></label>
@@ -586,6 +594,18 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
       <button id="addUser" type="button">加入</button>
     </form>
     <div class="users" id="userList"></div>
+    </div></details>
+    </div>
+    <div id="unitsSet" hidden>
+    <details class="sgrp"><summary><svg class="si" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v18M5 7h14M5 7l-3 7a3 3 0 0 0 6 0zM19 7l-3 7a3 3 0 0 0 6 0zM8 21h8"/></svg><span class="st">單位<small id="hUnits"></small></span><svg class="sc" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary><div class="sgb">
+    <div class="units" id="unitBox"></div>
+    </div></details>
+    </div>
+    <div id="palSet">
+    <details class="sgrp"><summary><svg class="si" viewBox="0 0 24 24" aria-hidden="true"><circle cx="13.5" cy="6.5" r="1.2"/><circle cx="17.5" cy="10.5" r="1.2"/><circle cx="8.5" cy="7.5" r="1.2"/><circle cx="6.5" cy="12.5" r="1.2"/><path d="M12 2C6.5 2 2 6.5 2 12s4.5 10 10 10c.93 0 1.65-.75 1.65-1.69 0-.44-.18-.84-.44-1.13-.29-.29-.44-.65-.44-1.13a1.64 1.64 0 0 1 1.67-1.67h2c3.05 0 5.55-2.5 5.55-5.55C21.97 6.01 17.46 2 12 2z"/></svg><span class="st">配色<small id="hPal"></small></span><svg class="sc" viewBox="0 0 24 24" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg></summary><div class="sgb">
+    <div class="palettes" id="palBox"></div>
+    </div></details>
+    </div>
     </div>
     <details id="devBox" class="devbox" hidden>
       <summary>工程師</summary>
@@ -765,7 +785,7 @@ function renderAll(){
   if(may('products')){renderUnits();renderProducts()}
   $('unitsSet').hidden=!may('products');
   if(may('stores'))renderStores();
-  $('userBox').hidden=$('rulesBox').hidden=!may('users');
+  $('userBox').hidden=$('rulesBox').hidden=$('palSet').hidden=!may('users');
   if(may('users')){renderRules();renderPalettes()}
   if(may('users'))renderUsers();
   $('devBox').hidden=!D.me.engineer;
@@ -1031,7 +1051,7 @@ function addAliasTag(i,raw){
 async function saveCats(categories,msg){
   try{const j=await api('POST',{action:'categories',categories});D.categories=j.categories;renderProducts();toast(msg)}catch(e){toast(e.message)}
 }
-function renderUnits(){
+function renderUnits(){queueMicrotask(setHints);
   $('unitBox').innerHTML=D.units.map(u=>`<span>${esc(u)}<button data-udel="${esc(u)}" aria-label="刪除單位 ${esc(u)}">✕</button></span>`).join('')+
     `<input id="newUnit" placeholder="新單位" maxlength="6" aria-label="新單位"><button class="add-u" id="addUnit">新增</button>`;
 }
@@ -1290,7 +1310,7 @@ async function approve(uid){
 
 /* ---------- 配色：選了全部的人一起換（後台、叫貨頁、確認單） ---------- */
 const PALS=[['garlic','墨綠暖白','深墨綠＋暖白，品牌質感',['#1F4D3A','#ECF0E8','#B08A3E']],['blue','科技藍','穩重專業，ERP 常用',['#1B365D','#EBF0F6','#1890FF']],['mint','薄荷綠','清新放鬆，適合生鮮',['#00796B','#EAF1EE','#ED6C02']],['gray','商務灰','極簡，表格多時不累眼',['#37474F','#EFF1F3','#1890FF']]];
-function renderPalettes(){
+function renderPalettes(){queueMicrotask(setHints);
   const cur=D.rules?.palette||'garlic';
   $('palBox').innerHTML=PALS.map(([k,n,d,c])=>`<button class="pal" data-pal="${k}" aria-pressed="${k===cur}"><span class="sw3">${c.map(x=>`<i style="background:${x}"></i>`).join('')}</span><b>${n}${k===cur?'　✓':''}</b><small>${d}</small></button>`).join('');
 }
@@ -1325,7 +1345,7 @@ function printInvite(){
   $('inviteBox').classList.remove('on');$('pv').classList.add('on');setPaper(localStorage.getItem('paper')==='r80'?'r80':'a4');
 }
 /* ---------- 截單和補單 ---------- */
-function renderRules(){
+function renderRules(){queueMicrotask(setHints);
   const r=D.rules;if(!r||$('rulesForm').dataset.dirty)return;
   $('rCutoff').value=r.cutoff;$('rAddon').checked=r.addon;$('rAutoJoin').checked=r.autoJoin!==false;$('rAddonUntil').value=r.addonUntil;$('rAddonUntil').disabled=!r.addon;
   $('rClosed').innerHTML='日一二三四五六'.split('').map((w,i)=>`<label><input type="checkbox" value="${i}" ${r.closed.includes(i)?'checked':''}>週${w}</label>`).join('');
@@ -1341,7 +1361,15 @@ async function resetData(){
   if(t.trim()!=='重置'){toast('沒有輸入「重置」，已取消');return}
   try{const j=await api('POST',{action:'resetTestData',confirm:'重置'});await load();toast(`已重置，刪掉 ${j.deleted.orders} 張訂單`)}catch(e){toast(e.message)}
 }
-function renderUsers(){
+// 設定頁收合列：標題下面一行小字顯示目前的設定
+function setHints(){
+  const r=D.rules,WDN='日一二三四五六';
+  if(r&&$('hRules'))$('hRules').textContent=`${r.cutoff} 截單${r.addon?`・補單到 ${r.addonUntil}`:''}・${r.closed?.length?'公休 '+r.closed.map(d=>'週'+WDN[d]).join('、'):'沒有公休'}${r.autoJoin!==false?'・新店家自己開通':''}`;
+  if(D.users&&$('hUsers'))$('hUsers').textContent=`${D.users.length} 個帳號`;
+  if(D.units&&$('hUnits'))$('hUnits').textContent=D.units.slice(0,8).join('、')+(D.units.length>8?` …共 ${D.units.length} 個`:'');
+  if(r&&$('hPal'))$('hPal').textContent=PALS.find(p=>p[0]===(r.palette||'garlic'))?.[1]||'';
+}
+function renderUsers(){queueMicrotask(setHints);
   if(!$('uRole').options.length)$('uRole').innerHTML=Object.entries(D.roles).filter(([k])=>k!=='owner'&&k!=='engineer').map(([k,v])=>`<option value="${k}">${v}</option>`).join('');
   $('userList').innerHTML=D.users.map(u=>`<div class="urow ${u.disabled?'off':''}">
     <span><b>${esc(u.name||u.email)}</b><small>${esc(u.email)}${u.disabled?'・已停用':''}${u.email===D.me.email?'・你自己':''}</small></span>

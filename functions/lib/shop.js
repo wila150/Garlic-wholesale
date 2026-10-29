@@ -335,9 +335,8 @@ export async function setDayPrices(date, input, costInput = {}) {
     let changed = false;
     for (const p of items) {
       if (!(p.id in prices || p.id in costs) || (p.priceDate && date < p.priceDate)) continue;
-      if (p.id in prices) p.price = prices[p.id];
+      if (p.id in prices) { p.price = prices[p.id]; p.priceDate = date; } // 只改進價（記帳自動填的）不動單價的日期
       if (p.id in costs) p.cost = costs[p.id];
-      p.priceDate = date;
       changed = true;
     }
     if (changed) tx.set(pref, { items });

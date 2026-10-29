@@ -141,6 +141,7 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .expsum{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
 .expsum span{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:3px 10px;font-size:.88rem}
 .expd{font-size:.82rem;color:var(--muted);margin:10px 0 2px;font-weight:700}
+.rtable .bcat-row td{background:var(--bg);color:var(--muted);font-size:.82rem;font-weight:700}
 .exped{margin:6px 0 10px;border-color:var(--leaf)}
 .exped .expbtns{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end}
 .exped .expbtns button{grid-column:auto;min-width:96px}
@@ -588,7 +589,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102926</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102928</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div class="sgrps">
     <div id="rulesBox">
@@ -928,7 +929,8 @@ function xlsReport(){
   const days=[['日期','店家數','出貨重量(公斤)','營收','進貨成本','毛利',...t.map(x=>x.name),'其他成本(含月攤)','淨利'],...R.days.map(d=>[d.date,d.stores,d.kg,d.revenue,d.purchase,d.gross,...t.map(x=>R.costs.daily?.[d.date]?.[x.id]??''),d.other,d.net])];
   const ar=[['店家','月份','金額'],...R.receivables.flatMap(s=>s.months.map(m=>[s.name,m.month,m.amount]))];
   const ex=[['日期','分類','品名','付給','金額','備註','記帳人','來源'],...(R.expenses||[]).map(e=>[e.date,e.cat,e.item,e.payee||'',e.amount,e.note||'',e.by||'',e.source==='line'?'LINE':'後台'])];
-  xlsx(`報表_${R.month}.xlsx`,{'每日毛利':days,'記帳明細':ex,'應收帳款':ar});
+  const ps=[['分類','品項','單位','店家叫','已買','多買(+)/少買(-)（有記已買的日子）','記帳數量','記帳金額','平均進價','最低進價','最高進價'],...(R.purchases||[]).filter(r=>r.ordered||r.bought||r.qty).map(r=>[r.cat,r.name,r.unit,r.ordered,r.bought,r.diff,r.qty,r.amount,r.avg??'',r.min??'',r.max??''])];
+  xlsx(`報表_${R.month}.xlsx`,{'每日毛利':days,'記帳明細':ex,'進貨統計':ps,'應收帳款':ar});
 }
 
 /* ---------- 出貨單 ---------- */
@@ -1247,6 +1249,7 @@ function renderReport(){
   </div>
   ${miss?`<p class="sub neg">有 ${money(miss)} 的營收沒有填進價，毛利會偏高。到「單價」頁補進價就會更新。</p>`:''}
   ${expHTML()}
+  ${buyStatHTML()}
   <h2>成本項目</h2>
   <div class="ctypes">${R.costTypes.map(t=>`<span>${esc(t.name)}・${t.period==='daily'?'每天':'每月'}<button data-ctdel="${t.id}" aria-label="刪除 ${esc(t.name)}">✕</button></span>`).join('')||'<em class="meta">還沒有成本項目</em>'}
     <input id="ctName" placeholder="新項目，例如烘乾費" maxlength="20" aria-label="成本項目名稱"><select id="ctPeriod" aria-label="週期"><option value="daily">每天記</option><option value="monthly">每月記</option></select><button class="pbtn" id="ctAdd">新增</button></div>
@@ -1280,7 +1283,7 @@ function expHTML(){
       <input name="payee" maxlength="20" value="${esc(e.payee||'')}" placeholder="付給誰（選填）" aria-label="付給誰">
       <input name="note" maxlength="40" value="${esc(e.note||'')}" placeholder="備註（選填）" aria-label="備註">
       <div class="expbtns"><button type="button" class="pbtn" data-expcancel="1">取消</button><button type="button" class="send" data-expsave="${e.id}">儲存</button></div></form>`;
-    return h+`<div class="exp"><span>${esc(e.item)}<em>${[e.payee&&'付給 '+e.payee,e.note,e.source==='line'?'LINE':'',e.by].filter(Boolean).map(esc).join('・')}</em></span>
+    return h+`<div class="exp"><span>${esc(e.item)}<em>${[e.buy?.cost!=null&&`進價 $${e.buy.cost}/${e.buy.unit}`,e.payee&&'付給 '+e.payee,e.note,e.source==='line'?'LINE':'',e.by].filter(Boolean).map(esc).join('・')}</em></span>
     <select data-expcat="${e.id}" aria-label="${esc(e.item)} 分類">${opt(e.cat)}</select><b>${money(e.amount)}</b><span class="expact"><button class="x" data-expedit="${e.id}" aria-label="編輯 ${esc(e.item)}">✎</button><button class="x" data-expdel="${e.id}" aria-label="刪除 ${esc(e.item)}">✕</button></span></div>`}).join('');
   return `<h2>記帳（支出）</h2>
   <p class="sub">老闆的 LINE 也能記：直接打「油錢 500」「昨天 紙箱 800」「進貨 12000 @大成」。打「本月支出」可以查帳。</p>
@@ -1301,6 +1304,19 @@ function expHTML(){
     <div class="ecats" id="ecats">${cats.map((c,i)=>{const fixed=c.product||c.name==='雜支';return `<label><input data-ecn="${i}" value="${esc(c.name)}" maxlength="12" ${fixed?'readonly':''} aria-label="分類名稱"><input data-ecw="${i}" value="${esc(c.words.join('、'))}" placeholder="關鍵字，用、隔開" aria-label="${esc(c.name)} 關鍵字">${fixed?'<span></span>':`<button type="button" class="x" data-ecdel="${i}" aria-label="刪除分類 ${esc(c.name)}">✕</button>`}</label>`}).join('')}</div>
     <div class="bar" style="margin-top:8px"><button class="pbtn" type="button" id="ecAdd">＋ 新增分類</button><button class="send" type="button" id="ecSave">儲存分類</button></div>
   </details>`;
+}
+// 進貨統計：這個月每個品項叫了多少、買了多少、平均進價
+function buyStatHTML(){
+  const L=(R.purchases||[]).filter(r=>r.ordered||r.bought||r.qty);
+  if(!L.length)return '';
+  const tq=(v,u)=>v?esc(qtyText(v,u)):'';
+  let last='';
+  return `<h2>進貨統計</h2>
+  <p class="sub">「已買」是採買總表的已買數量，「多買／少買」只比有記已買的那幾天；「記帳」是有寫數量的進貨（例如「高麗菜20斤 5000」），才算得出平均進價。</p>
+  <div class="rwrap"><table class="rtable"><thead><tr><th>品項</th><th>店家叫</th><th>已買</th><th>多買／少買</th><th>記帳數量</th><th>記帳金額</th><th>平均進價</th><th>最低～最高</th></tr></thead><tbody>
+  ${L.map(r=>{const d=r.diff,h=r.cat!==last?`<tr class="bcat-row"><td colspan="8">${esc(r.cat||'其他')}</td></tr>`:'';last=r.cat;
+    return h+`<tr><td>${esc(r.name)}</td><td>${tq(r.ordered,r.unit)}</td><td>${tq(r.bought,r.unit)}</td><td class="${r.bought&&d<0?'neg':''}">${r.bought?(d>0?'多 '+esc(qtyText(d,r.unit)):d<0?'少 '+esc(qtyText(-d,r.unit)):'剛好'):''}</td><td>${tq(r.qty,r.unit)}</td><td>${r.amount?money(r.amount):''}</td><td>${r.avg!=null?`$${r.avg}/${esc(r.unit)}`:''}</td><td>${r.min!=null&&r.max!==r.min?`$${r.min}～$${r.max}`:''}</td></tr>`}).join('')}
+  </tbody><tfoot><tr><td>合計</td><td></td><td></td><td></td><td></td><td>${money(L.reduce((a,r)=>a+r.amount,0))}</td><td></td><td></td></tr></tfoot></table></div>`;
 }
 function ecRead(){return [...document.querySelectorAll('[data-ecn]')].map(i=>({name:i.value.trim(),words:document.querySelector(`[data-ecw="${i.dataset.ecn}"]`).value}))}
 async function expApi(body,msg){try{if(rDirty){await api('POST',{action:'costs',month:R.month,...costPayload()});rDirty=false}const j=await api('POST',{month:R.month,...body});R={...R,...j};renderReport();if(msg)toast(msg)}catch(e){toast(e.message)}}

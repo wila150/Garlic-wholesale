@@ -286,6 +286,9 @@ async function expenseChat({ said, pb, action, store, uid, pick }) {
   // 有數量的進貨（高麗菜20斤）：順便回這樣還要買多少
   if (e.buy) {
     const it = (await shop.buyList(e.buy.date)).find((x) => x.pid === e.buy.pid);
+    const c = e.costSync;
+    r.text += `\n💲 進價 $${e.buy.cost}/${e.buy.unit}（${qtyText(e.buy.qty, e.buy.unit)} $${e.amount.toLocaleString('en-US')}）`;
+    if (c) r.text += c.times > 1 ? `\n　${label(e.buy.date)} 買了 ${c.times} 次，平均 $${c.avg}/${e.buy.unit}，已填進單價頁的進價` : `\n　已填進 ${label(e.buy.date)} 單價頁的進價`;
     r.text += it ? `\n\n🛒 ${label(e.buy.date)} ${it.name}：要 ${qtyText(it.need, it.unit)}，已買 ${qtyText(it.bought, it.unit)}${it.left ? `，還要 ${qtyText(it.left, it.unit)}` : '，✅ 買齊了'}` : `\n\n🛒 ${label(e.buy.date)} 沒有店家叫${e.buy.name}，已記成多買 ${qtyText(e.buy.qty, e.buy.unit)}`;
   }
   return r;

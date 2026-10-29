@@ -1,7 +1,7 @@
 // 報表：每日毛利、出貨重量、自訂成本項目、應收帳齡
 //   settings/costTypes  { items: [{ id, name, period: 'daily' | 'monthly' }] }
 //   costs/{YYYY-MM}     { daily: { 日期: { 項目: 金額 } }, monthly: { 項目: 金額 } }
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldPath } from 'firebase-admin/firestore';
 import { UserError } from './http.js';
 import { addDays, thisMonth } from './dates.js';
 import * as shop from './shop.js';
@@ -63,6 +63,7 @@ export async function monthReport(month) {
     ex.listExpenses(month),
     ex.getCats(),
   ]);
+  const boughtSnap = await db().collection('bought').where(FieldPath.documentId(), '>=', days[0]).where(FieldPath.documentId(), '<=', days.at(-1)).get();
   // 記帳的支出算進當天的其他成本；進貨的錢另外記，那天沒填進價才拿來當進貨成本（不重複扣）
   const spent = {}, bought = {};
   for (const e of expenses) {
@@ -95,7 +96,34 @@ export async function monthReport(month) {
     const gross = r.revenue - r.purchase;
     return { ...r, spent: spent[d] || 0, bought: bought[d] || 0, purchase: Math.round(r.purchase), kg: Math.round(r.kg * 10) / 10, other: Math.round(other), gross: Math.round(gross), net: Math.round(gross - other), missingCost: Math.round(r.missingCost) };
   });
-  return { month, days: out, costTypes, costs, expenses, expenseCats };
+  return { month, days: out, costTypes, costs, expenses, expenseCats, purchases: purchaseStats(ordersSnap, boughtSnap, expenses, products) };
+}
+
+// 進貨統計：每個品項這個月叫了多少、買了多少（採買總表的已買）、記帳花多少（有寫數量的才算得出單價）
+function purchaseStats(ordersSnap, boughtSnap, expenses, products) {
+  const pm = Object.fromEntries(products.map((p, i) => [p.id, { ...p, i }]));
+  const S = {};
+  const row = (pid, name, unit) => (S[pid] ??= { pid, name: pm[pid]?.name || name, unit: pm[pid]?.unit || unit, cat: pm[pid]?.cat || '', ordered: 0, bought: 0, diff: 0, qty: 0, amount: 0, times: 0, min: null, max: null });
+  const byDay = {}; // 每天每個品項叫了多少：多買／少買只比有記已買的那幾天
+  for (const d of ordersSnap.docs) {
+    const o = d.data();
+    for (const it of o.items) { row(it.pid, it.name, it.unit).ordered += it.qty; (byDay[o.date] ??= {})[it.pid] = (byDay[o.date][it.pid] || 0) + it.qty; }
+  }
+  for (const d of boughtSnap.docs) for (const [pid, q] of Object.entries(d.data().items || {})) {
+    if (!pm[pid] && !S[pid]) continue;
+    const r = row(pid);
+    r.bought += q; r.diff += q - (byDay[d.id]?.[pid] || 0);
+  }
+  for (const e of expenses) {
+    if (!e.buy) continue;
+    const r = row(e.buy.pid, e.buy.name, e.buy.unit), unitPrice = e.amount / e.buy.qty;
+    r.qty += e.buy.qty; r.amount += e.amount; r.times++;
+    r.min = r.min == null ? unitPrice : Math.min(r.min, unitPrice);
+    r.max = r.max == null ? unitPrice : Math.max(r.max, unitPrice);
+  }
+  const q = (v) => Math.round(v * 10000) / 10000, m = (v) => (v == null ? null : Math.round(v * 10) / 10);
+  return Object.values(S).map((r) => ({ ...r, ordered: q(r.ordered), bought: q(r.bought), diff: q(r.diff), qty: q(r.qty), avg: r.qty ? m(r.amount / r.qty) : null, min: m(r.min), max: m(r.max) }))
+    .sort((a, b) => (pm[a.pid]?.i ?? 999) - (pm[b.pid]?.i ?? 999));
 }
 
 // 應收帳齡：最近 12 個月還沒收完的金額（扣掉已經收的部分）

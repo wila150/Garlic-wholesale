@@ -6,7 +6,7 @@
 import { getFirestore } from 'firebase-admin/firestore';
 import { UserError } from './http.js';
 import { today, isDate, addDays, buyDate } from './dates.js';
-import { getCategories, getProducts, addBought } from './shop.js';
+import { getCategories, getProducts, addBought, setDayPrices } from './shop.js';
 import { roundQty } from './qty.js';
 
 const db = () => getFirestore();
@@ -148,15 +148,29 @@ export function matchBuy(item, products) {
   return null;
 }
 
+// 有數量的進貨：總金額 ÷ 數量＝這次的進價（每斤多少）
+const unitCost = (amount, qty) => Math.round((amount / qty) * 100) / 100;
+// 把那個配送日、那個品項所有有數量的進貨加權平均，填進「單價」頁的進價（報表的毛利就照實際進價算）
+async function syncCost(date, pid) {
+  const snap = await db().collection('expenses').where('buy.date', '==', date).where('buy.pid', '==', pid).get();
+  const L = snap.docs.map((d) => d.data().buy && d.data()).filter(Boolean);
+  const qty = L.reduce((a, e) => a + e.buy.qty, 0), amount = L.reduce((a, e) => a + e.amount, 0);
+  if (!(qty > 0)) return null;
+  const avg = unitCost(amount, qty);
+  await setDayPrices(date, {}, { [pid]: avg });
+  return { avg, times: L.length };
+}
+
 export async function addExpense(input, { by = '', source = 'admin' } = {}) {
   const cats = await getCats();
   const e = { id: rid(), ...normalize(input, cats), by: clean(by, 40), source, at: new Date().toISOString() };
   // 今天記的進貨：算進現在正在採買的那個配送日
   if (isPurchase(e.cat, cats) && e.date === today()) {
     const m = matchBuy(e.item, await getProducts());
-    if (m) { e.buy = { date: buyDate(), ...m }; await addBought(e.buy.date, m.pid, m.qty); }
+    if (m) { e.buy = { date: buyDate(), ...m, cost: unitCost(e.amount, m.qty) }; await addBought(e.buy.date, m.pid, m.qty); }
   }
   await db().doc('expenses/' + e.id).set(e);
+  if (e.buy) e.costSync = await syncCost(e.buy.date, e.buy.pid);
   return e;
 }
 
@@ -172,7 +186,11 @@ export async function updateExpense(id, input) {
     await addBought(old.buy.date, old.buy.pid, -old.buy.qty);
     if (m) { e.buy = { date: old.buy.date, ...m }; await addBought(e.buy.date, m.pid, m.qty); } else delete e.buy;
   }
+  if (e.buy) e.buy.cost = unitCost(e.amount, e.buy.qty);
   await r.set(e);
+  // 金額或數量改了：進價重算（原本的品項和新的品項都要）
+  if (old.buy) await syncCost(old.buy.date, old.buy.pid);
+  if (e.buy && e.buy.pid !== old.buy?.pid) await syncCost(e.buy.date, e.buy.pid);
   return e;
 }
 
@@ -182,6 +200,7 @@ export async function removeExpense(id) {
   if (!old) throw new UserError('找不到這筆帳，可能已經刪掉了', 404);
   if (old.buy) await addBought(old.buy.date, old.buy.pid, -old.buy.qty);
   await r.delete();
+  if (old.buy) await syncCost(old.buy.date, old.buy.pid);
   return old;
 }
 

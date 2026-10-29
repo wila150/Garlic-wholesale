@@ -2,6 +2,10 @@
 <html lang="zh-Hant">
 <head>
 <meta charset="UTF-8">
+<script>
+// 在 LINE 內建瀏覽器打開後台：Google 不讓在這裡登入，改用手機的 Safari／Chrome 重開
+if(/\bLine\//i.test(navigator.userAgent)&&!/openExternalBrowser=1/.test(location.search)){const u=new URL(location.href);u.searchParams.set('openExternalBrowser','1');location.replace(u.href)}
+</script>
 <script>/* 預設淺色；在後台按「深色」才切換，記在這台裝置 */try{document.documentElement.dataset.theme=localStorage.getItem('theme')==='dark'?'dark':'light';document.documentElement.dataset.palette=localStorage.getItem('palette')||'garlic'}catch(e){document.documentElement.dataset.theme='light'}</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex">
@@ -584,7 +588,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102922</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102924</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div class="sgrps">
     <div id="rulesBox">
@@ -744,7 +748,7 @@ async function api(method,body,q=''){
   return j;
 }
 // 沒權限時也登出，才能換另一個 Google 帳號
-function showLogin(msg){$('app').hidden=true;$('login').hidden=false;$('loginErr').textContent=msg||'';if(msg&&FB?.auth.currentUser)FB.signOut(FB.auth)}
+function showLogin(msg){$('app').hidden=true;$('login').hidden=false;$('loginErr').textContent=msg||(/\bLine\//i.test(navigator.userAgent)?'在 LINE 裡不能用 Google 登入：請點右上角「⋯」→「用預設瀏覽器開啟」':'');if(msg&&FB?.auth.currentUser)FB.signOut(FB.auth)}
 const may=w=>D.me.can.includes(w);
 const hasPrice=()=>may('prices')||may('bills');
 function applyPalette(p){if(!p)return;document.documentElement.dataset.palette=p;try{localStorage.setItem('palette',p)}catch{}}

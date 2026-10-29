@@ -46,7 +46,8 @@ const menus = {
       { bounds: L, action: msg('記帳') },
       { bounds: cell(0, 0), action: msg('還要買') },
       { bounds: cell(1, 0), action: msg('本月支出') },
-      { bounds: cell(0, 1), action: { type: 'uri', label: '開後台', uri: `${base}/admin` } },
+      // openExternalBrowser=1：LINE 改用 Safari／Chrome 開（LINE 內建瀏覽器不能用 Google 登入）
+      { bounds: cell(0, 1), action: { type: 'uri', label: '開後台', uri: `${base}/admin?openExternalBrowser=1` } },
       { bounds: cell(1, 1), action: msg('今日支出') },
     ],
   },

@@ -1,6 +1,7 @@
 // LINE Messaging API webhook：https://你的網址/api/webhook
 import { SHOP } from '../lib/config.js';
-import { verifySignature, reply, displayName, notifyAdmins, loading } from '../lib/line.js';
+import { verifySignature, reply, displayName, notifyAdmins, loading, adminIds } from '../lib/line.js';
+import * as ex from '../lib/expense.js';
 import { orderLink } from '../lib/token.js';
 import { originOf } from '../lib/http.js';
 import { openDate, today, addDays, label, cutoffLabel, getRulesNow } from '../lib/dates.js';
@@ -56,6 +57,13 @@ async function handle(e, origin) {
       if (err.status) return say({ type: 'text', text: err.message });
       throw err;
     }
+  }
+
+  // 記帳：老闆的 LINE（ADMIN_LINE_USER_IDS）打「油錢 500」就記一筆支出。
+  // 老闆自己也綁了測試店家的話，要加「記帳」開頭，不然會被當成叫貨
+  if (adminIds().includes(uid)) {
+    const r = await expenseChat({ said, pb, action, store, uid });
+    if (r) return say(r);
   }
 
   // 還沒開通的人
@@ -182,4 +190,58 @@ async function handle(e, origin) {
   if (action === 'aiok') { const r = await confirmDraft(uid, pb.get('id'), origin, pb.get('to') || '', pb.get('force') === '1'); return say(...(Array.isArray(r) ? r : [r])); }
 
   // 其他訊息不自動回覆，讓老闆在 LINE 官方帳號後台手動回
+}
+
+/* ---------- 記帳（老闆的 LINE） ---------- */
+const money = (n) => '$' + Math.round(n).toLocaleString('en-US');
+const mdOf = (d) => `${+d.slice(5, 7)}/${+d.slice(8, 10)}`;
+const HOWTO = '記帳直接打「品名 金額」就好，例如：\n・油錢 500\n・昨天 紙箱 800\n・10/28 付大成 12000 進貨\n@ 後面可以寫付給誰，例如「進貨 12000 @大成」。\n\n查帳打「今天支出」或「本月支出」。';
+
+function savedReply(e, cats, head = '✅ 已記帳') {
+  const others = cats.map((c) => c.name).filter((n) => n !== e.cat).slice(0, 11);
+  return {
+    type: 'text',
+    text: `${head}\n${mdOf(e.date)} ${e.item} ${money(e.amount)}${e.payee ? `（${e.payee}）` : ''}${e.note ? `\n備註：${e.note}` : ''}\n分類：${e.cat}${e.cat === ex.OTHER ? '\n分類不對的話點下面改，下次打一樣的字就會記住' : ''}`,
+    quickReply: { items: [
+      { type: 'action', action: { type: 'postback', label: '↩ 取消這筆', data: `action=expdel&id=${e.id}`, displayText: '取消這筆' } },
+      ...others.map((n) => ({ type: 'action', action: { type: 'postback', label: `改成 ${n}`.slice(0, 20), data: `action=expcat&id=${e.id}&cat=${encodeURIComponent(n)}`, displayText: `改成 ${n}` } })),
+    ] },
+  };
+}
+
+async function expenseChat({ said, pb, action, store, uid }) {
+  if (action === 'expdel') {
+    try {
+      const e = await ex.removeExpense(pb.get('id'));
+      return { type: 'text', text: `已取消：${mdOf(e.date)} ${e.item} ${money(e.amount)}` };
+    } catch (err) { if (err.status) return { type: 'text', text: err.message }; throw err; }
+  }
+  if (action === 'expcat') {
+    try {
+      const e = await ex.updateExpense(pb.get('id'), { cat: pb.get('cat') });
+      await ex.learnWord(e.item, e.cat);
+      return savedReply(e, await ex.getCats(), `已改成「${e.cat}」，下次打「${e.item}」會自動分到這裡`);
+    } catch (err) { if (err.status) return { type: 'text', text: err.message }; throw err; }
+  }
+  if (!said) return null;
+  if (/^(記帳|記帳說明|怎麼記帳)$/.test(said)) return { type: 'text', text: HOWTO };
+  const q = said.match(/^(今天|今日|昨天|本月|這個月|上個月)(支出|花費|記帳|開銷)(明細)?$/);
+  if (q) {
+    const t = today();
+    const month = q[1] === '上個月' ? addDays(t.slice(0, 7) + '-01', -1).slice(0, 7) : t.slice(0, 7);
+    const day = q[1] === '昨天' ? addDays(t, -1) : /今/.test(q[1]) ? t : null;
+    const list = (await ex.listExpenses(day ? day.slice(0, 7) : month)).filter((e) => !day || e.date === day);
+    const title = day ? `${mdOf(day)} 支出` : `${+month.slice(5)} 月支出`;
+    if (!list.length) return { type: 'text', text: `${title}：還沒有記帳。\n${HOWTO}` };
+    const sum = ex.summarize(list);
+    const detail = day ? list.map((e) => `・${e.item} ${money(e.amount)}${e.payee ? `（${e.payee}）` : ''}`) : sum.by.map(([c, v]) => `・${c} ${money(v)}`);
+    return { type: 'text', text: `${title} ${list.length} 筆，共 ${money(sum.total)}\n${detail.slice(0, 30).join('\n')}${detail.length > 30 ? '\n…' : ''}\n\n明細在後台「報表」頁` };
+  }
+  // 綁了測試店家：要「記帳」開頭才算記帳；沒綁：打「品名 金額」就記
+  const prefixed = /^(記帳|支出)\s*[:：]?\s*\S/.test(said);
+  if (store && !prefixed) return null;
+  const p = ex.parseExpenseText(said);
+  if (!p) return prefixed ? { type: 'text', text: `看不懂金額。${HOWTO}` } : null;
+  const e = await ex.addExpense(p, { by: (await displayName(uid)) || '老闆 LINE', source: 'line' });
+  return savedReply(e, await ex.getCats());
 }

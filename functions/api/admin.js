@@ -5,6 +5,7 @@ import { json, fail, readJSON, UserError } from '../lib/http.js';
 import { push } from '../lib/line.js';
 import { openDate, today, thisMonth, isDate, isMonth, cutoffLabel, getRulesNow } from '../lib/dates.js';
 import * as shop from '../lib/shop.js';
+import * as ex from '../lib/expense.js';
 import { signedIn, need, can, ROLES, listUsers, addUser, updateUser, removeUser } from '../lib/auth.js';
 import { remindText, statementMessage, approvedText, dunningText, receiptMessage } from '../lib/messages.js';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -304,6 +305,25 @@ export async function POST(request) {
       case 'costTypes':
         need(me, 'bills');
         return json({ costTypes: await report.saveCostTypes(b.costTypes) });
+      case 'expenseAdd':
+        need(me, 'bills');
+        await ex.addExpense(b, { by: me.name || me.email, source: 'admin' });
+        return json(await report.monthReport(isMonth(b.month) ? b.month : String(b.date || '').slice(0, 7)));
+      case 'expenseUpdate': {
+        need(me, 'bills');
+        const old = await ex.getExpense(b.id);
+        const e = await ex.updateExpense(b.id, b);
+        if (old && old.cat !== e.cat) await ex.learnWord(e.item, e.cat);
+        return json(await report.monthReport(isMonth(b.month) ? b.month : e.month));
+      }
+      case 'expenseRemove':
+        need(me, 'bills');
+        await ex.removeExpense(b.id);
+        return json(await report.monthReport(b.month));
+      case 'expenseCats':
+        need(me, 'bills');
+        await ex.saveCats(b.cats);
+        return json(await report.monthReport(b.month));
       case 'costs':
         need(me, 'bills');
         if (!isMonth(b.month)) throw new UserError('月份不正確');

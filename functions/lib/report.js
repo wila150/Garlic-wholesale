@@ -5,6 +5,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { UserError } from './http.js';
 import { addDays, thisMonth } from './dates.js';
 import * as shop from './shop.js';
+import * as ex from './expense.js';
 
 const db = () => getFirestore();
 const clean = (s, max) => String(s ?? '').trim().slice(0, max);
@@ -53,13 +54,18 @@ export async function saveCosts(month, input) {
 
 export async function monthReport(month) {
   const days = daysOf(month);
-  const [ordersSnap, pricesSnap, costDoc, costTypes, products] = await Promise.all([
+  const [ordersSnap, pricesSnap, costDoc, costTypes, products, expenses, expenseCats] = await Promise.all([
     db().collection('orders').where('month', '==', month).get(),
     db().collection('dayPrices').where('date', '>=', days[0]).where('date', '<=', days.at(-1)).get(),
     db().doc('costs/' + month).get(),
     getCostTypes(),
     shop.getProducts(),
+    ex.listExpenses(month),
+    ex.getCats(),
   ]);
+  // 記帳的支出算進當天的其他成本；進貨付款不算（進貨成本已經用進價算過了）
+  const spent = {};
+  for (const e of expenses) if (e.cat !== ex.PURCHASE) spent[e.date] = (spent[e.date] || 0) + e.amount;
   const dayCosts = Object.fromEntries(pricesSnap.docs.map((d) => [d.id, d.data().costs || {}]));
   const fallbackCost = Object.fromEntries(products.map((p) => [p.id, p.cost ?? null]));
   const costs = costDoc.data() || { daily: {}, monthly: {} };
@@ -81,11 +87,11 @@ export async function monthReport(month) {
   }
   const out = days.map((d) => {
     const r = rows[d];
-    const other = costTypes.filter((t) => t.period === 'daily').reduce((a, t) => a + (costs.daily?.[d]?.[t.id] || 0), 0) + monthlyTotal / days.length;
+    const other = costTypes.filter((t) => t.period === 'daily').reduce((a, t) => a + (costs.daily?.[d]?.[t.id] || 0), 0) + monthlyTotal / days.length + (spent[d] || 0);
     const gross = r.revenue - r.purchase;
-    return { ...r, purchase: Math.round(r.purchase), kg: Math.round(r.kg * 10) / 10, other: Math.round(other), gross: Math.round(gross), net: Math.round(gross - other), missingCost: Math.round(r.missingCost) };
+    return { ...r, spent: spent[d] || 0, purchase: Math.round(r.purchase), kg: Math.round(r.kg * 10) / 10, other: Math.round(other), gross: Math.round(gross), net: Math.round(gross - other), missingCost: Math.round(r.missingCost) };
   });
-  return { month, days: out, costTypes, costs };
+  return { month, days: out, costTypes, costs, expenses, expenseCats };
 }
 
 // 應收帳齡：最近 12 個月還沒收完的金額（扣掉已經收的部分）

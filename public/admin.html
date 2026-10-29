@@ -121,6 +121,19 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .bill-d .scroll{max-height:240px;overflow-y:auto;border-top:1px solid var(--line)}
 .bill-d .row{display:flex;justify-content:space-between;padding:4px 0;font-size:.9rem;border-bottom:1px dashed var(--line)}
 .bill-d .acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;align-items:center}
+.expf{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:6px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px}
+.expf input,.expf select{width:100%;min-width:0}
+.expf button{grid-column:1/-1}
+.expsum{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.expsum span{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:3px 10px;font-size:.88rem}
+.expd{font-size:.82rem;color:var(--muted);margin:10px 0 2px;font-weight:700}
+.exp{display:grid;grid-template-columns:minmax(0,1fr) auto auto 36px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:.92rem}
+.exp em{display:block;font-style:normal;color:var(--muted);font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.exp select{font-size:.85rem;padding:3px 4px;max-width:96px}
+.exp .x{border:0;background:transparent;color:var(--muted);min-height:36px}
+.ecats{display:grid;gap:6px;margin-top:8px}
+.ecats label{display:grid;grid-template-columns:88px 1fr 32px;gap:6px;align-items:center}
+.ecats input{min-width:0}
 .pays{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}
 .pays h4{margin:0 0 6px;font-size:.92rem;display:flex;justify-content:space-between}
 .pay{display:grid;grid-template-columns:auto 1fr auto auto;gap:8px;align-items:center;padding:5px 0;font-size:.9rem;border-bottom:1px dashed var(--line)}
@@ -545,7 +558,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102904</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102906</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div id="unitsSet" hidden>
     <h2>單位</h2>
@@ -863,7 +876,8 @@ function xlsReport(){
   const t=R.costTypes.filter(x=>x.period==='daily');
   const days=[['日期','店家數','出貨重量(公斤)','營收','進貨成本','毛利',...t.map(x=>x.name),'其他成本(含月攤)','淨利'],...R.days.map(d=>[d.date,d.stores,d.kg,d.revenue,d.purchase,d.gross,...t.map(x=>R.costs.daily?.[d.date]?.[x.id]??''),d.other,d.net])];
   const ar=[['店家','月份','金額'],...R.receivables.flatMap(s=>s.months.map(m=>[s.name,m.month,m.amount]))];
-  xlsx(`報表_${R.month}.xlsx`,{'每日毛利':days,'應收帳款':ar});
+  const ex=[['日期','分類','品名','付給','金額','備註','記帳人','來源'],...(R.expenses||[]).map(e=>[e.date,e.cat,e.item,e.payee||'',e.amount,e.note||'',e.by||'',e.source==='line'?'LINE':'後台'])];
+  xlsx(`報表_${R.month}.xlsx`,{'每日毛利':days,'記帳明細':ex,'應收帳款':ar});
 }
 
 /* ---------- 出貨單 ---------- */
@@ -1180,6 +1194,7 @@ function renderReport(){
     <div class="kpi"><span>應收未收</span><b class="${arOld?'neg':''}">${money(arTotal)}</b>${arOld?`<small class="neg">超過 2 個月 ${money(arOld)}</small>`:''}</div>
   </div>
   ${miss?`<p class="sub neg">有 ${money(miss)} 的營收沒有填進價，毛利會偏高。到「單價」頁補進價就會更新。</p>`:''}
+  ${expHTML()}
   <h2>成本項目</h2>
   <div class="ctypes">${R.costTypes.map(t=>`<span>${esc(t.name)}・${t.period==='daily'?'每天':'每月'}<button data-ctdel="${t.id}" aria-label="刪除 ${esc(t.name)}">✕</button></span>`).join('')||'<em class="meta">還沒有成本項目</em>'}
     <input id="ctName" placeholder="新項目，例如烘乾費" maxlength="20" aria-label="成本項目名稱"><select id="ctPeriod" aria-label="週期"><option value="daily">每天記</option><option value="monthly">每月記</option></select><button class="pbtn" id="ctAdd">新增</button></div>
@@ -1195,6 +1210,40 @@ function renderReport(){
   ${ar.length?ar.map(s=>`<div class="ar"><div><b>${esc(s.name)}</b>　<b>${money(s.total)}</b><div class="ms">${s.months.map(m=>`<span class="${m.age>=2?'old':''}">${+m.month.slice(5)} 月 ${money(m.amount)}</span>`).join('')}</div></div>
     ${s.hasLine&&may('statement')?`<button class="send" data-dun="${s.storeId}">LINE 催款</button>`:''}</div>`).join(''):'<div class="empty">沒有未收款 👍</div>'}`;
 }
+// 記帳（支出）：後台記，或老闆的 LINE 打「油錢 500」
+let ecOpen=false;
+function expHTML(){
+  const L=R.expenses||[],cats=R.expenseCats||[],PUR='進貨付款';
+  const by={};L.forEach(e=>by[e.cat]=(by[e.cat]||0)+e.amount);
+  const tot=L.reduce((a,e)=>a+e.amount,0),pur=by[PUR]||0;
+  const def=D.today.startsWith(R.month)?D.today:R.month+'-01';
+  const opt=(sel)=>cats.map(c=>`<option ${c.name===sel?'selected':''}>${esc(c.name)}</option>`).join('');
+  let last='';
+  const rows=L.slice().reverse().map(e=>{const h=e.date!==last?`<div class="expd">${dlabel(e.date)}</div>`:'';last=e.date;
+    return h+`<div class="exp"><span>${esc(e.item)}<em>${[e.payee&&'付給 '+e.payee,e.note,e.source==='line'?'LINE':'',e.by].filter(Boolean).map(esc).join('・')}</em></span>
+    <select data-expcat="${e.id}" aria-label="${esc(e.item)} 分類">${opt(e.cat)}</select><b>${money(e.amount)}</b><button class="x" data-expdel="${e.id}" aria-label="刪除 ${esc(e.item)}">✕</button></div>`}).join('');
+  return `<h2>記帳（支出）</h2>
+  <p class="sub">老闆的 LINE 也能記：直接打「油錢 500」「昨天 紙箱 800」「進貨 12000 @大成」。打「本月支出」可以查帳。</p>
+  <form class="expf" id="expForm" onsubmit="return false">
+    <input type="date" name="date" value="${def}" aria-label="日期">
+    <select name="cat" aria-label="分類"><option value="">自動分類</option>${opt('')}</select>
+    <input name="item" maxlength="30" placeholder="買了什麼，例如 油錢" aria-label="品名">
+    <input name="amount" type="number" inputmode="numeric" min="1" placeholder="金額" aria-label="金額">
+    <input name="payee" maxlength="20" placeholder="付給誰（選填）" aria-label="付給誰">
+    <input name="note" maxlength="40" placeholder="備註（選填）" aria-label="備註">
+    <button class="send" id="expAdd" type="button">記一筆</button>
+  </form>
+  ${L.length?`<div class="expsum"><span><b>${+R.month.slice(5)} 月 ${L.length} 筆 ${money(tot)}</b></span>${Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<span>${esc(c)} ${money(v)}</span>`).join('')}</div>
+  ${pur?`<p class="sub">「${PUR}」${money(pur)} 是付給供應商的錢，進貨成本已經用單價頁的進價算了，淨利不會再扣一次。</p>`:''}
+  <div class="scroll" style="max-height:420px;overflow:auto">${rows}</div>`:'<div class="empty">這個月還沒有記帳</div>'}
+  <details ${ecOpen?'open':''} id="ecBox" style="margin-top:10px"><summary>分類與關鍵字</summary>
+    <p class="sub">打的字裡有關鍵字，就自動分到那一類。分類不對時在上面改，系統會自動記住。</p>
+    <div class="ecats" id="ecats">${cats.map((c,i)=>`<label><input data-ecn="${i}" value="${esc(c.name)}" maxlength="12" ${c.name==='雜支'?'readonly':''} aria-label="分類名稱"><input data-ecw="${i}" value="${esc(c.words.join('、'))}" placeholder="關鍵字，用、隔開" aria-label="${esc(c.name)} 關鍵字">${c.name==='雜支'?'<span></span>':`<button type="button" class="x" data-ecdel="${i}" aria-label="刪除分類 ${esc(c.name)}">✕</button>`}</label>`).join('')}</div>
+    <div class="bar" style="margin-top:8px"><button class="pbtn" type="button" id="ecAdd">＋ 新增分類</button><button class="send" type="button" id="ecSave">儲存分類</button></div>
+  </details>`;
+}
+function ecRead(){return [...document.querySelectorAll('[data-ecn]')].map(i=>({name:i.value.trim(),words:document.querySelector(`[data-ecw="${i.dataset.ecn}"]`).value}))}
+async function expApi(body,msg){try{if(rDirty){await api('POST',{action:'costs',month:R.month,...costPayload()});rDirty=false}const j=await api('POST',{month:R.month,...body});R={...R,...j};renderReport();if(msg)toast(msg)}catch(e){toast(e.message)}}
 function costPayload(){
   const daily={},monthly={};
   document.querySelectorAll('[data-cd]').forEach(i=>{if(i.value!=='')(daily[i.dataset.cd]??={})[i.dataset.ct]=i.value});
@@ -1443,6 +1492,16 @@ document.addEventListener('click',async e=>{
     try{const j=await api('POST',{action:'remind',storeIds:ids});toast(`已提醒 ${j.sent}/${j.total} 家`)}catch(err){toast(err.message)}
   }
   if(b.dataset.bill){openBill=openBill===b.dataset.bill?null:b.dataset.bill;renderBills()}
+  if(b.id==='expAdd'){
+    const f=$('expForm'),v=n=>f.elements[n].value.trim();
+    if(!v('item')&&!v('cat')){toast('請填買了什麼');f.elements.item.focus();return}
+    if(!(+v('amount')>0)){toast('請填金額');f.elements.amount.focus();return}
+    expApi({action:'expenseAdd',date:v('date'),cat:v('cat'),item:v('item'),amount:+v('amount'),payee:v('payee'),note:v('note')},`已記 ${v('item')||v('cat')} ${money(+v('amount'))}`);
+  }
+  if(b.dataset.expdel){const e=R.expenses.find(x=>x.id===b.dataset.expdel);if(e&&confirm(`刪除 ${md(e.date)} ${e.item} ${money(e.amount)}？`))expApi({action:'expenseRemove',id:e.id},'已刪除')}
+  if(b.id==='ecAdd'){ecOpen=true;R.expenseCats=[...ecRead().map(c=>({name:c.name,words:c.words.split(/[、,，\s]+/).filter(Boolean)})),{name:'',words:[]}];renderReport();const ins=document.querySelectorAll('[data-ecn]');ins[ins.length-1].focus()}
+  if(b.dataset.ecdel){ecOpen=true;const c=ecRead();const n=c[+b.dataset.ecdel].name;if(confirm(`刪除分類「${n}」？已經記的帳會留著原本的分類名稱。`))expApi({action:'expenseCats',cats:c.filter((_,i)=>i!==+b.dataset.ecdel)},'已刪除分類')}
+  if(b.id==='ecSave'){ecOpen=true;expApi({action:'expenseCats',cats:ecRead()},'分類已儲存')}
   if(b.dataset.payadd){
     const sid=b.dataset.payadd,f=document.querySelector(`[data-payf="${sid}"]`),v=n=>f.querySelector(`[name=${n}]`).value;
     const amount=Math.round(+v('amount')),total=monthRows(sid).reduce((a,r)=>a+r.amount,0),P=payOf(sid,total);
@@ -1559,6 +1618,7 @@ document.addEventListener('change',async e=>{
     if(q===0&&!confirm(`「${it.name}」標成缺貨（不出貨、不計價）？`)){t.value=editText(cur,it.unit);return}
     setQty(sid,pid,q,true,'ship');
   }
+  if(t.dataset.expcat){const e=R.expenses.find(x=>x.id===t.dataset.expcat);expApi({action:'expenseUpdate',id:e.id,cat:t.value},`「${e.item}」改成${t.value}，下次會自動分到這類`)}
   if(t.dataset.urole){userAction({action:'updateUser',email:t.dataset.urole,role:t.value},'角色已更新')}
 });
 document.addEventListener('click',e=>{const im=e.target.closest('img[data-zoom]');if(im){$('paper').innerHTML=`<div class="doc"><img src="${im.src}" style="width:100%" alt="店家傳的照片"></div>`;$('pv').classList.add('on')}});

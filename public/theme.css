@@ -202,3 +202,8 @@ body.admin nav.tabs .dot{position:absolute;top:3px;left:calc(50% + 7px);margin:0
   body.admin nav.tabs button[aria-selected="true"]{background:var(--surface);color:var(--leaf);box-shadow:inset 3px 0 0 var(--leaf),0 1px 2px rgba(0,0,0,.06)}
   :root[data-theme="dark"] body.admin nav.tabs{background:transparent}
 }
+
+/* 手機：連按 ＋／－ 不要被當成「點兩下放大」；輸入框字至少 16px，iPhone 點進去才不會自動放大 */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+button,a,input,select,label,[role="button"]{touch-action:manipulation}
+body.shop input,body.shop select,body.shop textarea,body.sign input,body.sign textarea{font-size:max(16px,1em)}

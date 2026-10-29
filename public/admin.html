@@ -127,10 +127,14 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .expsum{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
 .expsum span{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:3px 10px;font-size:.88rem}
 .expd{font-size:.82rem;color:var(--muted);margin:10px 0 2px;font-weight:700}
-.exp{display:grid;grid-template-columns:minmax(0,1fr) auto auto 36px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:.92rem}
+.exped{margin:6px 0 10px;border-color:var(--leaf)}
+.exped .expbtns{grid-column:1/-1;display:flex;gap:8px;justify-content:flex-end}
+.exped .expbtns button{grid-column:auto;min-width:96px}
+.expact{display:flex}
+.exp{display:grid;grid-template-columns:minmax(0,1fr) auto auto 72px;gap:8px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:.92rem}
 .exp em{display:block;font-style:normal;color:var(--muted);font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .exp select{font-size:.85rem;padding:3px 4px;max-width:96px}
-.exp .x{border:0;background:transparent;color:var(--muted);min-height:36px}
+.exp .x{border:0;background:transparent;color:var(--muted);min-height:36px;min-width:36px;font-size:1rem}
 .ecats{display:grid;gap:6px;margin-top:8px}
 .ecats label{display:grid;grid-template-columns:88px 1fr 32px;gap:6px;align-items:center}
 .ecats input{min-width:0}
@@ -570,7 +574,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102914</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102916</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div class="sgrps">
     <div id="rulesBox">
@@ -1231,7 +1235,7 @@ function renderReport(){
     ${s.hasLine&&may('statement')?`<button class="send" data-dun="${s.storeId}">LINE 催款</button>`:''}</div>`).join(''):'<div class="empty">沒有未收款 👍</div>'}`;
 }
 // 記帳（支出）：後台記，或老闆的 LINE 打「油錢 500」
-let ecOpen=false;
+let ecOpen=false,expEdit=null;
 function expHTML(){
   const L=R.expenses||[],cats=R.expenseCats||[],isPur=c=>c==='進貨付款'||!!cats.find(x=>x.name===c)?.purchase;
   const by={};L.forEach(e=>by[e.cat]=(by[e.cat]||0)+e.amount);
@@ -1240,8 +1244,16 @@ function expHTML(){
   const opt=(sel)=>[['進貨',cats.filter(c=>c.product)],['其他支出',cats.filter(c=>!c.product)]].map(([g,l])=>l.length?`<optgroup label="${g}">${l.map(c=>`<option ${c.name===sel?'selected':''}>${esc(c.name)}</option>`).join('')}</optgroup>`:'').join('');
   let last='';
   const rows=L.slice().reverse().map(e=>{const h=e.date!==last?`<div class="expd">${dlabel(e.date)}</div>`:'';last=e.date;
+    if(expEdit===e.id)return h+`<form class="expf exped" data-expform="${e.id}" onsubmit="return false">
+      <input type="date" name="date" value="${e.date}" aria-label="日期">
+      <select name="cat" aria-label="分類">${opt(e.cat)}</select>
+      <input name="item" maxlength="30" value="${esc(e.item)}" placeholder="買了什麼" aria-label="品名">
+      <input name="amount" type="number" inputmode="numeric" min="1" value="${e.amount}" aria-label="金額">
+      <input name="payee" maxlength="20" value="${esc(e.payee||'')}" placeholder="付給誰（選填）" aria-label="付給誰">
+      <input name="note" maxlength="40" value="${esc(e.note||'')}" placeholder="備註（選填）" aria-label="備註">
+      <div class="expbtns"><button type="button" class="pbtn" data-expcancel="1">取消</button><button type="button" class="send" data-expsave="${e.id}">儲存</button></div></form>`;
     return h+`<div class="exp"><span>${esc(e.item)}<em>${[e.payee&&'付給 '+e.payee,e.note,e.source==='line'?'LINE':'',e.by].filter(Boolean).map(esc).join('・')}</em></span>
-    <select data-expcat="${e.id}" aria-label="${esc(e.item)} 分類">${opt(e.cat)}</select><b>${money(e.amount)}</b><button class="x" data-expdel="${e.id}" aria-label="刪除 ${esc(e.item)}">✕</button></div>`}).join('');
+    <select data-expcat="${e.id}" aria-label="${esc(e.item)} 分類">${opt(e.cat)}</select><b>${money(e.amount)}</b><span class="expact"><button class="x" data-expedit="${e.id}" aria-label="編輯 ${esc(e.item)}">✎</button><button class="x" data-expdel="${e.id}" aria-label="刪除 ${esc(e.item)}">✕</button></span></div>`}).join('');
   return `<h2>記帳（支出）</h2>
   <p class="sub">老闆的 LINE 也能記：直接打「油錢 500」「昨天 紙箱 800」「進貨 12000 @大成」。打「本月支出」可以查帳。</p>
   <form class="expf" id="expForm" onsubmit="return false">
@@ -1521,10 +1533,18 @@ document.addEventListener('click',async e=>{
   }
   if(b.dataset.bill){openBill=openBill===b.dataset.bill?null:b.dataset.bill;renderBills()}
   if(b.id==='expAdd'){
-    const f=$('expForm'),v=n=>f.elements[n].value.trim();
-    if(!v('item')&&!v('cat')){toast('請填買了什麼');f.elements.item.focus();return}
-    if(!(+v('amount')>0)){toast('請填金額');f.elements.amount.focus();return}
+    const f=$('expForm'),v=n=>f.querySelector(`[name=${n}]`).value.trim();
+    if(!v('item')&&!v('cat')){toast('請填買了什麼');f.querySelector('[name=item]').focus();return}
+    if(!(+v('amount')>0)){toast('請填金額');f.querySelector('[name=amount]').focus();return}
     expApi({action:'expenseAdd',date:v('date'),cat:v('cat'),item:v('item'),amount:+v('amount'),payee:v('payee'),note:v('note')},`已記 ${v('item')||v('cat')} ${money(+v('amount'))}`);
+  }
+  if(b.dataset.expedit){expEdit=b.dataset.expedit;renderReport();document.querySelector(`[data-expform="${expEdit}"] [name=item]`)?.focus()}
+  if(b.dataset.expcancel){expEdit=null;renderReport()}
+  if(b.dataset.expsave){
+    const f=document.querySelector(`[data-expform="${b.dataset.expsave}"]`),v=n=>f.querySelector(`[name=${n}]`).value.trim();
+    if(!(+v('amount')>0)){toast('請填金額');f.querySelector('[name=amount]').focus();return}
+    const id=b.dataset.expsave;expEdit=null;
+    expApi({action:'expenseUpdate',id,date:v('date'),cat:v('cat'),item:v('item'),amount:+v('amount'),payee:v('payee'),note:v('note')},'已更新');
   }
   if(b.dataset.expdel){const e=R.expenses.find(x=>x.id===b.dataset.expdel);if(e&&confirm(`刪除 ${md(e.date)} ${e.item} ${money(e.amount)}？`))expApi({action:'expenseRemove',id:e.id},'已刪除')}
   if(b.id==='ecAdd'){ecOpen=true;R.expenseCats=[...ecRead().map(c=>({name:c.name,words:c.words.split(/[、,，\s]+/).filter(Boolean)})),{name:'',words:[]}];renderReport();const ins=document.querySelectorAll('[data-ecn]');ins[ins.length-1].focus()}

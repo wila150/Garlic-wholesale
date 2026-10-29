@@ -13,7 +13,7 @@
 //   storeAliases/{店}    { items: [{ text, pid }] }：只有這家店用的叫法（例如這家說「大的」是指某個品項）
 import crypto from 'node:crypto';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
-import { DEFAULT_PRODUCTS, CATEGORIES, DEFAULT_UNITS, UNITS_VERSION, UNITS_ADDED } from './config.js';
+import { PRESET, DEFAULT_PRODUCTS, CATEGORIES, DEFAULT_UNITS, UNITS_VERSION, UNITS_ADDED } from './config.js';
 import { qtyText, roundQty } from './qty.js';
 import { UserError } from './http.js';
 import { openDate, isDate, today, addonDate, getRulesNow, cutoffLabel, addonUntilLabel } from './dates.js';
@@ -27,6 +27,7 @@ const clean = (s, max) => String(s ?? '').trim().slice(0, max);
 
 /* ---------- 品項 ---------- */
 export async function getProducts() {
+  await ensureMigrated();
   return (await data('settings/products'))?.items ?? DEFAULT_PRODUCTS;
 }
 
@@ -109,7 +110,28 @@ export async function saveUnits(input) {
 
 /* ---------- 分類（後台品項頁「分類管理」可以自己加刪）---------- */
 //   settings/categories { items: 分類清單 }
+// 舊版分類名稱改成新的（例如菜行的「根莖類」→「根莖大蔥」），品項一起改；只改還沒被老闆改過名字的
+async function migrateCategories() {
+  const map = PRESET.renamed;
+  if (!map) return;
+  const cref = doc('settings/categories'), pref = doc('settings/products');
+  await db().runTransaction(async (tx) => {
+    const [c, p] = await Promise.all([tx.get(cref), tx.get(pref)]);
+    const cats = c.data()?.items, items = p.data()?.items;
+    const hit = (x) => Object.hasOwn(map, x);
+    if (!cats?.some(hit) && !items?.some((i) => hit(i.cat))) return;
+    const list = cats ? cats.map((x) => map[x] || x) : [...CATEGORIES];
+    for (const x of CATEGORIES) if (!list.includes(x)) list.push(x); // 新增的分類（加工乾貨、百貨）也加進來
+    // 照預設的順序排（跟 POS 一樣），老闆自己加的分類放後面
+    const rank = (x) => (CATEGORIES.includes(x) ? CATEGORIES.indexOf(x) : 99);
+    tx.set(cref, { items: [...new Set(list)].sort((a, b) => rank(a) - rank(b)) });
+    if (items) tx.set(pref, { items: items.map((i) => (hit(i.cat) ? { ...i, cat: map[i.cat] } : i)) });
+  });
+}
+let migrated = null;
+const ensureMigrated = () => (migrated ??= migrateCategories().catch((e) => { migrated = null; throw e; }));
 export async function getCategories() {
+  await ensureMigrated();
   const list = (await data('settings/categories'))?.items ?? CATEGORIES;
   // 品項用到、但清單裡沒有的分類也列出來，免得品項看不到
   const extra = [...new Set((await getProducts()).map((p) => p.cat).filter((c) => c && !list.includes(c)))];

@@ -212,7 +212,7 @@ function render(){renderChips();renderList();renderBar()}
 function renderChips(){
   const cnt={};const pm=PM();Object.keys(cart).forEach(pid=>{if(cart[pid]>0&&pm[pid]){const c=pm[pid].cat;cnt[c]=(cnt[c]||0)+1}});
   const list=['常叫','全部',...D.categories];
-  $('chips').innerHTML=list.map(c=>`<button data-cat="${esc(c)}" aria-pressed="${c===cat}">${c==='常叫'?'我常叫的':esc(c)}${cnt[c]?`<span class="ct">${cnt[c]}</span>`:''}</button>`).join('');
+  $('chips').innerHTML=list.map(c=>`<button data-cat="${esc(c)}" aria-pressed="${c===cat}">${c==='常叫'?'常用':esc(c)}${cnt[c]?`<span class="ct">${cnt[c]}</span>`:''}</button>`).join('');
 }
 function visible(){
   const q=$('q').value.trim();
@@ -236,7 +236,7 @@ function renderList(){
   let h='';
   if(MODE==='order'&&cat==='常叫'&&!q&&D.last&&!Object.values(cart).some(v=>v>0))
     h+=`<div class="repeat"><span>上次叫了 ${D.last.items.length} 樣</span><button data-repeat="1">照上次叫</button></div>`;
-  h+=items.length?items.map(rowHTML).join(''):`<div class="noitem">${q?'找不到這個品項，可以在 LINE 留言告訴老闆':'還沒有常叫的品項，點「全部」或分類開始選'}</div>`;
+  h+=items.length?items.map(rowHTML).join(''):`<div class="noitem">${q?'找不到這個品項，可以在 LINE 留言告訴老闆':'還沒有常用的品項，點「全部」或分類開始選'}</div>`;
   $('plist').innerHTML=h;
 }
 function renderBar(){

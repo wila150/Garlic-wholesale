@@ -1,10 +1,12 @@
 // 記帳（支出）：老闆、會計在 LINE 打「油錢 500」「付大成 12000 進貨」，或在後台「報表」頁記一筆
 //   settings/expenseCats { items: [{ name, words: [關鍵字] }] }：分類和自動分類用的關鍵字
 //   expenses/{id}        { id, date, month, amount, cat, item, payee, note, by, source: 'line' | 'admin', at }
-// 「進貨付款」是付給供應商的錢：進貨成本已經用「單價」頁的進價算了，所以報表不再扣一次，只另外列出來
+// 進貨類的分類＝品項的分類（葉菜類、瓜果豆類…），跟品項頁同步；品名（高麗菜）會自動分到它的分類。
+// 進貨的錢：那天有填進價就用進價算進貨成本，記帳的進貨只列出來不重複扣；那天沒填進價，就用記帳的進貨當進貨成本
 import { getFirestore } from 'firebase-admin/firestore';
 import { UserError } from './http.js';
 import { today, isDate, addDays } from './dates.js';
+import { getCategories, getProducts } from './shop.js';
 
 const db = () => getFirestore();
 const clean = (s, max) => String(s ?? '').trim().slice(0, max);
@@ -18,19 +20,31 @@ const rid = () => 'x' + Date.now().toString(36) + Math.random().toString(36).sli
 export const PURCHASE = '進貨付款';
 export const OTHER = '雜支';
 export const DEFAULT_CATS = [
-  { name: PURCHASE, words: ['進貨', '批貨', '市場', '果菜', '貨款', '供應商'] },
   { name: '油錢', words: ['油錢', '加油', '汽油', '柴油', '油資'] },
   { name: '薪水', words: ['薪水', '薪資', '工資', '工讀', '員工', '獎金'] },
   { name: '房租', words: ['房租', '租金', '倉庫', '店租'] },
   { name: '水電', words: ['電費', '水費', '瓦斯', '電話費', '網路', '水電'] },
   { name: '包材', words: ['塑膠袋', '袋子', '紙箱', '箱子', '包材', '膠帶', '網袋'] },
   { name: '車子', words: ['保養', '修車', '輪胎', '停車', '過路費', 'etag', '牌照稅', '燃料稅'] },
+  { name: PURCHASE, words: ['進貨', '批貨', '市場', '果菜', '貨款', '供應商'] },
   { name: OTHER, words: [] },
 ];
 
+// 回傳 [{ name, words, purchase, product }]：品項分類在最前面（product），再來是自己的支出分類
 export async function getCats() {
-  return (await db().doc('settings/expenseCats').get()).data()?.items ?? DEFAULT_CATS;
+  const [saved, cats, products] = await Promise.all([
+    db().doc('settings/expenseCats').get().then((d) => d.data()?.items ?? DEFAULT_CATS),
+    getCategories(), getProducts(),
+  ]);
+  const learned = Object.fromEntries(saved.map((c) => [c.name, c.words || []]));
+  const aliases = (p) => (Array.isArray(p.alias) ? p.alias : String(p.alias || '').split(/[、,，]/)).map((x) => x.trim()).filter(Boolean);
+  const prod = cats.map((name) => ({
+    name, purchase: true, product: true,
+    words: [...new Set([...products.filter((p) => p.cat === name).flatMap((p) => [p.name, ...aliases(p)]), ...(learned[name] || [])])],
+  }));
+  return [...prod, ...saved.filter((c) => !cats.includes(c.name)).map((c) => ({ ...c, purchase: c.name === PURCHASE }))];
 }
+export const isPurchase = (cat, cats) => cat === PURCHASE || !!cats.find((c) => c.name === cat)?.purchase;
 
 export async function saveCats(input) {
   if (!Array.isArray(input)) throw new UserError('分類格式錯誤');
@@ -44,8 +58,11 @@ export async function saveCats(input) {
     return { name, words: [...new Set(words)].slice(0, 30) };
   });
   if (!names.has(OTHER)) list.push({ name: OTHER, words: [] }); // 認不出來的都放雜支，不能刪
-  await db().doc('settings/expenseCats').set({ items: list });
-  return list;
+  // 品項分類的關鍵字只存另外加的（品名會自動帶進來）
+  const [cats, products] = await Promise.all([getCategories(), getProducts()]);
+  const auto = new Set(products.map((p) => p.name));
+  await db().doc('settings/expenseCats').set({ items: list.map((c) => (cats.includes(c.name) ? { ...c, words: c.words.filter((w) => !auto.has(w)) } : c)) });
+  return getCats();
 }
 
 // 依品名猜分類：先比分類名稱，再比關鍵字（長的先比，「電話費」不會被「電費」搶走）
@@ -63,7 +80,7 @@ export async function learnWord(item, cat) {
   if (!w || cat === OTHER) return;
   const cats = await getCats();
   if (guessCat(w, cats) === cat) return;
-  await saveCats(cats.map((c) => ({ ...c, words: c.name === cat ? [...c.words.filter((x) => x !== w), w] : c.words.filter((x) => x !== w) })));
+  await saveCats(cats.map((c) => ({ name: c.name, words: c.name === cat ? [...c.words.filter((x) => x !== w), w] : c.words.filter((x) => x !== w) })));
 }
 
 // 「油錢 500」「昨天 加油 1,200」「10/28 付大成 12000 @大成」「記帳 紙箱 50個 800 公司用」

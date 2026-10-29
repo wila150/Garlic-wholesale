@@ -215,20 +215,28 @@ function savedReply(e, cats, head = '✅ 已記帳') {
 const modeRef = (uid) => getFirestore().doc('adminMode/' + uid);
 async function bossChat({ said, pb, action, store, uid }) {
   if (action === 'menu') {
-    await modeRef(uid).set({ mode: pb.get('to') === 'store' ? 'store' : 'boss' });
+    await modeRef(uid).set({ mode: pb.get('to') === 'store' ? 'store' : 'boss' }, { merge: true });
     return false; // 圖文選單切換，不用回覆
   }
   if (/^(老闆選單|老闆模式)$/.test(said) || /^(店家選單|店家模式)$/.test(said)) {
     const mode = /老闆/.test(said) ? 'boss' : 'store';
     await linkMenu(uid, mode);
-    await modeRef(uid).set({ mode });
+    await modeRef(uid).set({ mode }, { merge: true });
     return { type: 'text', text: mode === 'boss' ? '已切到老闆選單：打「油錢 500」就能記帳。' : '已切到店家選單，可以測試叫貨。要切回來打「老闆選單」。' };
   }
-  const mode = (await modeRef(uid).get()).data()?.mode || 'boss';
-  return expenseChat({ said, pb, action, store: mode === 'store' ? store : null, uid });
+  const m = (await modeRef(uid).get()).data() || {};
+  // 按「記帳」選了分類：10 分鐘內打的「品名 金額」記到這一類
+  const pick = m.pick && Date.now() - m.pick.at < 10 * 60e3 ? m.pick.cat : '';
+  return expenseChat({ said, pb, action, store: (m.mode || 'boss') === 'store' ? store : null, uid, pick });
 }
 
-async function expenseChat({ said, pb, action, store, uid }) {
+async function expenseChat({ said, pb, action, store, uid, pick }) {
+  if (action === 'expick') {
+    const cat = pb.get('cat') || '';
+    await modeRef(uid).set({ pick: { cat, at: Date.now() } }, { merge: true });
+    const eg = (await ex.getCats()).find((c) => c.name === cat)?.words?.[0];
+    return { type: 'text', text: `記「${cat}」：請打品名和金額，例如\n${eg ? `${eg} 1500` : `${cat} 500`}\n只打金額也可以。` };
+  }
   if (action === 'expdel') {
     try {
       const e = await ex.removeExpense(pb.get('id'));
@@ -243,7 +251,16 @@ async function expenseChat({ said, pb, action, store, uid }) {
     } catch (err) { if (err.status) return { type: 'text', text: err.message }; throw err; }
   }
   if (!said) return null;
-  if (/^(記帳|記帳說明|怎麼記帳)$/.test(said)) return { type: 'text', text: HOWTO };
+  if (/^(記帳說明|怎麼記帳)$/.test(said)) return { type: 'text', text: HOWTO };
+  // 圖文選單「記帳」：先選分類
+  if (said === '記帳') {
+    const cats = await ex.getCats();
+    return {
+      type: 'text',
+      text: '要記哪一類？點下面的分類，再打「品名 金額」。\n也可以直接打，例如「高麗菜 1500」「油錢 500」，會自動分類。',
+      quickReply: { items: cats.slice(0, 13).map((c) => ({ type: 'action', action: { type: 'postback', label: c.name.slice(0, 20), data: `action=expick&cat=${encodeURIComponent(c.name)}`, displayText: `記${c.name}` } })) },
+    };
+  }
   const q = said.match(/^(今天|今日|昨天|本月|這個月|上個月)(支出|花費|記帳|開銷)(明細)?$/);
   if (q) {
     const t = today();
@@ -258,9 +275,11 @@ async function expenseChat({ said, pb, action, store, uid }) {
   }
   // 切到店家選單（測試叫貨）時：要「記帳」開頭才算記帳；老闆選單：打「品名 金額」就記
   const prefixed = /^(記帳|支出)\s*[:：]?\s*\S/.test(said);
-  if (store && !prefixed) return null;
-  const p = ex.parseExpenseText(said);
-  if (!p) return prefixed ? { type: 'text', text: `看不懂金額。${HOWTO}` } : null;
+  if (store && !prefixed && !pick) return null;
+  // 選了分類後只打金額（「1500」）：品名就用分類名稱
+  const p = ex.parseExpenseText(said) || (pick && /^[$＄]?\s*\d[\d,]*\s*(元|塊)?$/.test(said) ? ex.parseExpenseText(`${pick} ${said}`) : null);
+  if (!p) return prefixed || pick ? { type: 'text', text: `看不懂金額。${HOWTO}` } : null;
+  if (pick) { p.cat = pick; await modeRef(uid).set({ pick: null }, { merge: true }); }
   const e = await ex.addExpense(p, { by: (await displayName(uid)) || '老闆 LINE', source: 'line' });
   return savedReply(e, await ex.getCats());
 }

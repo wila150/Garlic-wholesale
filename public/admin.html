@@ -570,7 +570,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102912</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102914</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div class="sgrps">
     <div id="rulesBox">
@@ -1233,11 +1233,11 @@ function renderReport(){
 // 記帳（支出）：後台記，或老闆的 LINE 打「油錢 500」
 let ecOpen=false;
 function expHTML(){
-  const L=R.expenses||[],cats=R.expenseCats||[],PUR='進貨付款';
+  const L=R.expenses||[],cats=R.expenseCats||[],isPur=c=>c==='進貨付款'||!!cats.find(x=>x.name===c)?.purchase;
   const by={};L.forEach(e=>by[e.cat]=(by[e.cat]||0)+e.amount);
-  const tot=L.reduce((a,e)=>a+e.amount,0),pur=by[PUR]||0;
+  const tot=L.reduce((a,e)=>a+e.amount,0),pur=L.filter(e=>isPur(e.cat)).reduce((a,e)=>a+e.amount,0);
   const def=D.today.startsWith(R.month)?D.today:R.month+'-01';
-  const opt=(sel)=>cats.map(c=>`<option ${c.name===sel?'selected':''}>${esc(c.name)}</option>`).join('');
+  const opt=(sel)=>[['進貨',cats.filter(c=>c.product)],['其他支出',cats.filter(c=>!c.product)]].map(([g,l])=>l.length?`<optgroup label="${g}">${l.map(c=>`<option ${c.name===sel?'selected':''}>${esc(c.name)}</option>`).join('')}</optgroup>`:'').join('');
   let last='';
   const rows=L.slice().reverse().map(e=>{const h=e.date!==last?`<div class="expd">${dlabel(e.date)}</div>`:'';last=e.date;
     return h+`<div class="exp"><span>${esc(e.item)}<em>${[e.payee&&'付給 '+e.payee,e.note,e.source==='line'?'LINE':'',e.by].filter(Boolean).map(esc).join('・')}</em></span>
@@ -1254,11 +1254,11 @@ function expHTML(){
     <button class="send" id="expAdd" type="button">記一筆</button>
   </form>
   ${L.length?`<div class="expsum"><span><b>${+R.month.slice(5)} 月 ${L.length} 筆 ${money(tot)}</b></span>${Object.entries(by).sort((a,b)=>b[1]-a[1]).map(([c,v])=>`<span>${esc(c)} ${money(v)}</span>`).join('')}</div>
-  ${pur?`<p class="sub">「${PUR}」${money(pur)} 是付給供應商的錢，進貨成本已經用單價頁的進價算了，淨利不會再扣一次。</p>`:''}
+  ${pur?`<p class="sub">進貨記了 ${money(pur)}：那天有在「單價」頁填進價的話，進貨成本用進價算，這裡只列出來不重複扣；沒填進價的日子，就用這裡記的進貨當進貨成本。</p>`:''}
   <div class="scroll" style="max-height:420px;overflow:auto">${rows}</div>`:'<div class="empty">這個月還沒有記帳</div>'}
   <details ${ecOpen?'open':''} id="ecBox" style="margin-top:10px"><summary>分類與關鍵字</summary>
-    <p class="sub">打的字裡有關鍵字，就自動分到那一類。分類不對時在上面改，系統會自動記住。</p>
-    <div class="ecats" id="ecats">${cats.map((c,i)=>`<label><input data-ecn="${i}" value="${esc(c.name)}" maxlength="12" ${c.name==='雜支'?'readonly':''} aria-label="分類名稱"><input data-ecw="${i}" value="${esc(c.words.join('、'))}" placeholder="關鍵字，用、隔開" aria-label="${esc(c.name)} 關鍵字">${c.name==='雜支'?'<span></span>':`<button type="button" class="x" data-ecdel="${i}" aria-label="刪除分類 ${esc(c.name)}">✕</button>`}</label>`).join('')}</div>
+    <p class="sub">打的字裡有關鍵字，就自動分到那一類。分類不對時在上面改，系統會自動記住。進貨的分類跟「品項」頁的分類一樣，品名會自動當關鍵字；要改分類名稱請到品項頁。</p>
+    <div class="ecats" id="ecats">${cats.map((c,i)=>{const fixed=c.product||c.name==='雜支';return `<label><input data-ecn="${i}" value="${esc(c.name)}" maxlength="12" ${fixed?'readonly':''} aria-label="分類名稱"><input data-ecw="${i}" value="${esc(c.words.join('、'))}" placeholder="關鍵字，用、隔開" aria-label="${esc(c.name)} 關鍵字">${fixed?'<span></span>':`<button type="button" class="x" data-ecdel="${i}" aria-label="刪除分類 ${esc(c.name)}">✕</button>`}</label>`}).join('')}</div>
     <div class="bar" style="margin-top:8px"><button class="pbtn" type="button" id="ecAdd">＋ 新增分類</button><button class="send" type="button" id="ecSave">儲存分類</button></div>
   </details>`;
 }

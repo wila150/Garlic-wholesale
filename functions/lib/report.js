@@ -63,9 +63,12 @@ export async function monthReport(month) {
     ex.listExpenses(month),
     ex.getCats(),
   ]);
-  // 記帳的支出算進當天的其他成本；進貨付款不算（進貨成本已經用進價算過了）
-  const spent = {};
-  for (const e of expenses) if (e.cat !== ex.PURCHASE) spent[e.date] = (spent[e.date] || 0) + e.amount;
+  // 記帳的支出算進當天的其他成本；進貨的錢另外記，那天沒填進價才拿來當進貨成本（不重複扣）
+  const spent = {}, bought = {};
+  for (const e of expenses) {
+    const m = ex.isPurchase(e.cat, expenseCats) ? bought : spent;
+    m[e.date] = (m[e.date] || 0) + e.amount;
+  }
   const dayCosts = Object.fromEntries(pricesSnap.docs.map((d) => [d.id, d.data().costs || {}]));
   const fallbackCost = Object.fromEntries(products.map((p) => [p.id, p.cost ?? null]));
   const costs = costDoc.data() || { daily: {}, monthly: {} };
@@ -88,8 +91,9 @@ export async function monthReport(month) {
   const out = days.map((d) => {
     const r = rows[d];
     const other = costTypes.filter((t) => t.period === 'daily').reduce((a, t) => a + (costs.daily?.[d]?.[t.id] || 0), 0) + monthlyTotal / days.length + (spent[d] || 0);
+    if (!r.purchase && bought[d]) { r.purchase = bought[d]; r.missingCost = 0; r.fromLedger = true; }
     const gross = r.revenue - r.purchase;
-    return { ...r, spent: spent[d] || 0, purchase: Math.round(r.purchase), kg: Math.round(r.kg * 10) / 10, other: Math.round(other), gross: Math.round(gross), net: Math.round(gross - other), missingCost: Math.round(r.missingCost) };
+    return { ...r, spent: spent[d] || 0, bought: bought[d] || 0, purchase: Math.round(r.purchase), kg: Math.round(r.kg * 10) / 10, other: Math.round(other), gross: Math.round(gross), net: Math.round(gross - other), missingCost: Math.round(r.missingCost) };
   });
   return { month, days: out, costTypes, costs, expenses, expenseCats };
 }

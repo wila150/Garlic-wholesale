@@ -181,3 +181,15 @@ body.shop .ctl select{height:46px;font-size:1.05rem}
 body.sign .row .q{font-size:1.25rem;font-weight:700;white-space:nowrap}
 body.sign .row .q.chg{color:var(--alert)}
 body.sign .row small.diff{color:var(--alert);font-weight:700}
+
+/* 電腦：分頁改成左側選單，內容放右邊（手機維持在上方） */
+@media (min-width:1024px){
+  body.admin .wrap{max-width:1280px;display:grid;grid-template-columns:184px minmax(0,1fr);column-gap:32px;align-items:start}
+  body.admin .wrap>header.top{grid-column:1/-1}
+  body.admin .wrap>:not(header):not(nav){grid-column:2}
+  body.admin nav.tabs{grid-column:1;grid-row:2/span 50;position:sticky;top:16px;flex-direction:column;gap:2px;margin-top:12px;padding:6px 0;overflow:visible;border-bottom:0;background:transparent;backdrop-filter:none;-webkit-backdrop-filter:none}
+  body.admin nav.tabs button{text-align:left;padding:10px 14px;border-radius:8px;font-size:.96rem}
+  body.admin nav.tabs button:hover{background:var(--surface);color:var(--ink)}
+  body.admin nav.tabs button[aria-selected="true"]{background:var(--surface);color:var(--ink);box-shadow:inset 3px 0 0 var(--leaf),0 1px 2px rgba(0,0,0,.06)}
+  :root[data-theme="dark"] body.admin nav.tabs{background:transparent}
+}

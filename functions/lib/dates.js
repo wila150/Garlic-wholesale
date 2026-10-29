@@ -45,6 +45,16 @@ export const cutoffLabel = (D) => {
 };
 export const cutoffTime = () => R.cutoff;
 
+// 現在在採買哪一天的貨：已經截單、還沒送的配送日裡最晚的那天（晚上截單後去市場買的是明天的貨）。
+// 今天的貨過了補單截止（預設中午）就算送完了，改看還在叫貨的那天
+export function buyDate() {
+  const open = openDate();
+  let pick = null;
+  for (let D = today(); D < open; D = addDays(D, 1)) if (!R.closed.includes(weekday(D))) pick = D;
+  if (pick === today() && Date.now() > addonUntilOf(pick)) pick = null;
+  return pick || open;
+}
+
 // 店家自己補單：已截單、還沒過配送當天補單截止時間的配送日（最早的那天）；沒有就回 null
 export const addonUntilOf = (D) => Date.parse(D + 'T00:00:00Z') + minutes(R.addonUntil) * 60e3 - TZ;
 export const addonUntilLabel = (D) => `${D === today() ? '今天' : md(D)} ${R.addonUntil}`;

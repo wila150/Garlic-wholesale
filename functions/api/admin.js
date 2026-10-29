@@ -112,6 +112,7 @@ export async function GET(request) {
       signatures: await signaturesOf(date),
       dayPrices: showPrices ? dayPrices : {},
       dayCosts: can(me.role, 'prices') ? await shop.getDayCosts(date) : {},
+      bought: await shop.getBought(date),
       monthRows,
       paid,
       users,
@@ -305,6 +306,9 @@ export async function POST(request) {
       case 'costTypes':
         need(me, 'bills');
         return json({ costTypes: await report.saveCostTypes(b.costTypes) });
+      case 'bought':
+        need(me, 'view');
+        return json({ bought: await shop.setBought(b.date, String(b.pid || ''), b.qty) });
       case 'expenseAdd':
         need(me, 'bills');
         await ex.addExpense(b, { by: me.name || me.email, source: 'admin' });

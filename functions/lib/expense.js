@@ -5,8 +5,9 @@
 // 進貨的錢：那天有填進價就用進價算進貨成本，記帳的進貨只列出來不重複扣；那天沒填進價，就用記帳的進貨當進貨成本
 import { getFirestore } from 'firebase-admin/firestore';
 import { UserError } from './http.js';
-import { today, isDate, addDays } from './dates.js';
-import { getCategories, getProducts } from './shop.js';
+import { today, isDate, addDays, buyDate } from './dates.js';
+import { getCategories, getProducts, addBought } from './shop.js';
+import { roundQty } from './qty.js';
 
 const db = () => getFirestore();
 const clean = (s, max) => String(s ?? '').trim().slice(0, max);
@@ -104,7 +105,7 @@ export function parseExpenseText(raw, now = today()) {
   if (at) { payee = at[1]; s = s.replace(at[0], ' '); }
   // 金額＝第一個不是數量（50個、3箱）也不是日期（7/1-8/31）的數字
   let hit = null;
-  for (const x of s.matchAll(/[$＄]?\s*(\d[\d,]*(?:\.\d+)?)\s*(個|包|箱|斤|袋|支|瓶|桶|公斤|kg|台|件|張|次|天|小時|顆|盒|捆|把|人|元|塊)?/gi)) {
+  for (const x of s.matchAll(/[$＄]?\s*(\d[\d,]*(?:\.\d+)?)\s*(個|包|箱|斤|兩|袋|支|瓶|桶|公斤|kg|台|件|張|次|天|小時|顆|盒|捆|把|人|籃|簍|紮|綑|元|塊)?/gi)) {
     const prev = s[x.index - 1] || '', next = s[x.index + x[0].length] || '';
     if (/[\/\-~～]/.test(prev + next) || (x[2] && !/元|塊/.test(x[2]))) continue;
     hit = x; break;
@@ -130,8 +131,28 @@ function normalize(input, cats) {
   return { date, month: date.slice(0, 7), amount, cat, item: item || cat, payee: clean(input.payee, 20), note: clean(input.note, 40) };
 }
 
+// 記帳的品名有品項和數量（「高麗菜20斤」「青蔥 2斤4兩」），就算成採買進度的已買；單位要跟品項一樣才算
+export function matchBuy(item, products) {
+  const t = String(item || '').replace(/\s+/g, '');
+  const names = products.flatMap((p) => [p.name, ...(Array.isArray(p.alias) ? p.alias : String(p.alias || '').split(/[、,，]/))].map((n) => [String(n).trim(), p]))
+    .filter(([n]) => n && t.includes(n)).sort((a, b) => b[0].length - a[0].length);
+  for (const [n, p] of names) {
+    const rest = t.slice(t.indexOf(n) + n.length);
+    const m = p.unit === '斤' ? rest.match(/^(?:(\d+(?:\.\d+)?)斤)?(?:(\d+)兩)?/) : rest.match(new RegExp(`^(\\d+(?:\\.\\d+)?)${p.unit.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`));
+    const q = p.unit === '斤' ? (m && (m[1] || m[2]) ? (+m[1] || 0) + (+m[2] || 0) / 16 : 0) : m ? +m[1] : 0;
+    if (q > 0) return { pid: p.id, name: p.name, unit: p.unit, qty: roundQty(q) };
+  }
+  return null;
+}
+
 export async function addExpense(input, { by = '', source = 'admin' } = {}) {
-  const e = { id: rid(), ...normalize(input, await getCats()), by: clean(by, 40), source, at: new Date().toISOString() };
+  const cats = await getCats();
+  const e = { id: rid(), ...normalize(input, cats), by: clean(by, 40), source, at: new Date().toISOString() };
+  // 今天記的進貨：算進現在正在採買的那個配送日
+  if (isPurchase(e.cat, cats) && e.date === today()) {
+    const m = matchBuy(e.item, await getProducts());
+    if (m) { e.buy = { date: buyDate(), ...m }; await addBought(e.buy.date, m.pid, m.qty); }
+  }
   await db().doc('expenses/' + e.id).set(e);
   return e;
 }
@@ -140,7 +161,14 @@ export async function updateExpense(id, input) {
   const r = ref(id);
   const old = (await r.get()).data();
   if (!old) throw new UserError('找不到這筆帳，可能已經刪掉了', 404);
-  const e = { ...old, ...normalize({ ...old, ...input }, await getCats()) };
+  const cats = await getCats();
+  const e = { ...old, ...normalize({ ...old, ...input }, cats) };
+  // 品名或數量改了：採買進度跟著改（先扣掉舊的，再加新的，配送日不變）
+  const m = old.buy && isPurchase(e.cat, cats) ? matchBuy(e.item, await getProducts()) : null;
+  if (old.buy && (m?.pid !== old.buy.pid || m?.qty !== old.buy.qty)) {
+    await addBought(old.buy.date, old.buy.pid, -old.buy.qty);
+    if (m) { e.buy = { date: old.buy.date, ...m }; await addBought(e.buy.date, m.pid, m.qty); } else delete e.buy;
+  }
   await r.set(e);
   return e;
 }
@@ -149,6 +177,7 @@ export async function removeExpense(id) {
   const r = ref(id);
   const old = (await r.get()).data();
   if (!old) throw new UserError('找不到這筆帳，可能已經刪掉了', 404);
+  if (old.buy) await addBought(old.buy.date, old.buy.pid, -old.buy.qty);
   await r.delete();
   return old;
 }

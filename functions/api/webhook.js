@@ -5,7 +5,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import * as ex from '../lib/expense.js';
 import { orderLink } from '../lib/token.js';
 import { originOf } from '../lib/http.js';
-import { openDate, today, addDays, label, cutoffLabel, getRulesNow } from '../lib/dates.js';
+import { openDate, today, addDays, label, cutoffLabel, getRulesNow, buyDate } from '../lib/dates.js';
 import { qtyText } from '../lib/qty.js';
 import * as shop from '../lib/shop.js';
 import { welcome, orderMessage, orderCard, myOrders, addonCard, flex } from '../lib/messages.js';
@@ -252,6 +252,7 @@ async function expenseChat({ said, pb, action, store, uid, pick }) {
   }
   if (!said) return null;
   if (/^(記帳說明|怎麼記帳)$/.test(said)) return { type: 'text', text: HOWTO };
+  if (/^(還要買|還要買什麼|採買|採買清單|還缺什麼|要買什麼)$/.test(said)) return buyText();
   // 圖文選單「記帳」：先選分類
   if (said === '記帳') {
     const cats = await ex.getCats();
@@ -281,5 +282,26 @@ async function expenseChat({ said, pb, action, store, uid, pick }) {
   if (!p) return prefixed || pick ? { type: 'text', text: `看不懂金額。${HOWTO}` } : null;
   if (pick) { p.cat = pick; await modeRef(uid).set({ pick: null }, { merge: true }); }
   const e = await ex.addExpense(p, { by: (await displayName(uid)) || '老闆 LINE', source: 'line' });
-  return savedReply(e, await ex.getCats());
+  const r = savedReply(e, await ex.getCats());
+  // 有數量的進貨（高麗菜20斤）：順便回這樣還要買多少
+  if (e.buy) {
+    const it = (await shop.buyList(e.buy.date)).find((x) => x.pid === e.buy.pid);
+    r.text += it ? `\n\n🛒 ${label(e.buy.date)} ${it.name}：要 ${qtyText(it.need, it.unit)}，已買 ${qtyText(it.bought, it.unit)}${it.left ? `，還要 ${qtyText(it.left, it.unit)}` : '，✅ 買齊了'}` : `\n\n🛒 ${label(e.buy.date)} 沒有店家叫${e.buy.name}，已記成多買 ${qtyText(e.buy.qty, e.buy.unit)}`;
+  }
+  return r;
+}
+
+// 「還要買」：現在採買的配送日，還沒買齊的品項
+async function buyText() {
+  const D = buyDate();
+  const list = await shop.buyList(D);
+  if (!list.length) return { type: 'text', text: `${label(D)} 還沒有店家叫貨。` };
+  const left = list.filter((x) => x.left > 0), done = list.length - left.length;
+  if (!left.length) return { type: 'text', text: `✅ ${label(D)} 的 ${list.length} 樣都買齊了！` };
+  const lines = left.map((x) => `・${x.name} ${qtyText(x.left, x.unit)}${x.bought ? `（要 ${qtyText(x.need, x.unit)}，已買 ${qtyText(x.bought, x.unit)}）` : ''}`);
+  return {
+    type: 'text',
+    text: `🛒 ${label(D)} 還要買 ${left.length} 樣${done ? `（已買齊 ${done} 樣）` : ''}：\n${lines.slice(0, 40).join('\n')}${lines.length > 40 ? '\n…' : ''}\n\n買了就記帳，例如「${left[0].name}${qtyText(left[0].left, left[0].unit).replace(' ', '')} 金額」，會自動扣掉。`,
+    quickReply: { items: [{ type: 'action', action: { type: 'message', label: '🔄 再看一次', text: '還要買' } }] },
+  };
 }

@@ -24,7 +24,7 @@ const q = new URLSearchParams(location.search), boss = q.get('m') === 'boss', ic
 document.body.className = boss ? 'boss' : '';
 document.body.innerHTML = boss ? `
 <div class="c big"><div class="ic">📒</div><div class="t">記帳</div></div>
-<div class="c a"><div class="ic">💰</div><div class="t">今天支出</div></div>
+<div class="c a"><div class="ic">🛒</div><div class="t">還要買</div></div>
 <div class="c b"><div class="ic">📊</div><div class="t">本月支出</div></div>
 <div class="c d"><div class="ic">🖥</div><div class="t">開後台</div></div>
 <div class="c a"><div class="ic">${icon}</div><div class="t">店家模式</div><div class="s">測試叫貨用</div></div>` : `

@@ -82,6 +82,16 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .brow .qty small{font-size:.9rem;color:var(--chalk);margin-left:3px;font-weight:500}
 .bdetail{padding:4px 6px 12px 18px;font-size:.92rem;color:var(--chalk-dim)}
 .bdetail div{display:flex;justify-content:space-between;max-width:320px}
+.bdetail .bbuy{display:flex;gap:8px;align-items:center;justify-content:flex-start;max-width:none;margin:2px 0 10px;color:var(--ink)}
+.bbuy label{display:flex;align-items:center;gap:6px;font-weight:700}
+.bbuy input{width:96px}
+.buybar{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 6px;font-size:.95rem}
+.buybar b{color:var(--alert);font-size:1.1rem}
+.buybar .pbtn[aria-pressed="true"]{background:var(--leaf);color:#fff;border-color:var(--leaf)}
+.brow em{font-style:normal;margin-left:8px;font-weight:700}
+.brow .bleft{color:var(--alert)}
+.brow .bok{color:var(--leaf)}
+.brow.done .nm,.brow.done .qty{opacity:.45}
 .missing{margin-top:14px;padding:12px 14px;border-left:4px solid var(--alert);background:var(--surface);border-radius:0 8px 8px 0}
 .missing b{color:var(--alert)}
 .missing button{margin-top:8px}
@@ -574,7 +584,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102916</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 102918</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div class="sgrps">
     <div id="rulesBox">
@@ -801,17 +811,26 @@ function totals(){
   D.orders.forEach(o=>o.items.forEach(i=>{(m[i.pid]??={pid:i.pid,name:i.name,unit:i.unit,qty:0,rows:[]}).qty+=i.qty;m[i.pid].rows.push({sid:o.storeId,qty:i.qty})}));
   return sortItems(Object.values(m));
 }
+// 採買進度：已買多少（後台填，或老闆在 LINE 記帳「高麗菜20斤 5000」自動加）
+let onlyLeft=false;
+const boughtOf=pid=>+(D.bought?.[pid]||0);
 function renderBoard(){
   const T=totals(),sm=SM(),pm=PM();
+  const leftOf=t=>Math.max(0,Math.round((t.qty-boughtOf(t.pid))*10000)/10000);
+  const nLeft=T.filter(t=>leftOf(t)>0).length,anyBought=T.some(t=>boughtOf(t.pid)>0);
   let h=`<div class="board-head"><b>${md(D.date)} 採買單</b><span>${D.orders.length} 家店，${T.length} 個品項</span></div>`;
+  if(T.length)h+=`<div class="buybar"><span>${nLeft?`還要買 <b>${nLeft}</b> 樣`:'✅ 全部買齊了'}${anyBought&&nLeft?`・已買齊 ${T.length-nLeft} 樣`:''}</span><button class="pbtn" data-onlyleft="1" aria-pressed="${onlyLeft}">${onlyLeft?'顯示全部':'只看還沒買齊'}</button></div>`;
   if(!T.length)h+=`<p style="padding:16px 6px;color:var(--chalk-dim)">還沒有店家叫貨。</p>`;
   let last='';
   T.forEach(t=>{
+    const left=leftOf(t),got=boughtOf(t.pid);
+    if(onlyLeft&&!left)return;
     const c=pm[t.pid]?.cat||'其他';
     if(c!==last){h+=`<div class="bcat">${esc(c)}</div>`;last=c}
     const open=openRow===t.pid;
-    h+=`<button class="brow" data-row="${t.pid}" aria-expanded="${open}"><span class="nm">${esc(t.name)}<small>${t.rows.length} 家叫貨</small></span><span class="qty">${qtyHTML(t.qty,t.unit)}</span></button>`;
-    if(open)h+=`<div class="bdetail">${t.rows.sort((a,b)=>(sm[a.sid]?.route||99)-(sm[b.sid]?.route||99)).map(r=>`<div><span>${esc(sm[r.sid]?.name||'（已刪除的店家）')}</span><span>${esc(qtyText(r.qty,t.unit))}</span></div>`).join('')}</div>`;
+    const st=!got?'':!left?'<em class="bok">✓ 買齊</em>':`<em class="bleft">已買 ${esc(qtyText(got,t.unit))}・還要 ${esc(qtyText(left,t.unit))}</em>`;
+    h+=`<button class="brow ${got&&!left?'done':''}" data-row="${t.pid}" aria-expanded="${open}"><span class="nm">${esc(t.name)}<small>${t.rows.length} 家叫貨${st}</small></span><span class="qty">${qtyHTML(t.qty,t.unit)}</span></button>`;
+    if(open)h+=`<div class="bdetail"><div class="bbuy"><label>已買<input data-bought="${t.pid}" type="text" inputmode="decimal" value="${got?esc(editText(got,t.unit)):''}" placeholder="0" aria-label="${esc(t.name)} 已買"></label><small>${esc(t.unit)}</small><button class="pbtn" data-buyall="${t.pid}">${left?'買齊了':'清除'}</button></div>${t.rows.sort((a,b)=>(sm[a.sid]?.route||99)-(sm[b.sid]?.route||99)).map(r=>`<div><span>${esc(sm[r.sid]?.name||'（已刪除的店家）')}</span><span>${esc(qtyText(r.qty,t.unit))}</span></div>`).join('')}</div>`;
   });
   $('boardBox').innerHTML=h;
   const ordered=new Set(D.orders.map(o=>o.storeId));
@@ -1326,6 +1345,9 @@ function renderPalettes(){queueMicrotask(setHints);
   const cur=D.rules?.palette||'garlic';
   $('palBox').innerHTML=PALS.map(([k,n,d,c])=>`<button class="pal" data-pal="${k}" aria-pressed="${k===cur}"><span class="sw3">${c.map(x=>`<i style="background:${x}"></i>`).join('')}</span><b>${n}${k===cur?'　✓':''}</b><small>${d}</small></button>`).join('');
 }
+async function saveBought(pid,qty){
+  try{const j=await api('POST',{action:'bought',date:D.date,pid,qty});D.bought=j.bought;renderBoard()}catch(e){toast(e.message)}
+}
 async function choosePalette(k){
   const old=D.rules.palette;applyPalette(k);D.rules.palette=k;renderPalettes();
   try{await api('POST',{action:'palette',palette:k});toast(`已換成「${PALS.find(p=>p[0]===k)[1]}」，店家叫貨頁也會一起換`)}catch(e){applyPalette(old);D.rules.palette=old;renderPalettes();toast(e.message)}
@@ -1518,6 +1540,8 @@ document.addEventListener('click',async e=>{
   if(b.dataset.day){date=addDays(D.date,+b.dataset.day);openRow=null;load()}
   if(b.dataset.month){month=addMonths(D.month,+b.dataset.month);openBill=null;load()}
   if(b.dataset.row){openRow=openRow===b.dataset.row?null:b.dataset.row;renderBoard()}
+  if(b.dataset.onlyleft){onlyLeft=!onlyLeft;renderBoard()}
+  if(b.dataset.buyall){const t=totals().find(x=>x.pid===b.dataset.buyall);saveBought(t.pid,boughtOf(t.pid)>=t.qty?0:t.qty)}
   if(b.dataset.step){const o=orderOf(b.dataset.sid);const it=o.items.find(i=>i.pid===b.dataset.pid);const d=+b.dataset.step,q=billQty(it);setQty(b.dataset.sid,b.dataset.pid,d<0&&q<1?0:q+d,true,'ship')}
   if(b.dataset.additem||b.dataset.newslip){
     const k=b.dataset.additem||b.dataset.newslip,pid=$('add-'+k).value,q=parseQty($('addq-'+k).value,PM()[pid]?.unit);
@@ -1666,6 +1690,7 @@ document.addEventListener('change',async e=>{
     if(q===0&&!confirm(`「${it.name}」標成缺貨（不出貨、不計價）？`)){t.value=editText(cur,it.unit);return}
     setQty(sid,pid,q,true,'ship');
   }
+  if(t.dataset.bought){const it=totals().find(x=>x.pid===t.dataset.bought),raw=t.value.trim(),q=raw===''?0:parseQty(raw,it.unit);if(raw&&!(q>0)){toast('數量看不懂，例如 20 或 2斤4兩');return}saveBought(it.pid,q)}
   if(t.dataset.expcat){const e=R.expenses.find(x=>x.id===t.dataset.expcat);expApi({action:'expenseUpdate',id:e.id,cat:t.value},`「${e.item}」改成${t.value}，下次會自動分到這類`)}
   if(t.dataset.urole){userAction({action:'updateUser',email:t.dataset.urole,role:t.value},'角色已更新')}
 });

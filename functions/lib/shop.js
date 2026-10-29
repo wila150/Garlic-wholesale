@@ -10,6 +10,7 @@
 //   paid/{YYYY-MM}      { stores: { 店: { list: [{ id, amount, date, method, note, by, at }] } } }：這個月貨款的每一筆收款（舊資料只有 { at }＝整月收清）
 //   settings/priceGroups { items: 報價組 }：店家 groupId 對到這裡，決定拿基本價的幾折或固定價
 //   users/{uid}         後台帳號的角色（見 lib/auth.js）
+//   bought/{日期}        { items: { pid: 數量 } }：採買進度，這個配送日的貨已經買了多少
 //   storeAliases/{店}    { items: [{ text, pid }] }：只有這家店用的叫法（例如這家說「大的」是指某個品項）
 import crypto from 'node:crypto';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
@@ -739,4 +740,28 @@ export async function removePayment(month, sid, id) {
     tx.set(ref, { stores: { [sid]: next.length ? { list: next } : FieldValue.delete() } }, { merge: true });
   });
   return getPaid(month);
+}
+
+/* ---------- 採買進度：這個配送日每個品項要多少、已經買了多少 ---------- */
+export const getBought = async (date) => (await data('bought/' + date))?.items || {};
+export async function setBought(date, pid, qty) {
+  if (!isDate(date)) throw new UserError('日期不正確');
+  const q = roundQty(Math.max(0, Number(qty) || 0));
+  await doc('bought/' + date).set({ items: { [clean(pid, 40)]: q || FieldValue.delete() } }, { merge: true });
+  return getBought(date);
+}
+export async function addBought(date, pid, qty) {
+  await doc('bought/' + date).set({ items: { [pid]: FieldValue.increment(roundQty(qty)) } }, { merge: true });
+}
+// 還要買多少：叫貨數量加總（以單位為準）減掉已買
+export async function buyList(date) {
+  const [orders, bought, products] = await Promise.all([ordersOfDate(date), getBought(date), getProducts()]);
+  const need = {};
+  for (const o of orders) for (const it of o.items) {
+    const n = (need[it.pid] ??= { pid: it.pid, name: it.name, unit: it.unit, need: 0, stores: 0 });
+    n.need = roundQty(n.need + it.qty); n.stores++;
+  }
+  const rank = Object.fromEntries(products.map((p, i) => [p.id, i]));
+  return Object.values(need).map((n) => ({ ...n, bought: roundQty(bought[n.pid] || 0), left: roundQty(Math.max(0, n.need - (bought[n.pid] || 0))) }))
+    .sort((a, b) => (rank[a.pid] ?? 999) - (rank[b.pid] ?? 999));
 }

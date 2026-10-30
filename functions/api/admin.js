@@ -314,7 +314,8 @@ export async function POST(request) {
       case 'proxyLink': {
         need(me, 'editOrders');
         const s = await store();
-        return json({ url: `${originOf(request)}/?t=${sign('store:' + s.id)}&proxy=1` });
+        const d = String(b.draftId || '').replace(/[^\w-]/g, '');
+        return json({ url: `${originOf(request)}/?t=${sign('store:' + s.id)}&proxy=1${d ? `&d=${d}` : ''}` });
       }
       case 'bought':
         need(me, 'view');

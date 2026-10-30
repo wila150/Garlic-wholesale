@@ -6,6 +6,8 @@
     "emulators": "firebase emulators:start",
     "seed": "node scripts/seed.js",
     "link": "node scripts/link.js",
-    "deploy": "firebase deploy"
+    "deploy": "echo '請指定要部署哪一家：npm run deploy:veg（菜行）或 npm run deploy:garlic（蒜頭行）' && exit 1",
+    "deploy:veg": "firebase deploy --project veg",
+    "deploy:garlic": "firebase deploy --project garlic"
   }
 }

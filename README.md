@@ -62,7 +62,9 @@ cp functions/.env.example functions/.env   # 填 OWNER_EMAILS（你自己的 Ema
 firebase functions:secrets:set LINE_CHANNEL_SECRET
 firebase functions:secrets:set LINE_CHANNEL_ACCESS_TOKEN
 firebase functions:secrets:set NVIDIA_API_KEY      # AI 叫貨用（build.nvidia.com）
-firebase deploy
+npm run deploy:veg      # 菜行（caihang-order）
+npm run deploy:garlic   # 蒜頭行（garlic-wholesale）
+# 兩家分開部署：改了先上一家、確認沒問題再上另一家；不要直接打 firebase deploy（預設是蒜頭行）
 ```
 
 ### 3. 老闆帳號

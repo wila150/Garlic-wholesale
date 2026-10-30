@@ -24,6 +24,12 @@ async function statement(month, storeId) {
   return { rows, total, got: shop.paidSum(paid[storeId], total) };
 }
 
+// 錢櫃、日結改完回傳：當天的錢櫃紀錄、交易小計、應有現金
+async function posDayPayload(day) {
+  const sum = pos.summary(await pos.salesOf(today()));
+  return { day, summary: sum, expected: pos.expectedCash(day, sum) };
+}
+
 // 店家在 LINE 回報的問題：還沒處理的全部列出來
 async function openIssues() {
   const snap = await getFirestore().collection('issues').where('status', '==', 'open').get();
@@ -73,14 +79,28 @@ export async function GET(request) {
     if (q.has('pos')) {
       need(me, 'pos');
       const d = isDate(q.get('pos')) ? q.get('pos') : today();
-      const [products, categories, sales] = await Promise.all([shop.getProducts(), shop.getCategories(), pos.salesOf(d)]);
+      const [products, categories, sales, day, holds, stock, customers] = await Promise.all([shop.getProducts(), shop.getCategories(), pos.salesOf(d), pos.getDay(d), pos.listHolds(), pos.getStock(), pos.listCustomers()]);
+      const sum = pos.summary(sales);
       return json({
+        day, expected: pos.expectedCash(day, sum), holds, stock, customers,
         me: { email: me.email, name: me.name, roleName: ROLES[me.role] },
         shop: { name: SHOP.name, phone: SHOP.phone, logo: SHOP.logo },
         palette: getRulesNow().palette, today: today(), date: d, pay: pos.PAY,
         categories, products: products.filter((p) => p.on).map((p) => ({ id: p.id, cat: p.cat, name: p.name, unit: p.unit, price: pos.retailOf(p), liang: p.liang !== false && getRulesNow().liang !== false })),
-        sales, summary: pos.summary(sales),
+        sales, summary: sum,
       });
+    }
+    // 交易紀錄：查任何一天
+    if (q.has('posday')) {
+      need(me, 'pos');
+      const d = q.get('posday');
+      const [sales, day] = await Promise.all([pos.salesOf(d), pos.getDay(d)]);
+      const sum = pos.summary(sales);
+      return json({ date: d, sales, summary: sum, day, expected: pos.expectedCash(day, sum) });
+    }
+    if (q.has('stockmoves')) {
+      need(me, 'pos');
+      return json({ moves: await pos.stockMoves(80) });
     }
     if (q.get('ai')) {
       need(me, 'editOrders');
@@ -355,6 +375,33 @@ export async function POST(request) {
       case 'posCheckout':
         need(me, 'pos');
         return json({ sale: await pos.checkout(b, me.name || me.email) });
+      case 'posOpen':
+        need(me, 'pos');
+        return json(await posDayPayload(await pos.openShift(b.cash, me.name || me.email)));
+      case 'posCash':
+        need(me, 'pos');
+        return json(await posDayPayload(await pos.cashMove(b.type, b.amount, b.note, me.name || me.email)));
+      case 'posClose':
+        need(me, 'pos');
+        return json(await posDayPayload(await pos.closeShift(b.counted, b.note, me.name || me.email)));
+      case 'posReopen':
+        need(me, 'pos');
+        return json(await posDayPayload(await pos.reopenShift()));
+      case 'posHold':
+        need(me, 'pos');
+        return json({ holds: await pos.hold(b, me.name || me.email) });
+      case 'posHoldDel':
+        need(me, 'pos');
+        return json({ holds: await pos.dropHold(b.id) });
+      case 'posStock':
+        need(me, 'pos');
+        return json({ stock: await pos.stockChange(b, me.name || me.email) });
+      case 'posCustomer':
+        need(me, 'pos');
+        return json({ customers: await pos.saveCustomer(b) });
+      case 'posCustomerDel':
+        need(me, 'pos');
+        return json({ customers: await pos.deleteCustomer(b.id) });
       case 'posVoid': {
         need(me, 'pos');
         const s = await pos.voidSale(b.id, me.name || me.email, b.reason);

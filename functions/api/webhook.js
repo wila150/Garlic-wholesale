@@ -12,6 +12,7 @@ import { welcome, orderMessage, orderCard, myOrders, addonCard, flex } from '../
 import { looksLikeOrder } from '../lib/ai.js';
 import { queue, confirmDraft, aiQuotaOk } from '../lib/aiorder.js';
 import { storeChat } from './storechat.js';
+import { bossInfo } from './bosschat.js';
 
 export async function POST(request) {
   const raw = await request.text();
@@ -228,6 +229,9 @@ async function bossChat({ said, pb, action, store, uid }) {
     await modeRef(uid).set({ mode }, { merge: true });
     return { type: 'text', text: mode === 'boss' ? '已切到老闆選單：打「油錢 500」就能記帳。' : '已切到店家選單，可以測試叫貨。要切回來打「老闆選單」。' };
   }
+  // 今日訂單、未收帳款（老闆選單和店家選單都能查）
+  const info = await bossInfo({ said, pb, action });
+  if (info) return info;
   const m = (await modeRef(uid).get()).data() || {};
   // 按「記帳」選了分類：10 分鐘內打的「品名 金額」記到這一類
   const pick = m.pick && Date.now() - m.pick.at < 10 * 60e3 ? m.pick.cat : '';

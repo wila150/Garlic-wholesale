@@ -1,6 +1,6 @@
 // 建立 LINE 圖文選單（會刪掉舊的選單）：
 //   店家選單：所有人的預設（我要叫貨、拍照叫貨、照上次叫、我的訂單、我的帳款、回報問題）
-//   老闆選單：只套用在 ADMIN_LINE_USER_IDS（記帳、還要買、本月支出、開後台、今日支出）；要測試叫貨打「店家選單」，切回來打「老闆選單」
+//   老闆選單：只套用在 ADMIN_LINE_USER_IDS（記帳、還要買、今日訂單、未收帳款、今日支出、開後台）；要測試叫貨打「店家選單」，切回來打「老闆選單」
 // 先產生圖片：node scripts/richmenu/render.mjs veg
 // 再建立：LINE_CHANNEL_ACCESS_TOKEN=… node scripts/richmenu/setup.mjs caihang-order
 //   （第二個參數是 Firebase 專案，用來讀 functions/.env.<專案> 的 BASE_URL、ADMIN_LINE_USER_IDS）
@@ -24,10 +24,8 @@ const api = async (url, opt = {}) => {
 };
 const json = (body) => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
-// 圖片 2500×1686，三欄一樣寬（833／833／834）。老闆選單左邊一整欄是大格
+// 圖片 2500×1686，兩個選單都是 2 排 × 3 格，三欄一樣寬（833／833／834）
 const X = [0, 833, 1666], W = [833, 833, 834];
-const L = { x: 0, y: 0, width: 833, height: 1686 };
-const cell = (col, row) => ({ x: X[col + 1], y: row * 843, width: W[col + 1], height: 843 });
 const msg = (text) => ({ type: 'message', label: text, text });
 
 const menus = {
@@ -40,14 +38,10 @@ const menus = {
   },
   boss: {
     size: { width: 2500, height: 1686 }, selected: true, name: '老闆選單', chatBarText: '老闆選單',
-    areas: [
-      { bounds: L, action: msg('記帳') },
-      { bounds: cell(0, 0), action: msg('還要買') },
-      { bounds: cell(1, 0), action: msg('本月支出') },
-      // openExternalBrowser=1：LINE 改用 Safari／Chrome 開（LINE 內建瀏覽器不能用 Google 登入）
-      { bounds: cell(0, 1), action: { type: 'uri', label: '開後台', uri: `${base}/admin?openExternalBrowser=1` } },
-      { bounds: cell(1, 1), action: msg('今日支出') },
-    ],
+    // 2 排 × 3 格；開後台用 openExternalBrowser=1，LINE 改用 Safari／Chrome 開（LINE 內建瀏覽器不能用 Google 登入）
+    areas: [msg('記帳'), msg('還要買'), msg('今日訂單'), msg('未收帳款'), msg('今日支出'), { type: 'uri', label: '開後台', uri: `${base}/admin?openExternalBrowser=1` }].map((action, i) => ({
+      bounds: { x: X[i % 3], y: i < 3 ? 0 : 843, width: W[i % 3], height: 843 }, action,
+    })),
   },
 };
 

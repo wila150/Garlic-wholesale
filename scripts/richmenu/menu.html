@@ -42,7 +42,7 @@ const I = {
 const cell = (icon, text, cls = '') => `<div class="c ${cls}"><div class="ic"><svg viewBox="0 0 24 24">${I[icon]}</svg></div><div class="t">${text}</div></div>`;
 document.body.className = boss ? 'boss' : 'store';
 document.body.insertAdjacentHTML('beforeend', boss
-  ? cell('book', '記帳', 'hot big') + cell('cart', '還要買') + cell('chart', '本月支出') + cell('screen', '開後台') + cell('coins', '今日支出')
+  ? cell('book', '記帳', 'hot') + cell('cart', '還要買') + cell('list', '今日訂單') + cell('wallet', '未收帳款') + cell('coins', '今日支出') + cell('screen', '開後台')
   : cell(veg ? 'leaf' : 'garlic', '我要叫貨', 'hot') + cell('camera', '拍照叫貨') + cell('repeat', '照上次叫') + cell('list', '我的訂單') + cell('wallet', '我的帳款') + cell('alert', '回報問題', 'warn'));
 </script>
 </body></html>

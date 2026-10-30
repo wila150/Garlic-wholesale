@@ -365,6 +365,7 @@ export async function saveStores(input) {
       address: clean(s.address, 80),
       on: s.on !== false,
       groupId: clean(s.groupId, 30),
+      pay: s.pay === 'cash' ? 'cash' : 'month', // 付款方式：month 月結（月底對帳單一次付）、cash 現結（每次送貨付）
       members: old.get(s.id)?.members || [], // 綁定的 LINE 帳號只能用開通／解除改
       ...(old.get(s.id)?.invite ? { invite: old.get(s.id).invite } : {}), // 綁定 QR Code
     };
@@ -528,6 +529,11 @@ export async function ordersOfDate(date, { withEmpty = false } = {}) {
 export async function lastOrder(sid, date) {
   const snap = await db().collection('orders').where('storeId', '==', sid).where('date', '<', date).orderBy('date', 'desc').limit(5).get();
   return snap.docs.map((d) => d.data()).find((o) => o.items.length) ?? null;
+}
+
+// 這家店這個月到 date 為止累計多少（月結的出貨單上寫「本月累計」）
+export async function monthSoFar(storeId, date) {
+  return (await monthAmounts(date.slice(0, 7))).filter((r) => r.storeId === storeId && r.date <= date).reduce((a, r) => a + r.amount, 0);
 }
 
 // 一整個月每家店每天的金額（讀一份文件）
@@ -733,7 +739,7 @@ export async function addPayment(month, sid, input, who) {
   const date = input.date ? String(input.date) : today();
   if (!isDate(date)) throw new UserError('收款日期不正確');
   const method = PAY_METHODS.includes(input.method) ? input.method : '現金';
-  const entry = { id: rid('p'), amount, date, method, note: clean(input.note, 40), by: clean(who, 40), at: new Date().toISOString() };
+  const entry = { id: rid('p'), amount, date, method, note: clean(input.note, 40), by: clean(who, 40), at: new Date().toISOString(), ...(isDate(input.for) ? { for: input.for } : {}) }; // for：現結的店付的是哪一天的貨
   const ref = doc('paid/' + month);
   await db().runTransaction(async (tx) => {
     const rec = (await tx.get(ref)).data()?.stores?.[sid];

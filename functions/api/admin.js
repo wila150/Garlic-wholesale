@@ -249,7 +249,8 @@ export async function POST(request) {
         // 一家店有補單的話，每張各一則收據（LINE 一次最多 5 則）
         const res = await Promise.allSettled(stores.map((s) => {
           const mine = orders.filter((x) => x.storeId === s.id).sort((a, c) => (a.seq || 1) - (c.seq || 1)).slice(0, 5);
-          return mine.length ? pushToStore(s, mine.map((o) => receiptMessage(s, b.date, o, shop.billQty))) : Promise.reject(new Error('沒有訂單'));
+          if (!mine.length) return Promise.reject(new Error('沒有訂單'));
+          return shop.monthSoFar(s.id, b.date).then((soFar) => pushToStore(s, mine.map((o) => receiptMessage(s, b.date, o, shop.billQty, soFar))));
         }));
         const at = new Date().toISOString();
         await Promise.all(orders.filter((o) => stores.some((s, i) => s.id === o.storeId && res[i].status === 'fulfilled'))

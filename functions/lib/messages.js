@@ -76,7 +76,7 @@ export function statementMessage(store, month, rows, total, got = 0) {
     sep,
     row(`本月應付（${rows.length} 天）`, money(total), { weight: 'bold', size: 'md', margin: 'md' }),
     ...(got ? [row('已收', money(got)), row('尚欠', money(Math.max(0, total - got)), { weight: 'bold' })] : []),
-    text(SHOP.payTerms, { size: 'xs', color: C.muted }),
+    text(payTermsOf(store), { size: 'xs', color: C.muted }),
   ]));
 }
 
@@ -111,7 +111,11 @@ export function draftMessage(store, draft, { existing = [], toAddon = false, cho
 }
 
 // 電子收據：實出量 × 單價
-export function receiptMessage(store, date, order, billQty) {
+// 付款方式：現結的店每次送貨付清；月結照老闆設定的條件（PAY_TERMS）
+export const payTermsOf = (store) => (store?.pay === 'cash' ? '現結：收貨時請付清本單金額，謝謝。' : SHOP.payTerms);
+
+// soFar：月結的店這個月到這天為止的累計金額（含這張）
+export function receiptMessage(store, date, order, billQty, soFar = null) {
   const total = Math.round(order.items.reduce((a, i) => a + billQty(i) * i.price, 0));
   const body = order.items.map((i) => {
     const q = billQty(i);
@@ -127,13 +131,16 @@ export function receiptMessage(store, date, order, billQty) {
     ...body,
     sep,
     row('合計', money(total), { weight: 'bold', size: 'md', margin: 'md' }),
-    text(`本單兼收據。${SHOP.payTerms}`, { size: 'xxs', color: C.muted }),
+    ...(store.pay === 'cash'
+      ? [row('本次應付（現結）', money(total), { weight: 'bold', color: C.alert || '#C0392B' })]
+      : soFar != null ? [row(`${+date.slice(5, 7)} 月累計（月結）`, money(soFar), { size: 'sm' })] : []),
+    text(`本單兼收據。${payTermsOf(store)}`, { size: 'xxs', color: C.muted }),
   ]));
 }
 
 export function dunningText(store, ar) {
   const lines = ar.months.slice().reverse().map((m) => `・${+m.month.slice(5)} 月 ${money(m.amount)}${m.billed > m.amount ? `（已付 ${money(m.billed - m.amount)}，還差這些）` : ''}`);
-  return { type: 'text', text: `${store.name} 您好，提醒您以下貨款還沒收到：\n${lines.join('\n')}\n合計 ${money(ar.total)}\n${SHOP.payTerms}\n已經付款的話請忽略，謝謝！` };
+  return { type: 'text', text: `${store.name} 您好，提醒您以下貨款還沒收到：\n${lines.join('\n')}\n合計 ${money(ar.total)}\n${payTermsOf(store)}\n已經付款的話請忽略，謝謝！` };
 }
 
 export function approvedText(store) {

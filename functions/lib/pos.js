@@ -19,7 +19,7 @@ const clean = (s, max) => String(s ?? '').trim().slice(0, max);
 const safeId = (id) => clean(id, 40).replace(/[^\w-]/g, '_') || '_';
 const now = () => new Date().toISOString();
 const money = (v) => Math.round(Number(v) || 0);
-export const PAY = ['現金', '轉帳', 'LINE Pay', '刷卡', '其他'];
+export const PAY = ['現金']; // 只收現金；要加其他付款方式（轉帳、刷卡）加在這裡，收銀頁會自動出現選項
 export const retailOf = (p) => (p.retail != null && p.retail !== '' ? Number(p.retail) : Number(p.price) || 0);
 const stockRef = () => db().doc('settings/stock');
 

@@ -119,6 +119,19 @@ input,select{font:inherit;font-size:max(16px,1em);color:var(--ink)}
 .stk input{width:70px;border:1px solid var(--line);border-radius:8px;padding:4px 6px;background:var(--bg)}
 .pbtn .st{font-size:.75rem;color:var(--muted)}
 .pbtn .st.low{color:var(--alert);font-weight:700}
+.ptabs .ti{width:20px;height:20px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;margin-right:6px;vertical-align:-4px}
+/* 電腦、平板橫放：分頁放左側（跟後台一樣）；手機在上面 */
+@media (min-width:900px){
+  .app{grid-template-columns:168px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+  .top{grid-column:1/-1}
+  .ptabs{grid-column:1;grid-row:2;flex-direction:column;gap:2px;padding:12px 8px;border-bottom:0;border-right:1px solid var(--line);overflow:visible}
+  .ptabs button{display:flex;align-items:center;text-align:left;border-radius:10px;padding:11px 12px;box-shadow:none}
+  .ptabs button:hover{background:var(--bg);color:var(--ink)}
+  .ptabs button[aria-selected=true]{background:var(--bg);color:var(--leaf);box-shadow:inset 3px 0 0 var(--leaf)}
+  .ptabs .n{margin-left:auto}
+  #sellV,#paneV{grid-column:2;grid-row:2;min-height:0}
+  .pane{max-width:none}
+}
 .cust{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 14px;border-bottom:1px solid var(--line);font-size:.92rem}
 .cust b{color:var(--leaf)}
 #receipt{display:none}
@@ -161,12 +174,12 @@ input,select{font:inherit;font-size:max(16px,1em);color:var(--ink)}
     <button id="adminBtn" type="button">後台</button>
   </header>
   <nav class="ptabs" role="tablist">
-    <button data-v="sell" aria-selected="true">收銀</button>
-    <button data-v="holds">掛單<span class="n" id="holdN" hidden></span></button>
-    <button data-v="hist">交易紀錄</button>
-    <button data-v="cash">錢櫃日結</button>
-    <button data-v="stock">庫存</button>
-    <button data-v="cust">常客</button>
+    <button data-v="sell" aria-selected="true"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M7 20h10M12 16v4M7 8h4M7 12h2"/></svg>收銀</button>
+    <button data-v="holds"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2h12v20l-6-4-6 4z"/></svg>掛單<span class="n" id="holdN" hidden></span></button>
+    <button data-v="hist"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4M12 16h4M8 11h.01M8 16h.01"/></svg>交易紀錄</button>
+    <button data-v="cash"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>錢櫃日結</button>
+    <button data-v="stock"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 21.73a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73z"/><path d="M12 22V12"/><path d="m3.3 7 8.7 5 8.7-5"/></svg>庫存</button>
+    <button data-v="cust"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>常客</button>
   </nav>
   <div class="main" id="sellV">
     <section class="left">
@@ -351,10 +364,12 @@ function saveQty(){
 /* ---------- 結帳（不接線上金流，付款方式只是記錄） ---------- */
 function openPay(){
   method='現金';$('payTotal').textContent=money(total());$('paid').value='';
+  // 只有現金就不顯示付款方式
+  $('methods').hidden=D.pay.length<2;
   $('methods').innerHTML=D.pay.map(m=>`<button data-m="${esc(m)}" aria-pressed="${m===method}">${esc(m)}</button>`).join('');
   const t=total(),q=[...new Set([t,Math.ceil(t/100)*100,Math.ceil(t/500)*500,Math.ceil(t/1000)*1000])].filter(n=>n>=t).slice(0,4);
   $('cashQuick').innerHTML=q.map(n=>`<button data-cash="${n}">${n===t?'剛好 ':''}${money(n)}</button>`).join('');
-  renderChange();$('cashBox').hidden=false;$('payM').classList.add('on');
+  renderChange();$('cashBox').hidden=false;$('payM').classList.add('on');setTimeout(()=>$('paid').focus(),50);
 }
 function renderChange(){const t=total(),p=+$('paid').value||0;$('change').className='chg'+(p&&p<t?' neg':'');$('change').textContent=!p?'':p<t?`還差 ${money(t-p)}`:`找零 ${money(p-t)}`}
 async function doPay(){

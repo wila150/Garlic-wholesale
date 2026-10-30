@@ -2,14 +2,14 @@
 //   店家選單：所有人的預設（我要叫貨、拍照叫貨、照上次叫、我的訂單、我的帳款、回報問題）
 //   老闆選單：只套用在 ADMIN_LINE_USER_IDS（記帳、還要買、今日訂單、未收帳款、今日支出、開後台）；要測試叫貨打「店家選單」，切回來打「老闆選單」
 // 先產生圖片：node scripts/richmenu/render.mjs veg
-// 再建立：LINE_CHANNEL_ACCESS_TOKEN=… node scripts/richmenu/setup.mjs caihang-order
+// 再建立：LINE_CHANNEL_ACCESS_TOKEN=… node scripts/richmenu/setup.mjs garlic-wholesale
 //   （第二個參數是 Firebase 專案，用來讀 functions/.env.<專案> 的 BASE_URL、ADMIN_LINE_USER_IDS）
 import fs from 'node:fs';
 
 const token = process.env.LINE_CHANNEL_ACCESS_TOKEN;
 if (!token) throw new Error('請設定 LINE_CHANNEL_ACCESS_TOKEN');
 const project = process.argv[2];
-if (!project) throw new Error('請指定 Firebase 專案，例如 node scripts/richmenu/setup.mjs caihang-order');
+if (!project) throw new Error('請指定 Firebase 專案，例如 node scripts/richmenu/setup.mjs garlic-wholesale');
 const env = Object.fromEntries(fs.readFileSync(new URL(`../../functions/.env.${project}`, import.meta.url), 'utf8')
   .split('\n').map((l) => l.match(/^([A-Z_]+)=(.*)$/)).filter(Boolean).map((m) => [m[1], m[2].trim()]));
 const base = env.BASE_URL || `https://${project}.web.app`;

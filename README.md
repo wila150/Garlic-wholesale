@@ -1,3 +1,5 @@
+> 這是 **蒜頭行** 專用的版本（Firebase 專案 `garlic-wholesale`）。菜行的版本在另一個資料夾，兩邊各改各的。
+
 # 蒜頭叫貨系統（LINE 官方帳號 × Firebase）
 
 店家在 LINE 點「我要叫貨」，打開叫貨單選品項和數量（**看不到價格**），截單前都能自己改。後台依角色分權限，用來看採買總表、補當日單價、處理依配送路線排的出貨單、做月結對帳，也在這裡管理品項、店家和帳號。
@@ -62,9 +64,7 @@ cp functions/.env.example functions/.env   # 填 OWNER_EMAILS（你自己的 Ema
 firebase functions:secrets:set LINE_CHANNEL_SECRET
 firebase functions:secrets:set LINE_CHANNEL_ACCESS_TOKEN
 firebase functions:secrets:set NVIDIA_API_KEY      # AI 叫貨用（build.nvidia.com）
-npm run deploy:veg      # 菜行（caihang-order）
-npm run deploy:garlic   # 蒜頭行（garlic-wholesale）
-# 兩家分開部署：改了先上一家、確認沒問題再上另一家；不要直接打 firebase deploy（預設是蒜頭行）
+npm run deploy          # 部署到 garlic-wholesale
 ```
 
 ### 3. 老闆帳號

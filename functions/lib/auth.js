@@ -16,8 +16,8 @@ export const ROLES = {
 const CAN = {
   owner: ['*'],
   engineer: ['*'], // 幫店家設定、維護系統的人（ENGINEER_EMAILS），不是老闆
-  accounting: ['view', 'bills', 'prices', 'editOrders', 'deleteOrders', 'products', 'remind', 'statement', 'sign'],
-  warehouse: ['view', 'editOrders', 'remind', 'sign'],
+  accounting: ['view', 'bills', 'prices', 'editOrders', 'deleteOrders', 'products', 'remind', 'statement', 'sign', 'pos'],
+  warehouse: ['view', 'editOrders', 'remind', 'sign', 'pos'], // pos：門市收銀
   driver: ['view', 'sign'],
 };
 export const can = (role, what) => !!CAN[role] && (CAN[role].includes('*') || CAN[role].includes(what));

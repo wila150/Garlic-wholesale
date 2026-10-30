@@ -6,6 +6,7 @@ import { UserError } from './http.js';
 import { addDays, thisMonth } from './dates.js';
 import * as shop from './shop.js';
 import * as ex from './expense.js';
+import * as pos from './pos.js';
 
 const db = () => getFirestore();
 const clean = (s, max) => String(s ?? '').trim().slice(0, max);
@@ -63,6 +64,7 @@ export async function monthReport(month) {
     ex.listExpenses(month),
     ex.getCats(),
   ]);
+  const posSales = await pos.salesOfMonth(month);
   const boughtSnap = await db().collection('bought').where(FieldPath.documentId(), '>=', days[0]).where(FieldPath.documentId(), '<=', days.at(-1)).get();
   // 記帳的支出算進當天的其他成本；進貨的錢另外記，那天沒填進價才拿來當進貨成本（不重複扣）
   const spent = {}, bought = {};
@@ -75,7 +77,7 @@ export async function monthReport(month) {
   const costs = costDoc.data() || { daily: {}, monthly: {} };
   const monthlyTotal = costTypes.filter((t) => t.period === 'monthly').reduce((a, t) => a + (costs.monthly?.[t.id] || 0), 0);
 
-  const rows = Object.fromEntries(days.map((d) => [d, { date: d, revenue: 0, purchase: 0, missingCost: 0, kg: 0, stores: 0 }]));
+  const rows = Object.fromEntries(days.map((d) => [d, { date: d, revenue: 0, posRevenue: 0, posCount: 0, purchase: 0, missingCost: 0, kg: 0, stores: 0 }]));
   for (const doc of ordersSnap.docs) {
     const o = doc.data();
     if (!o.items.length || !rows[o.date]) continue;
@@ -87,6 +89,17 @@ export async function monthReport(month) {
       const c = dayCosts[o.date]?.[it.pid] ?? fallbackCost[it.pid];
       if (c == null) r.missingCost += q * it.price; else r.purchase += q * c;
       if (KG[it.unit]) r.kg += q * KG[it.unit];
+    }
+  }
+  // 門市收銀的營收也算進當天（進貨成本照當天進價，沒有進價的算進「沒填進價」）
+  for (const s of posSales) {
+    const r = rows[s.date];
+    if (!r) continue;
+    r.revenue += s.total; r.posRevenue += s.total; r.posCount++;
+    for (const it of s.items) {
+      const c = dayCosts[s.date]?.[it.pid] ?? fallbackCost[it.pid];
+      if (c == null) r.missingCost += it.amount; else r.purchase += it.qty * c;
+      if (KG[it.unit]) r.kg += it.qty * KG[it.unit];
     }
   }
   const out = days.map((d) => {

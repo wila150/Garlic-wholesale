@@ -32,6 +32,8 @@ export async function getProducts() {
   return (await data('settings/products'))?.items ?? DEFAULT_PRODUCTS;
 }
 
+const retailIn = (v) => { if (v === '' || v == null) return null; const n = Math.round(Number(v) * 100) / 100; if (!(n >= 0)) throw new UserError('門市價不正確'); return n; };
+
 /* ---------- 包裝換算：1 件＝10 斤、1 箱＝20 斤（數量一律換成品項的單位） ---------- */
 // 輸入「件=10、箱=20」或 [{ unit, n }]，回傳 [{ unit, n }]
 export function packList(v, unit) {
@@ -206,6 +208,7 @@ export async function saveProducts(input) {
       alias: p.alias === undefined ? aliasList(old.get(id)?.alias) : aliasList(p.alias),
       packs: packList(p.packs === undefined ? old.get(id)?.packs : p.packs, units.includes(p.unit) ? p.unit : units[0]),
       liang: (p.liang === undefined ? old.get(id)?.liang : p.liang) !== false, // 斤的品項可不可以叫到兩
+      retail: retailIn(p.retail === undefined ? old.get(id)?.retail : p.retail), // 門市價（POS 用），空白＝用批發單價
     };
   });
   for (const p of list) {

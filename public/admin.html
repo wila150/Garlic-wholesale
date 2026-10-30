@@ -479,7 +479,7 @@ h2{font-size:1.05rem;font-weight:700;margin:0 0 10px}
 header.top{display:block;padding:calc(14px + env(safe-area-inset-top,0px)) 0 8px}
 .th{display:flex;align-items:center;justify-content:space-between;gap:12px}
 .hact{display:flex;gap:2px}
-.lnk{border:0;background:none;color:var(--muted);font-size:.88rem;padding:6px 8px;border-radius:8px}
+.lnk{text-decoration:none;border:0;background:none;color:var(--muted);font-size:.88rem;padding:6px 8px;border-radius:8px}
 .lnk:hover{background:var(--surface);color:var(--ink)}
 .tsub{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:2px}
 .mebox{display:flex;justify-content:space-between;align-items:baseline;gap:8px;color:var(--muted);font-size:.85rem;margin-bottom:12px}
@@ -533,7 +533,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
 
 <div class="wrap" id="app" hidden>
   <header class="top">
-    <div class="th"><div class="brand"><span class="logo" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 2.5c1.3 2.4 1.2 4.7.3 6.6C22 10.4 27.5 14.7 27.5 20.6c0 5.6-5.1 8.9-11.5 8.9S4.5 26.2 4.5 20.6c0-5.9 5.5-10.2 11.2-11.5-.9-1.9-1-4.2.3-6.6z" fill="currentColor"/><path d="M16 11.5c-2.6 2.9-3.6 6.1-3.6 9.3 0 3 1.1 5.5 3.6 7.4m0-16.7c2.6 2.9 3.6 6.1 3.6 9.3 0 3-1.1 5.5-3.6 7.4" stroke="#1F4D3A" stroke-opacity=".55" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg></span><h1 id="shopName">叫貨後台</h1></div><div class="hact"><button class="lnk" id="themeBtn" aria-label="切換深色或淺色"></button><button class="lnk" id="helpBtn">說明</button><button class="lnk" id="logout">登出</button></div></div>
+    <div class="th"><div class="brand"><span class="logo" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 2.5c1.3 2.4 1.2 4.7.3 6.6C22 10.4 27.5 14.7 27.5 20.6c0 5.6-5.1 8.9-11.5 8.9S4.5 26.2 4.5 20.6c0-5.9 5.5-10.2 11.2-11.5-.9-1.9-1-4.2.3-6.6z" fill="currentColor"/><path d="M16 11.5c-2.6 2.9-3.6 6.1-3.6 9.3 0 3 1.1 5.5 3.6 7.4m0-16.7c2.6 2.9 3.6 6.1 3.6 9.3 0 3-1.1 5.5-3.6 7.4" stroke="#1F4D3A" stroke-opacity=".55" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg></span><h1 id="shopName">叫貨後台</h1></div><div class="hact"><button class="lnk" id="themeBtn" aria-label="切換深色或淺色"></button><a class="lnk" id="posLink" href="/pos" hidden>收銀</a><button class="lnk" id="helpBtn">說明</button><button class="lnk" id="logout">登出</button></div></div>
     <div class="tsub"><p id="headInfo"></p><span class="cutoff" id="cutoffTag"></span></div>
   </header>
 
@@ -606,7 +606,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103018</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103101</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div class="sgrps">
     <div id="rulesBox">
@@ -821,6 +821,7 @@ function renderAll(){
   if(may('prices'))renderPrices();
   if(may('bills'))renderBills();
   if(may('products')){renderUnits();renderProducts()}
+  $('posLink').hidden=!may('pos');
   $('unitsSet').hidden=!may('products');
   if(may('stores'))renderStores();
   $('userBox').hidden=$('rulesBox').hidden=$('palSet').hidden=!may('users');
@@ -1084,6 +1085,7 @@ function renderProducts(){
         <div class="pedrow"><label>品名<input type="text" data-pf="name" data-i="${i}" value="${esc(p.name)}"></label>
         <label>單位<select data-pf="unit" data-i="${i}">${D.units.map(u=>`<option ${u===p.unit?'selected':''}>${esc(u)}</option>`).join('')}</select></label>
         <label>分類<select data-pf="cat" data-i="${i}">${D.categories.map(x=>`<option ${x===p.cat?'selected':''}>${esc(x)}</option>`).join('')}</select></label>
+        <label>門市價<input type="number" inputmode="decimal" min="0" step="any" data-pf="retail" data-i="${i}" value="${p.retail??''}" placeholder="沒填＝批發價"></label>
         <label>包裝換算<input type="text" data-pf="packs" data-i="${i}" value="${esc(packText(p))}" placeholder="例如 件=10、箱=20（1件=10${esc(p.unit)}）"></label>
         ${p.unit==='斤'&&D.rules?.liang!==false?`<label class="chkl"><input type="checkbox" data-pf="liang" data-i="${i}" ${p.liang!==false?'checked':''}> 可以叫到兩（關掉就只能叫整數斤）</label>`:''}</div>
         <div class="alias"><span class="lb">客人常打的寫法</span>${aliasArr(p).map((a,k)=>`<span>${esc(a)}<button data-adel="${i}" data-k="${k}" aria-label="刪除叫法 ${esc(a)}">✕</button></span>`).join('')}${storeAliasChips(p)}
@@ -1274,13 +1276,14 @@ const kg=v=>v>=1000?`${+(v/1000).toFixed(2)} 噸`:`${+v.toFixed(1)} 公斤`;
 function renderReport(){
   $('rmonth').value=R.month;
   const days=R.days,sum=k=>days.reduce((a,d)=>a+d[k],0);
+  const posRev=days.reduce((a,d)=>a+(d.posRevenue||0),0);
   const rev=sum('revenue'),pur=sum('purchase'),gross=sum('gross'),other=sum('other'),net=sum('net'),w=sum('kg'),miss=sum('missingCost');
   const dailyTypes=R.costTypes.filter(t=>t.period==='daily'),monthlyTypes=R.costTypes.filter(t=>t.period==='monthly');
   const ar=R.receivables,arTotal=ar.reduce((a,s)=>a+s.total,0),arOld=ar.reduce((a,s)=>a+s.months.filter(m=>m.age>=2).reduce((x,m)=>x+m.amount,0),0);
   const pct=v=>rev?` <small>${(v/rev*100).toFixed(1)}%</small>`:'';
   $('reportBox').innerHTML=`
   <div class="kpis">
-    <div class="kpi"><span>營收</span><b>${money(rev)}</b></div>
+    <div class="kpi"><span>營收</span><b>${money(rev)}</b>${posRev?`<small>批發 ${money(rev-posRev)}・門市 ${money(posRev)}</small>`:''}</div>
     <div class="kpi"><span>進貨成本</span><b>${money(pur)}</b></div>
     <div class="kpi"><span>毛利</span><b class="${gross<0?'neg':''}">${money(gross)}</b>${pct(gross)}</div>
     <div class="kpi"><span>其他成本</span><b>${money(other)}</b></div>

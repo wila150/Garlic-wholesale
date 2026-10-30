@@ -6,6 +6,7 @@ import { push } from '../lib/line.js';
 import { openDate, today, thisMonth, isDate, isMonth, cutoffLabel, getRulesNow } from '../lib/dates.js';
 import * as shop from '../lib/shop.js';
 import * as ex from '../lib/expense.js';
+import * as pos from '../lib/pos.js';
 import { signedIn, need, can, ROLES, listUsers, addUser, updateUser, removeUser } from '../lib/auth.js';
 import { remindText, statementMessage, approvedText, dunningText, receiptMessage } from '../lib/messages.js';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -68,6 +69,19 @@ export async function GET(request) {
       const [order, sig] = await Promise.all([shop.getOrder(d.date, d.storeId), getFirestore().doc(`signatures/${d.date}_${d.storeId}`).get()]);
       return json({ draft: d, order: order?.items.length ? { items: order.items.map(({ pid, name, unit, qty }) => ({ pid, name, unit, qty })) } : null, signed: sig.exists });
     }
+    // 門市收銀頁：品項（門市價）、今天的交易和日結
+    if (q.has('pos')) {
+      need(me, 'pos');
+      const d = isDate(q.get('pos')) ? q.get('pos') : today();
+      const [products, categories, sales] = await Promise.all([shop.getProducts(), shop.getCategories(), pos.salesOf(d)]);
+      return json({
+        me: { email: me.email, name: me.name, roleName: ROLES[me.role] },
+        shop: { name: SHOP.name, phone: SHOP.phone, logo: SHOP.logo },
+        palette: getRulesNow().palette, today: today(), date: d, pay: pos.PAY,
+        categories, products: products.filter((p) => p.on).map((p) => ({ id: p.id, cat: p.cat, name: p.name, unit: p.unit, price: pos.retailOf(p), liang: p.liang !== false && getRulesNow().liang !== false })),
+        sales, summary: pos.summary(sales),
+      });
+    }
     if (q.get('ai')) {
       need(me, 'editOrders');
       const snap = await getFirestore().collection('aiDrafts').orderBy('createdAt', 'desc').limit(30).get();
@@ -97,7 +111,7 @@ export async function GET(request) {
     ]);
     const showPrices = can(me.role, 'prices') || bills;
     return json({
-      me: { ...me, roleName: ROLES[me.role], can: ['bills', 'prices', 'editOrders', 'products', 'stores', 'remind', 'statement', 'users', 'sign', 'deleteOrders'].filter((w) => can(me.role, w)) },
+      me: { ...me, roleName: ROLES[me.role], can: ['bills', 'prices', 'editOrders', 'products', 'stores', 'remind', 'statement', 'users', 'sign', 'deleteOrders', 'pos'].filter((w) => can(me.role, w)) },
       // 工程師這個角色只有工程師自己看得到
       roles: me.role === 'engineer' ? ROLES : Object.fromEntries(Object.entries(ROLES).filter(([k]) => k !== 'engineer')),
       shop: { name: SHOP.name, phone: SHOP.phone, payTerms: SHOP.payTerms, basicId: SHOP.basicId, logo: SHOP.logo },
@@ -337,6 +351,15 @@ export async function POST(request) {
         if (reply) await push(it.userId, [{ type: 'text', text: `關於您回報的 ${it.date.slice(5).replace('-', '/')} ${it.name}（${it.type}）：\n${reply}` }]);
         await ref.update({ status: 'done', doneBy: me.name || me.email, doneAt: new Date().toISOString(), reply });
         return json({ issues: await openIssues() });
+      }
+      case 'posCheckout':
+        need(me, 'pos');
+        return json({ sale: await pos.checkout(b, me.name || me.email) });
+      case 'posVoid': {
+        need(me, 'pos');
+        const s = await pos.voidSale(b.id, me.name || me.email, b.reason);
+        const sales = await pos.salesOf(s.date);
+        return json({ sales, summary: pos.summary(sales) });
       }
       case 'bought':
         need(me, 'view');

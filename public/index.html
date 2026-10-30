@@ -250,7 +250,7 @@ function visible(){
 const UNIT={};
 const packsOf=p=>(p.packs||[]).filter(k=>k.n>0);
 // 「斤」的品項預設可以叫到兩；後台關掉（liang:false）就只能叫整數斤
-const useLiang=p=>p.unit==='斤'&&p.liang!==false;
+const useLiang=p=>p.unit==='斤'&&D.liang!==false&&p.liang!==false;
 function rowHTML(p){
   const q=cart[p.id]||0,ks=packsOf(p),k=ks.find(x=>x.unit===UNIT[p.id]);
   const f=k?k.n:1,u=k?k.unit:p.unit,jin=!k&&useLiang(p);

@@ -12,6 +12,7 @@ export const DEFAULT_RULES = {
   addon: true, // 截單後店家可以自己補單
   addonUntil: '12:00', // 配送當天幾點前可以補單
   autoJoin: true, // 新店家加好友後自己填店名、地址、電話就開通，不用等老闆審核
+  liang: true, // 斤的品項可以叫到兩；關掉就全部只能叫整數斤（個別品項也可以在品項頁關）
   palette: 'garlic', // 整個 App 的配色：garlic 墨綠暖白、blue 科技藍、mint 薄荷綠、gray 商務灰
 };
 export const PALETTES = ['garlic', 'blue', 'mint', 'gray'];
@@ -34,6 +35,7 @@ export async function saveRules(input) {
     addon: !!input.addon,
     addonUntil: String(input.addonUntil || ''),
     autoJoin: input.autoJoin !== false,
+    liang: input.liang !== false,
   };
   if (!isTime(r.cutoff)) throw new UserError('截單時間格式不對，例如 22:00');
   if (!isTime(r.addonUntil)) throw new UserError('補單截止時間格式不對，例如 12:00');

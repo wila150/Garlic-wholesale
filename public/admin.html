@@ -596,7 +596,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103014</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103016</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div class="sgrps">
     <div id="rulesBox">
@@ -606,6 +606,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
       <label class="chkl"><input type="checkbox" id="rAddon"> 截單後店家可以自己補單</label>
       <label>補單截止（配送當天）<input id="rAddonUntil" type="time" step="60"></label>
       <fieldset class="wds"><legend>公休日（不配送）</legend><div id="rClosed"></div></fieldset>
+      <label class="chkl"><input type="checkbox" id="rLiang"> 斤的品項可以叫到「兩」（關掉就全部只能叫整數斤）</label>
       <label class="chkl"><input type="checkbox" id="rAutoJoin"> 新店家自己填店名、地址、電話就開通（不用審核）</label>
       <button id="saveRules" type="button">儲存</button>
     </form>
@@ -1064,7 +1065,7 @@ function renderProducts(){
         <label>單位<select data-pf="unit" data-i="${i}">${D.units.map(u=>`<option ${u===p.unit?'selected':''}>${esc(u)}</option>`).join('')}</select></label>
         <label>分類<select data-pf="cat" data-i="${i}">${D.categories.map(x=>`<option ${x===p.cat?'selected':''}>${esc(x)}</option>`).join('')}</select></label>
         <label>包裝換算<input type="text" data-pf="packs" data-i="${i}" value="${esc(packText(p))}" placeholder="例如 件=10、箱=20（1件=10${esc(p.unit)}）"></label>
-        ${p.unit==='斤'?`<label class="chkl"><input type="checkbox" data-pf="liang" data-i="${i}" ${p.liang!==false?'checked':''}> 可以叫到兩（關掉就只能叫整數斤）</label>`:''}</div>
+        ${p.unit==='斤'&&D.rules?.liang!==false?`<label class="chkl"><input type="checkbox" data-pf="liang" data-i="${i}" ${p.liang!==false?'checked':''}> 可以叫到兩（關掉就只能叫整數斤）</label>`:''}</div>
         <div class="alias"><span class="lb">客人常打的寫法</span>${aliasArr(p).map((a,k)=>`<span>${esc(a)}<button data-adel="${i}" data-k="${k}" aria-label="刪除叫法 ${esc(a)}">✕</button></span>`).join('')}${storeAliasChips(p)}
           <span class="anew"><select data-ascope="${i}" aria-label="適用的店家"><option value="">全部店家</option>${D.stores.map(s=>`<option value="${s.id}" ${aScope[i]===s.id?'selected':''}>只有${esc(s.name)}</option>`).join('')}</select><input data-anew="${i}" placeholder="打字按 Enter" maxlength="20" aria-label="${esc(p.name)} 新增叫法"></span></div>
         <button class="pdel" data-pdel="${i}">刪除這個品項</button>
@@ -1451,11 +1452,11 @@ function printInvite(){
 /* ---------- 截單和補單 ---------- */
 function renderRules(){queueMicrotask(setHints);
   const r=D.rules;if(!r||$('rulesForm').dataset.dirty)return;
-  $('rCutoff').value=r.cutoff;$('rAddon').checked=r.addon;$('rAutoJoin').checked=r.autoJoin!==false;$('rAddonUntil').value=r.addonUntil;$('rAddonUntil').disabled=!r.addon;
+  $('rCutoff').value=r.cutoff;$('rAddon').checked=r.addon;$('rAutoJoin').checked=r.autoJoin!==false;$('rLiang').checked=r.liang!==false;$('rAddonUntil').value=r.addonUntil;$('rAddonUntil').disabled=!r.addon;
   $('rClosed').innerHTML='日一二三四五六'.split('').map((w,i)=>`<label><input type="checkbox" value="${i}" ${r.closed.includes(i)?'checked':''}>週${w}</label>`).join('');
 }
 async function saveRules(){
-  const rules={cutoff:$('rCutoff').value,addon:$('rAddon').checked,autoJoin:$('rAutoJoin').checked,addonUntil:$('rAddonUntil').value,closed:[...$('rClosed').querySelectorAll('input:checked')].map(x=>+x.value)};
+  const rules={cutoff:$('rCutoff').value,addon:$('rAddon').checked,autoJoin:$('rAutoJoin').checked,liang:$('rLiang').checked,addonUntil:$('rAddonUntil').value,closed:[...$('rClosed').querySelectorAll('input:checked')].map(x=>+x.value)};
   try{const j=await api('POST',{action:'rules',rules});D.rules=j.rules;delete $('rulesForm').dataset.dirty;await load();toast(`已儲存：配送日前一天 ${j.rules.cutoff} 截單${j.rules.addon?`，補單到配送當天 ${j.rules.addonUntil}`:'，不開放店家補單'}`)}catch(e){toast(e.message)}
 }
 /* ---------- 帳號 ---------- */
@@ -1468,7 +1469,7 @@ async function resetData(){
 // 設定頁收合列：標題下面一行小字顯示目前的設定
 function setHints(){
   const r=D.rules,WDN='日一二三四五六';
-  if(r&&$('hRules'))$('hRules').textContent=`${r.cutoff} 截單${r.addon?`・補單到 ${r.addonUntil}`:''}・${r.closed?.length?'公休 '+r.closed.map(d=>'週'+WDN[d]).join('、'):'沒有公休'}${r.autoJoin!==false?'・新店家自己開通':''}`;
+  if(r&&$('hRules'))$('hRules').textContent=`${r.cutoff} 截單${r.addon?`・補單到 ${r.addonUntil}`:''}・${r.closed?.length?'公休 '+r.closed.map(d=>'週'+WDN[d]).join('、'):'沒有公休'}${r.autoJoin!==false?'・新店家自己開通':''}${r.liang===false?'・不叫到兩':''}`;
   if(D.users&&$('hUsers'))$('hUsers').textContent=`${D.users.length} 個帳號`;
   if(D.units&&$('hUnits'))$('hUnits').textContent=D.units.slice(0,8).join('、')+(D.units.length>8?` …共 ${D.units.length} 個`:'');
   if(r&&$('hPal'))$('hPal').textContent=PALS.find(p=>p[0]===(r.palette||'garlic'))?.[1]||'';

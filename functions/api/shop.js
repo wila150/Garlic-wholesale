@@ -43,6 +43,7 @@ export async function GET(request) {
       logo: SHOP.logo,
       search: PRESET.search,
       liffId: SHOP.liffId,
+      liang: getRulesNow().liang !== false,
       store: { name: store.name },
       date: D,
       dateLabel: label(D),

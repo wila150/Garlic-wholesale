@@ -83,18 +83,19 @@ export async function POST(request) {
     }
     const store = await shop.storeOfUser(uid);
     if (!store) throw new UserError('您的帳號還沒開通', 403);
+    const proxy = uid.startsWith('store:'); // 後台代客叫貨
     if (body.mode === 'addon') {
       const { order, had, changes } = await shop.saveAddon(store.id, body.date, unchanged(body.v, body.items));
       // 通知老闆有人補單（每位老闆用掉 1 則推播額度）
       const what = order.items.length ? (had ? `修改補單：${changes.join('、')}` : '補單：' + order.items.map((i) => `${i.name} ${qtyText(i.qty, i.unit)}`).join('、')) : '取消補單';
-      await notifyAdmins(`🧾 ${store.name} ${label(body.date)} ${what}\n後台：${originOf(request)}/admin`).catch((err) => console.error(err));
+      if (!proxy) await notifyAdmins(`🧾 ${store.name} ${label(body.date)} ${what}\n後台：${originOf(request)}/admin`).catch((err) => console.error(err));
       return json({ order: noPrice(order), had, changes });
     }
-    const { order, had, changes } = await shop.saveOrder(store.id, body.date, unchanged(body.v, body.items), '店家', body.draftId ? 'AI 整理後修改' : '');
+    const { order, had, changes } = await shop.saveOrder(store.id, body.date, unchanged(body.v, body.items), proxy ? '後台' : '店家', proxy ? '代客叫貨' : body.draftId ? 'AI 整理後修改' : '');
     if (body.draftId) await markDraftUsed(String(body.draftId), store.id);
 
     // 沒有用 LIFF 的話，叫貨頁沒辦法替店家在聊天室發訊息；有設定 PUSH_ORDER_CONFIRM 才主動推播（會用掉訊息額度）
-    if (process.env.PUSH_ORDER_CONFIRM === '1' && !body.viaLiff) {
+    if (process.env.PUSH_ORDER_CONFIRM === '1' && !body.viaLiff && !proxy) {
       const title = !order.items.length ? null : had ? '訂單已更新' : '訂單已收到';
       const msg = title ? orderMessage(title, store, order.date, order, orderLink(originOf(request), uid)) : { type: 'text', text: '好的，這次的訂單已取消。' };
       await push(uid, [msg]).catch((err) => console.error(err));

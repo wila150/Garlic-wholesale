@@ -154,6 +154,7 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .ecats label{display:grid;grid-template-columns:88px 1fr 32px;gap:6px;align-items:center}
 .ecats input{min-width:0}
 .bill-d .row em{font-style:normal;font-size:.82rem;font-weight:700;margin-left:6px}
+.slip .proxy{display:block;width:100%;margin:8px 0 4px;padding:10px;border:1.5px dashed var(--leaf);background:transparent;color:var(--leaf);border-radius:10px;font-weight:700}
 .pbtn.sm{padding:2px 10px;font-size:.82rem;margin-left:6px;min-height:30px}
 .pays{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}
 .pays h4{margin:0 0 6px;font-size:.92rem;display:flex;justify-content:space-between}
@@ -592,7 +593,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103004</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103006</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div class="sgrps">
     <div id="rulesBox">
@@ -941,10 +942,12 @@ function renderSlips(){
   const onProducts=D.products.filter(p=>p.on);
   const opts=D.categories.map(c=>{const ps=onProducts.filter(p=>p.cat===c);return ps.length?`<optgroup label="${esc(c)}">${ps.map(p=>`<option value="${p.id}">${esc(p.name)}（${esc(p.unit)}）</option>`).join('')}</optgroup>`:''}).join('');
   const addRow=(k,label,btn,attr)=>`<div class="add"><select id="add-${k}" aria-label="${label}"><option value="">${btn==='加入'?'＋ 加品項':'＋ 補單品項'}</option>${opts}</select><input id="addq-${k}" type="text" placeholder="如 2斤4兩" aria-label="數量，可以打 2斤4兩"><button ${attr}="${k}">${btn}</button></div>`;
+  // 代客叫貨（電話叫貨）：打開這家店的叫貨單，只有還在叫貨的那天可以用
+  const proxyBtn=sid=>D.date===D.openDate&&may('editOrders')?`<button class="proxy" data-proxy="${sid}">📝 用叫貨單幫他叫</button>`:'';
   const stores=[...activeStores(),...D.stores.filter(s=>!s.on&&slipsOf(s.id).length)];
   $('slipBox').innerHTML=stores.flatMap(s=>{
     const mine=slipsOf(s.id);
-    if(!mine.length)return [`<div class="slip none"><div class="slip-h"><b>${esc(s.name)}</b><span class="stop">第 ${s.route} 站</span></div><div class="empty">還沒叫貨</div>${addRow(s.id,`幫${esc(s.name)}加品項`,'加入','data-additem')}</div>`];
+    if(!mine.length)return [`<div class="slip none"><div class="slip-h"><b>${esc(s.name)}</b><span class="stop">第 ${s.route} 站</span></div><div class="empty">還沒叫貨</div>${proxyBtn(s.id)}${addRow(s.id,`幫${esc(s.name)}加品項`,'加入','data-additem')}</div>`];
     return mine.map((o,idx)=>{
       const k=okey(o),locked=!!D.signatures?.[k],ro=locked||!may('editOrders'),last=idx===mine.length-1;
       const items=sortItems(o.items).map(i=>{
@@ -953,7 +956,7 @@ function renderSlips(){
         <span class="stepper"><button data-step="-1" data-sid="${k}" data-pid="${i.pid}" aria-label="${esc(i.name)}實出減少">−</button><input type="text" inputmode="decimal" ${ro?'readonly':''} value="${esc(editText(q,i.unit))}" data-sqin="${k}" data-pid="${i.pid}" aria-label="${esc(i.name)}實出量，可以直接打">${/斤|兩/.test(editText(q,i.unit))?'':`<span class="u">${esc(i.unit)}</span>`}<button data-step="1" data-sid="${k}" data-pid="${i.pid}" aria-label="${esc(i.name)}實出增加">+</button></span></div>`;
       }).join('');
       // 補單跟原本的單分開：最後一張下面隨時可以另開補單
-      const extra=(!locked?addRow(k,`幫${esc(s.name)}加品項`,'加入','data-additem'):'')+(last&&may('editOrders')?`<details class="newslip" ${locked?'open':''}><summary>＋ 開補單</summary>${addRow(s.id,`幫${esc(s.name)}開補單`,'開補單','data-newslip')}</details>`:'');
+      const extra=(!locked&&idx===0?proxyBtn(s.id):'')+(!locked?addRow(k,`幫${esc(s.name)}加品項`,'加入','data-additem'):'')+(last&&may('editOrders')?`<details class="newslip" ${locked?'open':''}><summary>＋ 開補單</summary>${addRow(s.id,`幫${esc(s.name)}開補單`,'開補單','data-newslip')}</details>`:'');
       return `<div class="slip ${locked?'locked':''} ${(o.seq||1)>1?'supp':''}"><div class="slip-h"><b>${esc(s.name)}${(o.seq||1)>1||o.addon?` <span class="suppno">${o.addon?'店家補單':'補單'} #${o.seq||1}</span>`:''}</b><span class="stop">第 ${s.route} 站</span></div>${items}
         ${extra}${slipActs(s,o,k)}</div>`;
     });
@@ -1635,6 +1638,11 @@ document.addEventListener('click',async e=>{
   if(b.id==='ecAdd'){ecOpen=true;R.expenseCats=[...ecRead().map(c=>({name:c.name,words:c.words.split(/[、,，\s]+/).filter(Boolean)})),{name:'',words:[]}];renderReport();const ins=document.querySelectorAll('[data-ecn]');ins[ins.length-1].focus()}
   if(b.dataset.ecdel){ecOpen=true;const c=ecRead();const n=c[+b.dataset.ecdel].name;if(confirm(`刪除分類「${n}」？已經記的帳會留著原本的分類名稱。`))expApi({action:'expenseCats',cats:c.filter((_,i)=>i!==+b.dataset.ecdel)},'已刪除分類')}
   if(b.id==='ecSave'){ecOpen=true;expApi({action:'expenseCats',cats:ecRead()},'分類已儲存')}
+  if(b.dataset.proxy){
+    // 先開新分頁（不然會被瀏覽器擋），拿到連結再導過去
+    const w=window.open('','_blank');
+    try{const j=await api('POST',{action:'proxyLink',storeId:b.dataset.proxy});if(w)w.location=j.url;else location.href=j.url}catch(err){w?.close();toast(err.message)}
+  }
   if(b.dataset.payday){
     const sid=b.dataset.payday,date=b.dataset.date,amount=+b.dataset.amt;
     b.disabled=true;

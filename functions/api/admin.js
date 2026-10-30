@@ -9,7 +9,7 @@ import * as ex from '../lib/expense.js';
 import { signedIn, need, can, ROLES, listUsers, addUser, updateUser, removeUser } from '../lib/auth.js';
 import { remindText, statementMessage, approvedText, dunningText, receiptMessage } from '../lib/messages.js';
 import { getFirestore } from 'firebase-admin/firestore';
-import { signSlipToken } from '../lib/token.js';
+import { signSlipToken, sign } from '../lib/token.js';
 import { originOf } from '../lib/http.js';
 import * as report from '../lib/report.js';
 import { resetTestData } from '../lib/reset.js';
@@ -310,6 +310,12 @@ export async function POST(request) {
       case 'costTypes':
         need(me, 'bills');
         return json({ costTypes: await report.saveCostTypes(b.costTypes) });
+      // 代客叫貨：電話叫貨時，後台直接打開這家店的叫貨單（跟店家在 LINE 看到的一樣）
+      case 'proxyLink': {
+        need(me, 'editOrders');
+        const s = await store();
+        return json({ url: `${originOf(request)}/?t=${sign('store:' + s.id)}&proxy=1` });
+      }
       case 'bought':
         need(me, 'view');
         return json({ bought: await shop.setBought(b.date, String(b.pid || ''), b.qty) });

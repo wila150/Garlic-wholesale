@@ -390,8 +390,9 @@ export async function saveStores(input) {
   return getStores();
 }
 
+// userId 是「store:店家ID」：後台代客叫貨的連結（電話叫貨的店不一定有綁 LINE）
 export async function storeOfUser(userId) {
-  const sid = (await data('members/' + userId))?.storeId;
+  const sid = String(userId).startsWith('store:') ? String(userId).slice(6) : (await data('members/' + userId))?.storeId;
   if (!sid) return null;
   const s = await data('stores/' + sid);
   return s && s.on ? s : null;

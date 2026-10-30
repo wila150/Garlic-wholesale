@@ -533,11 +533,12 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
 
 <div class="wrap" id="app" hidden>
   <header class="top">
-    <div class="th"><div class="brand"><span class="logo" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 2.5c1.3 2.4 1.2 4.7.3 6.6C22 10.4 27.5 14.7 27.5 20.6c0 5.6-5.1 8.9-11.5 8.9S4.5 26.2 4.5 20.6c0-5.9 5.5-10.2 11.2-11.5-.9-1.9-1-4.2.3-6.6z" fill="currentColor"/><path d="M16 11.5c-2.6 2.9-3.6 6.1-3.6 9.3 0 3 1.1 5.5 3.6 7.4m0-16.7c2.6 2.9 3.6 6.1 3.6 9.3 0 3-1.1 5.5-3.6 7.4" stroke="#1F4D3A" stroke-opacity=".55" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg></span><h1 id="shopName">叫貨後台</h1></div><div class="hact"><button class="lnk" id="themeBtn" aria-label="切換深色或淺色"></button><a class="lnk" id="posLink" href="/pos" hidden>收銀</a><button class="lnk" id="helpBtn">說明</button><button class="lnk" id="logout">登出</button></div></div>
+    <div class="th"><div class="brand"><span class="logo" aria-hidden="true"><svg viewBox="0 0 32 32"><path d="M16 2.5c1.3 2.4 1.2 4.7.3 6.6C22 10.4 27.5 14.7 27.5 20.6c0 5.6-5.1 8.9-11.5 8.9S4.5 26.2 4.5 20.6c0-5.9 5.5-10.2 11.2-11.5-.9-1.9-1-4.2.3-6.6z" fill="currentColor"/><path d="M16 11.5c-2.6 2.9-3.6 6.1-3.6 9.3 0 3 1.1 5.5 3.6 7.4m0-16.7c2.6 2.9 3.6 6.1 3.6 9.3 0 3-1.1 5.5-3.6 7.4" stroke="#1F4D3A" stroke-opacity=".55" stroke-width="1.3" fill="none" stroke-linecap="round"/></svg></span><h1 id="shopName">叫貨後台</h1></div><div class="hact"><button class="lnk" id="themeBtn" aria-label="切換深色或淺色"></button><button class="lnk" id="helpBtn">說明</button><button class="lnk" id="logout">登出</button></div></div>
     <div class="tsub"><p id="headInfo"></p><span class="cutoff" id="cutoffTag"></span></div>
   </header>
 
   <nav class="tabs" role="tablist">
+    <button type="button" id="posLink" data-go="/pos" hidden><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M7 20h10M12 16v4M7 8h4M7 12h2"/></svg><span class="tl">POS</span></button>
     <button role="tab" data-tab="board" aria-selected="true"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4M12 16h4M8 11h.01M8 16h.01"/></svg><span class="tl">採買總表</span></button>
     <button role="tab" data-tab="prices" aria-selected="false"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg><span class="tl">單價</span><span class="dot" id="priceDot" hidden></span></button>
     <button role="tab" data-tab="slips" aria-selected="false"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg><span class="tl">出貨單</span></button>
@@ -606,7 +607,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103101</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103102</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div class="sgrps">
     <div id="rulesBox">
@@ -1639,6 +1640,7 @@ $('addG').addEventListener('click',()=>{G.push({id:'',name:'',type:'percent',val
 $('addS').addEventListener('click',()=>{S.push({id:'',name:'',route:Math.max(0,...S.map(s=>s.route))+1,phone:'',address:'',on:true,members:[]});sDirty=true;renderStores();document.querySelector(`[data-sf="name"][data-i="${S.length-1}"]`).focus()});
 document.addEventListener('click',async e=>{
   const b=e.target.closest('button');if(!b)return;
+  if(b.dataset.go){location.href=b.dataset.go;return}
   if(b.dataset.tab)showTab(b.dataset.tab);
   if(b.dataset.day){date=addDays(D.date,+b.dataset.day);openRow=null;load()}
   if(b.dataset.month){month=addMonths(D.month,+b.dataset.month);openBill=null;load()}

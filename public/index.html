@@ -40,6 +40,19 @@ button{cursor:pointer}
 .chips button[aria-pressed="true"]{background:var(--ink);color:var(--surface);border-color:var(--ink)}
 .chips .ct{display:inline-block;margin-left:4px;background:var(--tag);color:#2A2400;border-radius:8px;padding:0 5px;font-size:.75rem;font-weight:700}
 .list{flex:1;overflow-y:auto}
+.main{flex:1;display:flex;flex-direction:column;min-height:0}
+/* 電腦：左邊搜尋和分類，右邊品項排成好幾欄（手機維持上下排） */
+@media (min-width:900px){
+  .app{max-width:1280px}
+  .main{display:grid;grid-template-columns:230px minmax(0,1fr);grid-template-rows:auto minmax(0,1fr)}
+  .main>.tools{grid-column:1;grid-row:1/3;border-bottom:0;border-right:1px solid var(--line);padding:14px 12px;overflow-y:auto}
+  .main>.mode{grid-column:2;grid-row:1}
+  .main>.list{grid-column:2;grid-row:2;display:grid;grid-template-columns:repeat(auto-fill,minmax(400px,1fr));align-content:start;gap:8px;padding:14px}
+  .main>.list>.repeat,.main>.list>.noitem,.main>.list>.lcat{grid-column:1/-1}
+  .chips{flex-direction:column;overflow:visible;gap:4px;padding:12px 0}
+  .chips button{text-align:left;padding:9px 14px;border-radius:10px;font-size:.95rem;display:flex;justify-content:space-between;align-items:center}
+  body.shop .main>.list>.prow{margin:0;border-radius:var(--r);border-bottom:0;box-shadow:0 0 0 1px var(--line)}
+}
 .repeat{margin:10px 12px;padding:10px 12px;border:1px dashed var(--leaf);border-radius:8px;display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.9rem;color:var(--muted)}
 .repeat button{border:0;background:var(--leaf);color:#fff;border-radius:6px;padding:6px 12px;font-weight:700;white-space:nowrap}
 .prow{display:grid;grid-template-columns:1fr auto;align-items:center;gap:8px;padding:9px 14px;border-bottom:1px solid var(--line)}
@@ -78,7 +91,8 @@ button{cursor:pointer}
 .sa .go{background:var(--line-green);border-color:var(--line-green);color:#fff}
 .done{position:absolute;inset:0;background:var(--surface);display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;padding:24px;text-align:center;z-index:6}
 .done.on{display:flex}
-.proxybar{background:#B7472A;color:#fff;font-weight:700;text-align:center;padding:8px 12px;font-size:.95rem}
+.proxybar{background:#B7472A;color:#fff;font-weight:700;padding:6px 12px;font-size:.95rem;display:flex;align-items:center;gap:12px}
+.proxybar button{border:1px solid rgba(255,255,255,.7);background:transparent;color:#fff;border-radius:8px;padding:5px 12px;font-weight:700;min-height:34px}
 .join{padding:18px 16px;display:flex;flex-direction:column;gap:14px;overflow:auto}
 .join h2{margin:0;font-size:1.3rem}
 .join p{margin:0;color:var(--muted);font-size:.95rem}
@@ -119,12 +133,14 @@ button{cursor:pointer}
     <div class="err" id="jErr" role="alert"></div>
     <button id="jGo" type="submit">開通</button>
   </form>
+  <div class="main">
   <div class="tools" id="tools" hidden>
     <input id="q" type="search" placeholder="找品項" aria-label="搜尋品項">
     <div class="chips" id="chips"></div>
   </div>
   <div class="mode" id="modeBar" hidden></div>
   <div class="list" id="plist" hidden></div>
+  </div>
   <div class="bar" id="bar" hidden><span id="cartInfo"></span><button id="review" disabled>送出訂單</button></div>
   <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle"><div class="sheet-in"><h3 id="sheetTitle">確認這次叫的貨</h3><div class="sl" id="sheetList"></div><div class="err" id="err" role="alert"></div><div class="sa"><button id="back">返回修改</button><button class="go" id="submit">確認送出</button></div></div></div>
   <div class="done" id="done" role="status"></div>
@@ -156,7 +172,7 @@ async function load(){
   if(D.shopName){$('title').textContent=D.shopName}
   if(!r?.ok){$('subtitle').textContent='';$('msg').hidden=false;$('msg').textContent=D.error;return}
   // 後台代客叫貨（電話叫貨）：上面標清楚是幫哪家店叫
-  if(Q.get('proxy')&&D.store){const n=document.createElement('div');n.className='proxybar';n.textContent=`📞 代客叫貨：${D.store.name}（送出後就存進後台）`;document.querySelector('.app').prepend(n)}
+  if(Q.get('proxy')&&D.store){const n=document.createElement('div');n.className='proxybar';n.innerHTML=`<button type="button" data-back="1">← 回後台</button><span>📞 代客叫貨：${esc(D.store.name)}</span>`;document.querySelector('.app').prepend(n)}
   if(D.join){$('subtitle').textContent='新店家開通';$('join').hidden=false;if(D.liffId)initLiff();return}
   D.main={date:D.date,dateLabel:D.dateLabel,cutoff:D.cutoff,order:D.order};
   ['tools','plist','bar'].forEach(id=>$(id).hidden=false);
@@ -304,7 +320,7 @@ async function submit(){
 function showDone(word,o){
   $('done').innerHTML=`<div class="ok" aria-hidden="true">${o.items.length?'✅':'🗑️'}</div><h2 style="margin:0">${word==='取消今天的訂單'?'這次的訂單已取消':word==='取消補單'?'補單已取消':word}</h2>
     ${o.items.length?`<p>${D.dateLabel} 配送，${D.cutoff} 前都還可以${MODE==='addon'?'補':'改'}</p><ul>${o.items.map(i=>`<li><span>${esc(i.name)}</span><b>${esc(qtyText(i.qty,i.unit))}</b></li>`).join('')}</ul>`:''}
-    <p>在 LINE 點「我的訂單」隨時可以查。</p><button id="again">繼續修改</button>`;
+    ${Q.get('proxy')?'<p>已經存進後台的出貨單。</p>':'<p>在 LINE 點「我的訂單」隨時可以查。</p>'}<button id="again">繼續修改</button>${Q.get('proxy')?'<button data-back="1" style="margin-top:8px">← 回後台</button>':''}`;
   $('done').classList.add('on');
   $('again').onclick=()=>{$('done').classList.remove('on');render()};
 }
@@ -313,6 +329,8 @@ document.addEventListener('click',e=>{
   const b=e.target.closest('button');if(!b)return;
   if(b.dataset.mode){setMode(b.dataset.mode);return}
   if(b.dataset.cat){cat=b.dataset.cat;$('q').value='';renderChips();renderList();$('plist').scrollTop=0}
+  // 代客叫貨回後台：從後台開的分頁就關掉回去，不然直接打開後台
+  if(b.dataset.back){if(window.opener&&!window.opener.closed){window.opener.focus();window.close()}location.href='/admin';return}
   if(b.dataset.pk){const pid=b.dataset.pk;setQty(pid,Math.round(((cart[pid]||0)+(+b.dataset.n))*10000)/10000)}
   if(b.dataset.dq){const pid=b.dataset.pid,q=cart[pid]||0,d=+b.dataset.dq;setQty(pid,d<0&&q<1?0:q+d)}
   if(b.dataset.repeat){const pm=PM();let skip=0;D.last.items.forEach(i=>{if(pm[i.pid]?.on)cart[i.pid]=i.qty;else skip++});render();toast(skip?`已帶入上次的品項，有 ${skip} 樣暫停供貨`:'已帶入上次的品項，可以再用 + − 調整')}

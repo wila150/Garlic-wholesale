@@ -59,6 +59,8 @@ button{cursor:pointer}
 .prow.sel{background:var(--leaf-soft)}
 .prow .pn{font-weight:700;font-size:1.05rem}
 .prow .pn small{font-weight:400;color:var(--muted);font-size:.82rem;margin-left:6px}
+.prow .ph{display:block;margin-left:0;margin-top:2px}
+.usel{height:40px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--ink);font-weight:700;padding:0 4px}
 .prow .pks{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;margin-top:4px}
 .prow .pks small{margin-left:0;font-size:.75rem}
 .prow .pk{border:1px solid var(--leaf);background:var(--surface);color:var(--leaf);border-radius:14px;padding:2px 9px;font-size:.82rem;font-weight:700;min-height:30px;white-space:nowrap}
@@ -244,18 +246,23 @@ function visible(){
   if(cat==='全部')return items;
   return items.filter(p=>p.cat===cat);
 }
+// 單位：有包裝換算的品項，店家可以選用哪個單位叫（例如 包／件）；存的一律是品項本來的單位
+const UNIT={};
+const packsOf=p=>(p.packs||[]).filter(k=>k.n>0);
+// 「斤」的品項預設可以叫到兩；後台關掉（liang:false）就只能叫整數斤
+const useLiang=p=>p.unit==='斤'&&p.liang!==false;
 function rowHTML(p){
-  const q=cart[p.id]||0,jin=p.unit==='斤';
-  const stp=`<div class="stp"><button data-dq="-1" data-pid="${p.id}" aria-label="${esc(p.name)}減 1${esc(p.unit)}">−</button>
+  const q=cart[p.id]||0,ks=packsOf(p),k=ks.find(x=>x.unit===UNIT[p.id]);
+  const f=k?k.n:1,u=k?k.unit:p.unit,jin=!k&&useLiang(p);
+  const usel=ks.length?`<select class="usel" data-unit="${p.id}" aria-label="${esc(p.name)}單位">${[p.unit,...ks.map(x=>x.unit)].map(x=>`<option ${x===u?'selected':''}>${esc(x)}</option>`).join('')}</select>`:`<span class="u">${esc(u)}</span>`;
+  const stp=`<div class="stp"><button data-dq="-1" data-f="${f}" data-pid="${p.id}" aria-label="${esc(p.name)}減 1${esc(u)}">−</button>
   ${jin?`<input type="number" inputmode="numeric" min="0" step="1" value="${jinOf(q)||''}" placeholder="0" data-jin="${p.id}" aria-label="${esc(p.name)}幾斤">`
-    :`<input type="number" inputmode="decimal" min="0" step="any" value="${q?fmtQ(q):''}" placeholder="0" data-qin="${p.id}" aria-label="${esc(p.name)}數量（${esc(p.unit)}）">`}
-  <button class="plus" data-dq="1" data-pid="${p.id}" aria-label="${esc(p.name)}加 1${esc(p.unit)}" ${p.on?'':'disabled'}>+</button></div>`;
-  const ctl=jin?`<div class="ctl">${stp}<span class="u">斤</span><select data-liang="${p.id}" aria-label="${esc(p.name)}幾兩">${Array.from({length:16},(_,i)=>`<option value="${i}" ${i===liangOf(q)?'selected':''}>${i}</option>`).join('')}</select><span class="u">兩</span></div>`:stp;
-  // 有包裝換算（1件=10斤）：顯示換算，按「+1件」一次加一件的量
-  const ks=(p.packs||[]).filter(k=>k.n>0).slice(0,2);
-  const pk=ks.map(k=>`<button class="pk" data-pk="${p.id}" data-n="${k.n}" ${p.on?'':'disabled'} aria-label="${esc(p.name)}加 1${esc(k.unit)}（${k.n}${esc(p.unit)}）">+1${esc(k.unit)}</button>`).join('');
-  const kt=ks.map(k=>`1${esc(k.unit)}=${k.n}${esc(p.unit)}`).join('・');
-  return `<div class="prow ${q>0?'sel':''} ${jin?'jin':''}" id="r-${p.id}"><div class="pn">${esc(p.name)}${jin?'':`<small>${esc(p.unit)}</small>`}${p.on?'':'<em>暫停供貨</em>'}${pk?`<div class="pks">${pk}<small>${kt}</small></div>`:''}</div>${ctl}</div>`;
+    :`<input type="number" inputmode="decimal" min="0" step="any" value="${q?fmtQ(Math.round(q/f*10000)/10000):''}" placeholder="0" data-qin="${p.id}" data-f="${f}" aria-label="${esc(p.name)}數量（${esc(u)}）">`}
+  <button class="plus" data-dq="1" data-f="${f}" data-pid="${p.id}" aria-label="${esc(p.name)}加 1${esc(u)}" ${p.on?'':'disabled'}>+</button></div>`;
+  const ctl=`<div class="ctl">${stp}${usel}${jin?`<select data-liang="${p.id}" aria-label="${esc(p.name)}幾兩">${Array.from({length:16},(_,i)=>`<option value="${i}" ${i===liangOf(q)?'selected':''}>${i}</option>`).join('')}</select><span class="u">兩</span>`:''}</div>`;
+  // 換算說明；選了包裝單位就寫換成多少
+  const hint=k?(q?`＝${esc(qtyText(q,p.unit))}`:`1${esc(k.unit)}＝${k.n}${esc(p.unit)}`):ks.map(x=>`1${esc(x.unit)}＝${x.n}${esc(p.unit)}`).join('・');
+  return `<div class="prow ${q>0?'sel':''} ${jin?'jin':''}" id="r-${p.id}"><div class="pn">${esc(p.name)}${p.on?'':'<em>暫停供貨</em>'}${hint?`<small class="ph">${hint}</small>`:''}</div>${ctl}</div>`;
 }
 function renderList(){
   const items=visible(),q=$('q').value.trim();
@@ -277,9 +284,10 @@ function setQty(pid,q){
   if(q>0)cart[pid]=q;else delete cart[pid];
   const r=$('r-'+pid);
   if(r){
-    r.classList.toggle('sel',q>0);const inp=r.querySelector('input'),sel=r.querySelector('select');
-    if(sel){if(document.activeElement!==inp)inp.value=jinOf(q)||'';sel.value=liangOf(q)}
-    else if(document.activeElement!==inp)inp.value=q?fmtQ(q):'';
+    // 正在打字的框不要動，其他（兩、換算說明）整列重畫
+    const inp=r.querySelector('input');
+    if(document.activeElement===inp){r.classList.toggle('sel',q>0);const ph=r.querySelector('.ph'),p=PM()[pid],k=packsOf(p).find(x=>x.unit===UNIT[pid]);if(ph&&k)ph.textContent=q?`＝${qtyText(q,p.unit)}`:`1${k.unit}＝${k.n}${p.unit}`;const ls=r.querySelector('[data-liang]');if(ls)ls.value=liangOf(q)}
+    else r.outerHTML=rowHTML(PM()[pid]);
   }
   renderChips();renderBar();
 }
@@ -332,17 +340,17 @@ document.addEventListener('click',e=>{
   // 代客叫貨回後台：從後台開的分頁就關掉回去，不然直接打開後台
   if(b.dataset.back){if(window.opener&&!window.opener.closed){window.opener.focus();window.close()}location.href='/admin';return}
   if(b.dataset.pk){const pid=b.dataset.pk;setQty(pid,Math.round(((cart[pid]||0)+(+b.dataset.n))*10000)/10000)}
-  if(b.dataset.dq){const pid=b.dataset.pid,q=cart[pid]||0,d=+b.dataset.dq;setQty(pid,d<0&&q<1?0:q+d)}
+  if(b.dataset.dq){const pid=b.dataset.pid,q=cart[pid]||0,d=+b.dataset.dq*(+b.dataset.f||1);setQty(pid,d<0&&q<-d?0:q+d)}
   if(b.dataset.repeat){const pm=PM();let skip=0;D.last.items.forEach(i=>{if(pm[i.pid]?.on)cart[i.pid]=i.qty;else skip++});render();toast(skip?`已帶入上次的品項，有 ${skip} 樣暫停供貨`:'已帶入上次的品項，可以再用 + − 調整')}
 });
 document.addEventListener('input',e=>{
   const t=e.target;
-  if(t.dataset.qin)setQty(t.dataset.qin,+t.value||0);
+  if(t.dataset.qin)setQty(t.dataset.qin,(+t.value||0)*(+t.dataset.f||1));
   if(t.dataset.jin){const v=+t.value||0,l=+t.closest('.prow').querySelector('select').value;setQty(t.dataset.jin,Number.isInteger(v)?v+l/16:Math.round(v*16)/16)}
 });
 document.addEventListener('focusin',e=>{if(e.target.dataset?.qin||e.target.dataset?.jin)e.target.select()});
 document.addEventListener('keydown',e=>{if(e.key==='Enter'&&(e.target.dataset?.qin||e.target.dataset?.jin))e.target.blur()});
-document.addEventListener('change',e=>{const t=e.target;if(t.dataset.liang)setQty(t.dataset.liang,jinOf(cart[t.dataset.liang]||0)+(+t.value)/16)});
+document.addEventListener('change',e=>{const t=e.target;if(t.dataset.unit){const p=PM()[t.dataset.unit];UNIT[p.id]=t.value===p.unit?'':t.value;$('r-'+p.id).outerHTML=rowHTML(p);return}if(t.dataset.liang)setQty(t.dataset.liang,jinOf(cart[t.dataset.liang]||0)+(+t.value)/16)});
 $('q').addEventListener('input',renderList);
 $('review').addEventListener('click',openSheet);
 $('back').addEventListener('click',()=>$('sheet').classList.remove('on'));

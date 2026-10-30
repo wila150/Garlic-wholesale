@@ -596,7 +596,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103012</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103014</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div class="sgrps">
     <div id="rulesBox">
@@ -1063,7 +1063,8 @@ function renderProducts(){
         <div class="pedrow"><label>品名<input type="text" data-pf="name" data-i="${i}" value="${esc(p.name)}"></label>
         <label>單位<select data-pf="unit" data-i="${i}">${D.units.map(u=>`<option ${u===p.unit?'selected':''}>${esc(u)}</option>`).join('')}</select></label>
         <label>分類<select data-pf="cat" data-i="${i}">${D.categories.map(x=>`<option ${x===p.cat?'selected':''}>${esc(x)}</option>`).join('')}</select></label>
-        <label>包裝換算<input type="text" data-pf="packs" data-i="${i}" value="${esc(packText(p))}" placeholder="例如 件=10、箱=20（1件=10${esc(p.unit)}）"></label></div>
+        <label>包裝換算<input type="text" data-pf="packs" data-i="${i}" value="${esc(packText(p))}" placeholder="例如 件=10、箱=20（1件=10${esc(p.unit)}）"></label>
+        ${p.unit==='斤'?`<label class="chkl"><input type="checkbox" data-pf="liang" data-i="${i}" ${p.liang!==false?'checked':''}> 可以叫到兩（關掉就只能叫整數斤）</label>`:''}</div>
         <div class="alias"><span class="lb">客人常打的寫法</span>${aliasArr(p).map((a,k)=>`<span>${esc(a)}<button data-adel="${i}" data-k="${k}" aria-label="刪除叫法 ${esc(a)}">✕</button></span>`).join('')}${storeAliasChips(p)}
           <span class="anew"><select data-ascope="${i}" aria-label="適用的店家"><option value="">全部店家</option>${D.stores.map(s=>`<option value="${s.id}" ${aScope[i]===s.id?'selected':''}>只有${esc(s.name)}</option>`).join('')}</select><input data-anew="${i}" placeholder="打字按 Enter" maxlength="20" aria-label="${esc(p.name)} 新增叫法"></span></div>
         <button class="pdel" data-pdel="${i}">刪除這個品項</button>
@@ -1777,7 +1778,7 @@ document.addEventListener('click',async e=>{
 });
 document.addEventListener('input',e=>{
   const t=e.target;
-  if(t.dataset.pf!=null){const p=P[+t.dataset.i],f=t.dataset.pf;p[f]=f==='on'?t.checked:t.value;pDirty=true;$('saveP').disabled=false;$('pDirty').textContent='有尚未儲存的修改';if(f==='on'||f==='cat'||f==='unit')renderProducts()}
+  if(t.dataset.pf!=null){const p=P[+t.dataset.i],f=t.dataset.pf;p[f]=f==='on'||f==='liang'?t.checked:t.value;pDirty=true;$('saveP').disabled=false;$('pDirty').textContent='有尚未儲存的修改';if(f==='on'||f==='cat'||f==='unit')renderProducts()}
   if(t.dataset.cd!=null||t.dataset.cm!=null){rDirty=true;$('saveCosts')&&($('saveCosts').disabled=false);$('cDirty')&&($('cDirty').textContent='有尚未儲存的修改')}
   if(t.dataset.dc!=null){dcDraft[t.dataset.dc]=t.value;$('dpInfo').textContent='有尚未儲存的修改';$('dpInfo').style.color='var(--alert)'}
   if(t.dataset.dp!=null){dpDraft[t.dataset.dp]=t.value===''?'':Math.max(0,+t.value||0);t.closest('.prow2').classList.add('todo');$('dpInfo').textContent='有尚未儲存的修改';$('dpInfo').style.color='var(--alert)'}

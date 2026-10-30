@@ -205,6 +205,7 @@ export async function saveProducts(input) {
       // 別名（客人常打的寫法，給 AI 對照用）。畫面沒送 alias 時保留原本的，免得存品項時被清空
       alias: p.alias === undefined ? aliasList(old.get(id)?.alias) : aliasList(p.alias),
       packs: packList(p.packs === undefined ? old.get(id)?.packs : p.packs, units.includes(p.unit) ? p.unit : units[0]),
+      liang: (p.liang === undefined ? old.get(id)?.liang : p.liang) !== false, // 斤的品項可不可以叫到兩
     };
   });
   for (const p of list) {

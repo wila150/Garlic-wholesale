@@ -1,36 +1,48 @@
 <!doctype html><html><head><meta charset="utf-8">
-<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@500;900&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@700;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0}
-/* 2500×1686：左邊大格 1300 寬；右邊上下各一列，每列兩格（店家選單右上是一整格） */
-body{width:2500px;height:1686px;font-family:'Noto Sans TC',sans-serif;display:grid;grid-template-columns:1300px 600px 600px;grid-template-rows:843px 843px;background:#16291F}
-.c{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;color:#fff;border:6px solid #16291F;text-align:center}
-.big{grid-row:span 2;background:#F5D547;color:#2A2400}
-.wide{grid-column:span 2;background:#2F6B45}
-.a{background:#23523A}.b{background:#1F4A34}.d{background:#2F6B45}
-.ic{font-size:180px;line-height:1}
-.big .ic{font-size:420px}
-.wide .ic{font-size:220px}
-.t{font-size:104px;font-weight:900;letter-spacing:4px}
-.big .t{font-size:200px;letter-spacing:8px}
-.wide .t{font-size:130px;letter-spacing:8px}
-.s{font-size:66px;font-weight:500;opacity:.9}
-.a .s,.b .s,.d .s{font-size:52px}
-.boss .big{background:#E9E3D3;color:#1D2A22}
+/* 2500×1686。店家選單 2 排 × 3 格；老闆選單左邊大格＋右邊 2 × 2 */
+body{width:2500px;height:1686px;font-family:'Noto Sans TC',sans-serif;display:grid;gap:22px;padding:22px;
+  background:radial-gradient(120% 90% at 0% 0%,#24563F 0%,#163828 55%,#0F2A1E 100%)}
+body.store{grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr)}
+body.boss{grid-template-columns:repeat(3,1fr);grid-template-rows:repeat(2,1fr)}
+.c{position:relative;border-radius:56px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:54px;
+  background:linear-gradient(160deg,rgba(255,255,255,.13),rgba(255,255,255,.04));
+  box-shadow:inset 0 0 0 3px rgba(255,255,255,.10),0 18px 40px rgba(0,0,0,.25);color:#F4F1E6;overflow:hidden}
+.c::after{content:'';position:absolute;inset:0;background:radial-gradient(70% 55% at 50% 0%,rgba(255,255,255,.10),transparent 70%)}
+.ic{width:300px;height:300px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+  background:#F4F1E6;box-shadow:0 14px 30px rgba(0,0,0,.28),inset 0 -8px 0 rgba(0,0,0,.06)}
+.ic svg{width:160px;height:160px;fill:none;stroke:#1F4D3A;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+.t{font-size:132px;font-weight:900;letter-spacing:10px;text-shadow:0 4px 12px rgba(0,0,0,.25)}
+/* 主要的一格：暖黃 */
+.hot{background:linear-gradient(160deg,#FFE27A,#F2C94C);color:#2B2300;box-shadow:inset 0 0 0 3px rgba(255,255,255,.35),0 18px 40px rgba(0,0,0,.3)}
+.hot .t{text-shadow:none}
+.hot .ic{background:#2B4A35}.hot .ic svg{stroke:#FFE27A}
+.big{grid-row:span 2;gap:80px}.big .ic{width:440px;height:440px}.big .ic svg{width:240px;height:240px}.big .t{font-size:190px;letter-spacing:16px}
+.warn .ic svg{stroke:#B7472A}
 </style></head><body>
 <script>
-// ?m=store（店家，所有人預設）或 boss（老闆）；?kind=veg 菜行用菜的圖示
-const q = new URLSearchParams(location.search), boss = q.get('m') === 'boss', icon = q.get('kind') === 'veg' ? '🥬' : '🧄';
-document.body.className = boss ? 'boss' : '';
-document.body.innerHTML = boss ? `
-<div class="c big"><div class="ic">📒</div><div class="t">記帳</div></div>
-<div class="c a"><div class="ic">🛒</div><div class="t">還要買</div></div>
-<div class="c b"><div class="ic">📊</div><div class="t">本月支出</div></div>
-<div class="c d"><div class="ic">🖥</div><div class="t">開後台</div></div>
-<div class="c a"><div class="ic">💰</div><div class="t">今日支出</div></div>` : `
-<div class="c big"><div class="ic">${icon}</div><div class="t">我要叫貨</div><div class="s">直接打字或拍照就能叫</div></div>
-<div class="c wide"><div class="ic">📷</div><div class="t">拍照叫貨</div><div class="s">拍叫貨單，AI 幫你整理</div></div>
-<div class="c a"><div class="ic">📋</div><div class="t">我的訂單</div></div>
-<div class="c b"><div class="ic">💬</div><div class="t">聯絡老闆</div></div>`;
+// ?m=store（店家，所有人預設）或 boss（老闆）；?kind=veg 菜行用葉子圖示
+const q = new URLSearchParams(location.search), boss = q.get('m') === 'boss', veg = q.get('kind') === 'veg';
+const I = {
+  leaf: '<path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>',
+  garlic: '<path d="M12 3c.5 2 .4 3.4-.2 4.6C16.5 8.7 20 12 20 16c0 3.3-3.6 5-8 5s-8-1.7-8-5c0-4 3.5-7.3 8.2-8.4"/><path d="M12 8c-1.5 3-1.5 9 0 13M12 8c1.5 3 1.5 9 0 13"/>',
+  camera: '<path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"/><circle cx="12" cy="13" r="3.5"/>',
+  repeat: '<path d="m17 2 4 4-4 4"/><path d="M3 11v-1a4 4 0 0 1 4-4h14"/><path d="m7 22-4-4 4-4"/><path d="M21 13v1a4 4 0 0 1-4 4H3"/>',
+  list: '<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4M12 16h4M8 11h.01M8 16h.01"/>',
+  wallet: '<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>',
+  alert: '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4M12 17h.01"/>',
+  book: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+  cart: '<circle cx="8" cy="21" r="1"/><circle cx="19" cy="21" r="1"/><path d="M2.05 2.05h2l2.66 12.42a2 2 0 0 0 2 1.58h9.78a2 2 0 0 0 1.95-1.57l1.65-7.43H5.12"/>',
+  chart: '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="M18 17V9M13 17V5M8 17v-3"/>',
+  screen: '<rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8M12 17v4"/>',
+  coins: '<circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18M7 6h1v4M16.71 13.88l.7.71-2.82 2.82"/>',
+};
+const cell = (icon, text, cls = '') => `<div class="c ${cls}"><div class="ic"><svg viewBox="0 0 24 24">${I[icon]}</svg></div><div class="t">${text}</div></div>`;
+document.body.className = boss ? 'boss' : 'store';
+document.body.insertAdjacentHTML('beforeend', boss
+  ? cell('book', '記帳', 'hot big') + cell('cart', '還要買') + cell('chart', '本月支出') + cell('screen', '開後台') + cell('coins', '今日支出')
+  : cell(veg ? 'leaf' : 'garlic', '我要叫貨', 'hot') + cell('camera', '拍照叫貨') + cell('repeat', '照上次叫') + cell('list', '我的訂單') + cell('wallet', '我的帳款') + cell('alert', '回報問題', 'warn'));
 </script>
 </body></html>

@@ -1,5 +1,5 @@
 // 建立 LINE 圖文選單（會刪掉舊的選單）：
-//   店家選單：所有人的預設（我要叫貨、拍照叫貨、我的訂單、聯絡老闆）
+//   店家選單：所有人的預設（我要叫貨、拍照叫貨、照上次叫、我的訂單、我的帳款、回報問題）
 //   老闆選單：只套用在 ADMIN_LINE_USER_IDS（記帳、還要買、本月支出、開後台、今日支出）；要測試叫貨打「店家選單」，切回來打「老闆選單」
 // 先產生圖片：node scripts/richmenu/render.mjs veg
 // 再建立：LINE_CHANNEL_ACCESS_TOKEN=… node scripts/richmenu/setup.mjs caihang-order
@@ -24,21 +24,19 @@ const api = async (url, opt = {}) => {
 };
 const json = (body) => ({ method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 
-// 圖片 2500×1686：左邊大格 1300 寬；右邊上下兩列，每列 600 寬兩格
-const L = { x: 0, y: 0, width: 1300, height: 1686 };
-const TR = { x: 1300, y: 0, width: 1200, height: 843 };
-const cell = (col, row) => ({ x: 1300 + col * 600, y: row * 843, width: 600, height: 843 });
+// 圖片 2500×1686，三欄一樣寬（833／833／834）。老闆選單左邊一整欄是大格
+const X = [0, 833, 1666], W = [833, 833, 834];
+const L = { x: 0, y: 0, width: 833, height: 1686 };
+const cell = (col, row) => ({ x: X[col + 1], y: row * 843, width: W[col + 1], height: 843 });
 const msg = (text) => ({ type: 'message', label: text, text });
 
 const menus = {
   store: {
     size: { width: 2500, height: 1686 }, selected: true, name: '店家選單', chatBarText: '叫貨選單',
-    areas: [
-      { bounds: L, action: msg('我要叫貨') },
-      { bounds: TR, action: msg('拍照叫貨') },
-      { bounds: cell(0, 1), action: msg('我的訂單') },
-      { bounds: cell(1, 1), action: msg('聯絡老闆') },
-    ],
+    // 2 排 × 3 格
+    areas: ['我要叫貨', '拍照叫貨', '照上次叫', '我的訂單', '我的帳款', '回報問題'].map((t, i) => ({
+      bounds: { x: X[i % 3], y: i < 3 ? 0 : 843, width: W[i % 3], height: 843 }, action: msg(t),
+    })),
   },
   boss: {
     size: { width: 2500, height: 1686 }, selected: true, name: '老闆選單', chatBarText: '老闆選單',
@@ -60,8 +58,8 @@ for (const [k, menu] of Object.entries(menus)) {
   const { richMenuId } = await api('https://api.line.me/v2/bot/richmenu', json(menu));
   await api(`https://api-data.line.me/v2/bot/richmenu/${richMenuId}/content`, {
     method: 'POST',
-    headers: { 'Content-Type': 'image/png' },
-    body: fs.readFileSync(new URL(`./menu-${k}.png`, import.meta.url)),
+    headers: { 'Content-Type': 'image/jpeg' },
+    body: fs.readFileSync(new URL(`./menu-${k}.jpg`, import.meta.url)),
   });
   ids[k] = richMenuId;
 }

@@ -23,6 +23,12 @@ async function statement(month, storeId) {
   return { rows, total, got: shop.paidSum(paid[storeId], total) };
 }
 
+// 店家在 LINE 回報的問題：還沒處理的全部列出來
+async function openIssues() {
+  const snap = await getFirestore().collection('issues').where('status', '==', 'open').get();
+  return snap.docs.map((d) => d.data()).sort((a, b) => b.at.localeCompare(a.at));
+}
+
 // 這天各店的簽收紀錄（不含圖片）
 async function signaturesOf(date) {
   const snap = await getFirestore().collection('signatures').where('date', '==', date).get();
@@ -114,6 +120,7 @@ export async function GET(request) {
       dayPrices: showPrices ? dayPrices : {},
       dayCosts: can(me.role, 'prices') ? await shop.getDayCosts(date) : {},
       bought: await shop.getBought(date),
+      issues: await openIssues(),
       monthRows,
       paid,
       users,
@@ -319,6 +326,17 @@ export async function POST(request) {
         const s = await store();
         const d = String(b.draftId || '').replace(/[^\w-]/g, '');
         return json({ url: `${originOf(request)}/?t=${sign('store:' + s.id)}&proxy=1${d ? `&d=${d}` : ''}` });
+      }
+      // 店家回報處理好了；有寫回覆就用 LINE 傳給回報的人（用 1 則推播額度）
+      case 'issueDone': {
+        need(me, 'editOrders');
+        const ref = getFirestore().doc('issues/' + String(b.id || '').replace(/[^\w-]/g, '_'));
+        const it = (await ref.get()).data();
+        if (!it) throw new UserError('找不到這筆回報', 404);
+        const reply = String(b.reply || '').trim().slice(0, 300);
+        if (reply) await push(it.userId, [{ type: 'text', text: `關於您回報的 ${it.date.slice(5).replace('-', '/')} ${it.name}（${it.type}）：\n${reply}` }]);
+        await ref.update({ status: 'done', doneBy: me.name || me.email, doneAt: new Date().toISOString(), reply });
+        return json({ issues: await openIssues() });
       }
       case 'bought':
         need(me, 'view');

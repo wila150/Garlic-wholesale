@@ -11,6 +11,7 @@ import * as shop from '../lib/shop.js';
 import { welcome, orderMessage, orderCard, myOrders, addonCard, flex } from '../lib/messages.js';
 import { looksLikeOrder } from '../lib/ai.js';
 import { queue, confirmDraft, aiQuotaOk } from '../lib/aiorder.js';
+import { storeChat } from './storechat.js';
 
 export async function POST(request) {
   const raw = await request.text();
@@ -104,6 +105,9 @@ async function handle(e, origin) {
   // 店家確認配送單後按「回傳給老闆」帶過來的訊息
   if (/^已(確認|簽收)/.test(said)) return say({ type: 'text', text: '收到您的確認，謝謝！' });
   // 開通表單送出後，叫貨頁用店家的身分傳這句進來
+  // 圖文選單：照上次叫、我的帳款、回報問題（回報後補的照片也在這裡處理，不會被當成叫貨）
+  const sc = await storeChat({ e, said, pb, action, store, uid, url, origin });
+  if (sc) return say(sc);
   if (said === '開通完成') return say({ type: 'text', text: `✅「${store.name}」開通好了！\n\n要叫貨直接打字傳過來就好，例如：\n${SHOP.example}\n也可以點下方「拍照叫貨」拍手寫單。` });
 
   // 圖文選單「拍照叫貨」：回快速回覆按鈕，點了直接開相機或相簿（圖文選單本身不能開相機）

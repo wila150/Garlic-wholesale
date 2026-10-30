@@ -158,6 +158,15 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .payseg{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:.88rem;color:var(--muted)}
 .payseg button{border:1px solid var(--line);background:var(--surface);border-radius:16px;padding:4px 14px;font-weight:700;color:var(--muted);min-height:32px}
 .payseg button[aria-pressed="true"]{background:var(--leaf);border-color:var(--leaf);color:#fff}
+.issues{background:var(--surface);border:2px solid var(--alert);border-radius:12px;padding:10px 14px;margin-bottom:12px}
+.issues h3{margin:0 0 6px;color:var(--alert);font-size:1rem}
+.iss{padding:8px 0;border-top:1px dashed var(--line)}
+.iss small{color:var(--muted);margin-left:8px}
+.iss .ityp{color:var(--alert);font-weight:700}
+.iss .inote{margin:4px 0;padding:6px 10px;background:var(--bg);border-radius:8px;font-size:.92rem}
+.iss .iph{display:flex;gap:6px;margin:6px 0}
+.iss .iph img{width:84px;height:84px;object-fit:cover;border-radius:8px;cursor:zoom-in}
+.iss .acts{display:flex;gap:8px;margin-top:6px}
 .pbtn.sm{padding:2px 10px;font-size:.82rem;margin-left:6px;min-height:30px}
 .pays{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}
 .pays h4{margin:0 0 6px;font-size:.92rem;display:flex;justify-content:space-between}
@@ -564,6 +573,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   <section id="slips" hidden>
     <h2>各店出貨單</h2>
     <div class="bar"><button class="pbtn" data-print="slips">列印全部出貨單＋收據</button><button class="pbtn" data-print="daily">列印當日營業報表</button><button class="pbtn" id="xlsDay">匯出 Excel</button><button class="send" id="receiptAll">全部傳 LINE 收據</button></div>
+    <div id="issueBox"></div>
     <div class="slips" id="slipBox"></div>
     <div class="log" id="logBox"></div>
   </section>
@@ -596,7 +606,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103016</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103017</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div class="sgrps">
     <div id="rulesBox">
@@ -943,7 +953,17 @@ function xlsReport(){
 }
 
 /* ---------- 出貨單 ---------- */
+// 店家在 LINE 按「回報問題」送來的（還沒處理的都列在出貨單最上面）
+function renderIssues(){
+  const L=D.issues||[];
+  $('issueBox').innerHTML=L.length?`<div class="issues"><h3>⚠️ 店家回報 ${L.length} 件</h3>${L.map(x=>`<div class="iss">
+    <div><b>${esc(x.storeName)}</b>　${md(x.date)}${x.seq>1?` 補單${x.seq}`:''}　${esc(x.name)}：<span class="ityp">${esc(x.type)}</span><small>${hm(x.at)}</small></div>
+    ${(x.note||[]).length?`<div class="inote">${x.note.map(esc).join('<br>')}</div>`:''}
+    ${(x.photos||[]).length?`<div class="iph">${x.photos.map(u=>`<img src="${esc(u)}" data-zoom="1" alt="店家拍的照片">`).join('')}</div>`:''}
+    ${may('editOrders')?`<div class="acts"><button class="pbtn" data-issreply="${x.id}">回覆店家並處理</button><button class="pbtn" data-issdone="${x.id}">已處理</button></div>`:''}</div>`).join('')}</div>`:'';
+}
 function renderSlips(){
+  renderIssues();
   const onProducts=D.products.filter(p=>p.on);
   const opts=D.categories.map(c=>{const ps=onProducts.filter(p=>p.cat===c);return ps.length?`<optgroup label="${esc(c)}">${ps.map(p=>`<option value="${p.id}">${esc(p.name)}（${esc(p.unit)}）</option>`).join('')}</optgroup>`:''}).join('');
   const addRow=(k,label,btn,attr)=>`<div class="add"><select id="add-${k}" aria-label="${label}"><option value="">${btn==='加入'?'＋ 加品項':'＋ 補單品項'}</option>${opts}</select><input id="addq-${k}" type="text" placeholder="如 2斤4兩" aria-label="數量，可以打 2斤4兩"><button ${attr}="${k}">${btn}</button></div>`;
@@ -1666,6 +1686,11 @@ document.addEventListener('click',async e=>{
     if(!confirm(`${SM()[sid].name} 這個月還差 ${money(P.left)}，全部用${method}收清？`))return;
     b.disabled=true;
     try{const j=await api('POST',{action:'payment',month:D.month,storeId:sid,amount:P.left,method,date:D.today,note:'收清'});D.paid=j.paid;renderBills();toast(`已收清 ${SM()[sid].name} ${money(P.left)}`)}catch(err){toast(err.message);b.disabled=false}
+  }
+  if(b.dataset.issdone||b.dataset.issreply){
+    const id=b.dataset.issdone||b.dataset.issreply;let reply='';
+    if(b.dataset.issreply){reply=prompt('要回覆店家什麼？（會用 LINE 傳給回報的人，用 1 則推播額度）','不好意思，明天幫您補送。');if(!reply)return}
+    try{const j=await api('POST',{action:'issueDone',id,reply});D.issues=j.issues;renderIssues();toast(reply?'已回覆店家並處理':'已處理')}catch(err){toast(err.message)}
   }
   if(b.dataset.payday){
     const sid=b.dataset.payday,date=b.dataset.date,amount=+b.dataset.amt;

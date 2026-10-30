@@ -390,6 +390,14 @@ export async function saveStores(input) {
   return getStores();
 }
 
+// 只改一家店的付款方式（對帳頁直接切換）
+export async function setStorePay(sid, pay) {
+  const ref = doc('stores/' + clean(sid, 40));
+  if (!(await ref.get()).exists) throw new UserError('找不到這家店', 404);
+  await ref.update({ pay: pay === 'cash' ? 'cash' : 'month' });
+  return getStores();
+}
+
 // userId 是「store:店家ID」：後台代客叫貨的連結（電話叫貨的店不一定有綁 LINE）
 export async function storeOfUser(userId) {
   const sid = String(userId).startsWith('store:') ? String(userId).slice(6) : (await data('members/' + userId))?.storeId;

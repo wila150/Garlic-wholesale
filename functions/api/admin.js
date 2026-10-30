@@ -231,6 +231,9 @@ export async function POST(request) {
         await shop.setPaid(b.month, b.storeId, !!b.paid);
         return json({ paid: await shop.getPaid(b.month) });
       }
+      case 'storePay':
+        need(me, 'bills');
+        return json({ stores: await shop.setStorePay(b.storeId, b.pay) });
       case 'payment':
         need(me, 'bills');
         if (!isMonth(b.month)) throw new UserError('月份不正確');

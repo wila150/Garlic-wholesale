@@ -155,6 +155,9 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .ecats input{min-width:0}
 .bill-d .row em{font-style:normal;font-size:.82rem;font-weight:700;margin-left:6px}
 .slip .proxy,#aeProxy{display:block;width:100%;margin:8px 0 4px;padding:10px;border:1.5px dashed var(--leaf);background:transparent;color:var(--leaf);border-radius:10px;font-weight:700}
+.payseg{display:flex;align-items:center;gap:6px;margin-top:10px;font-size:.88rem;color:var(--muted)}
+.payseg button{border:1px solid var(--line);background:var(--surface);border-radius:16px;padding:4px 14px;font-weight:700;color:var(--muted);min-height:32px}
+.payseg button[aria-pressed="true"]{background:var(--leaf);border-color:var(--leaf);color:#fff}
 .pbtn.sm{padding:2px 10px;font-size:.82rem;margin-left:6px;min-height:30px}
 .pays{margin-top:12px;border-top:1px solid var(--line);padding-top:8px}
 .pays h4{margin:0 0 6px;font-size:.92rem;display:flex;justify-content:space-between}
@@ -593,7 +596,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103010</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103012</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div class="sgrps">
     <div id="rulesBox">
@@ -1015,9 +1018,11 @@ function renderBills(){
       <span class="amt">${money(total)}${tag?`<small class="${tag[0]}" style="display:block;font-size:.78rem">${tag[1]}</small>`:''}</span></button>
       ${open?`<div class="bill-d"><div class="scroll">${rows.map(r=>{
         // 現結的店：每天一筆，司機收了就按「收現金」
-        const got=s.pay==='cash'&&P.list.some(p=>p.for===r.date);
-        const act=s.pay!=='cash'?'':got?'<em class="paid">✓ 已收</em>':`<button class="pbtn sm" data-payday="${s.id}" data-date="${r.date}" data-amt="${r.amount}">收現金</button>`;
+        // 每天都可以單獨收：現結的店每次都收，月結的店偶爾先付某天的也可以；收清了就不用再按
+        const got=P.list.some(p=>p.for===r.date);
+        const act=got?'<em class="paid">✓ 已收</em>':!P.left?'':`<button class="pbtn sm" data-payday="${s.id}" data-date="${r.date}" data-amt="${r.amount}">${s.pay==='cash'?'收現金':'收這天'}</button>`;
         return `<div class="row"><span>${dlabel(r.date)}</span><span>${money(r.amount)}${act?' '+act:''}</span></div>`}).join('')||'<div class="row"><span>這個月沒有送貨</span></div>'}</div>
+      <div class="payseg" role="group" aria-label="付款方式"><span>付款方式</span><button data-setpay="${s.id}" data-pay="month" aria-pressed="${s.pay!=='cash'}">月結</button><button data-setpay="${s.id}" data-pay="cash" aria-pressed="${s.pay==='cash'}">現結</button></div>
       <div class="acts">${rows.length?`<button class="send" data-send="${s.id}">用 LINE 傳對帳單</button><button class="pbtn" data-print="stmt" data-store="${s.id}">列印對帳單</button>`:''}</div>
       ${total||P.list.length?payBox(s,P):''}</div>`:''}</div>`;
   }).join('')||'<div class="empty">這個月沒有送貨紀錄</div>';
@@ -1034,7 +1039,7 @@ function payBox(s,P){
       <select name="method" aria-label="收款方式">${PAYM.map(x=>`<option>${x}</option>`).join('')}</select>
       <input type="date" name="date" value="${D.today}" aria-label="收款日期">
       <input name="note" maxlength="40" placeholder="備註（選填）" aria-label="備註">
-      <div class="full"><button class="send" data-payadd="${s.id}">記一筆收款</button></div></div>`:''}</div>`;
+      <div class="full"><button class="send" data-payadd="${s.id}">記一筆收款</button>${P.list.length||s.pay!=='cash'?`<button class="pbtn" data-payall="${s.id}">全部收清 ${money(P.left)}</button>`:''}</div></div>`:''}</div>`;
 }
 
 /* ---------- 品項 ---------- */
@@ -1648,10 +1653,24 @@ document.addEventListener('click',async e=>{
   if(b.dataset.ecdel){ecOpen=true;const c=ecRead();const n=c[+b.dataset.ecdel].name;if(confirm(`刪除分類「${n}」？已經記的帳會留著原本的分類名稱。`))expApi({action:'expenseCats',cats:c.filter((_,i)=>i!==+b.dataset.ecdel)},'已刪除分類')}
   if(b.id==='ecSave'){ecOpen=true;expApi({action:'expenseCats',cats:ecRead()},'分類已儲存')}
   if(b.dataset.proxy||b.id==='aeProxy')openProxy(b.dataset.proxy||AE.d.storeId,b.id==='aeProxy'&&!['confirmed','edited','admin','confirming'].includes(AE.d.status)?AE.id:'');
+  if(b.dataset.setpay){
+    const sid=b.dataset.setpay,pay=b.dataset.pay;if(SM()[sid].pay===pay||(pay==='month'&&SM()[sid].pay!=='cash'))return;
+    try{const j=await api('POST',{action:'storePay',storeId:sid,pay});D.stores=j.stores;renderBills();toast(`${SM()[sid].name} 改成${pay==='cash'?'現結':'月結'}`)}catch(err){toast(err.message)}
+  }
+  if(b.dataset.payall){
+    const sid=b.dataset.payall,f=document.querySelector(`[data-payf="${sid}"]`),total=monthRows(sid).reduce((a,r)=>a+r.amount,0),P=payOf(sid,total);
+    if(!P.left)return;
+    const method=f?.querySelector('[name=method]').value||'現金';
+    if(!confirm(`${SM()[sid].name} 這個月還差 ${money(P.left)}，全部用${method}收清？`))return;
+    b.disabled=true;
+    try{const j=await api('POST',{action:'payment',month:D.month,storeId:sid,amount:P.left,method,date:D.today,note:'收清'});D.paid=j.paid;renderBills();toast(`已收清 ${SM()[sid].name} ${money(P.left)}`)}catch(err){toast(err.message);b.disabled=false}
+  }
   if(b.dataset.payday){
     const sid=b.dataset.payday,date=b.dataset.date,amount=+b.dataset.amt;
+    // 現結一律現金；月結用下面表單選的方式（匯款、支票…）
+    const method=SM()[sid].pay==='cash'?'現金':document.querySelector(`[data-payf="${sid}"] [name=method]`)?.value||'現金';
     b.disabled=true;
-    try{const j=await api('POST',{action:'payment',month:D.month,storeId:sid,amount,method:'現金',date:D.today,note:`${md(date)} 貨款`,for:date});D.paid=j.paid;renderBills();toast(`已記 ${SM()[sid].name} ${md(date)} 收現金 ${money(amount)}`)}catch(err){toast(err.message);b.disabled=false}
+    try{const j=await api('POST',{action:'payment',month:D.month,storeId:sid,amount,method,date:D.today,note:`${md(date)} 貨款`,for:date});D.paid=j.paid;renderBills();toast(`已記 ${SM()[sid].name} ${md(date)} ${method} ${money(amount)}`)}catch(err){toast(err.message);b.disabled=false}
   }
   if(b.dataset.payadd){
     const sid=b.dataset.payadd,f=document.querySelector(`[data-payf="${sid}"]`),v=n=>f.querySelector(`[name=${n}]`).value;
@@ -1801,12 +1820,15 @@ $('saveRules').addEventListener('click',saveRules);
 $('rulesForm').addEventListener('input',()=>{$('rulesForm').dataset.dirty=1;$('rAddonUntil').disabled=!$('rAddon').checked});
 // 加到主畫面的後台沒有重新整理按鈕：切回來時問伺服器有沒有新版本，有的話跳出「點這裡更新」
 const MY_VER=document.querySelector('.ver')?.textContent;
-async function checkVer(){
-  try{const t=await (await fetch('/admin?v='+Date.now(),{cache:'no-store'})).text();const v=t.match(/<small class="ver">([^<]+)</)?.[1];if(v&&MY_VER&&v!==MY_VER)$('newVer').hidden=false}catch{}
+// auto：剛切回 App、也沒有還沒儲存的修改 → 直接更新；正在用的時候才跳按鈕，免得打到一半畫面被換掉
+const dirty=()=>pDirty||sDirty||gDirty||rDirty;
+function updateNow(){const b=$('newVer');b.hidden=false;b.disabled=true;b.textContent='更新中…';location.replace('/admin?v='+Date.now())}
+async function checkVer(auto){
+  try{const t=await (await fetch('/admin?v='+Date.now(),{cache:'no-store'})).text();const v=t.match(/<small class="ver">([^<]+)</)?.[1];if(v&&MY_VER&&v!==MY_VER){if(auto&&!dirty())updateNow();else $('newVer').hidden=false}}catch{}
 }
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='visible')return;checkVer();if(proxyOpen){proxyOpen=false;load();if(!$('ai').hidden)loadAI()}});
-setInterval(checkVer,10*60e3);
-$('newVer').addEventListener('click',()=>{if(!pDirty&&!sDirty&&!gDirty&&!rDirty||confirm('有還沒儲存的修改，更新會不見，確定？'))location.replace('/admin?v='+Date.now())});
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState!=='visible')return;checkVer(true);if(proxyOpen){proxyOpen=false;load();if(!$('ai').hidden)loadAI()}});
+setInterval(()=>checkVer(false),10*60e3);
+$('newVer').addEventListener('click',()=>{if($('newVer').disabled)return;if(!dirty()||confirm('有還沒儲存的修改，更新會不見，確定？'))updateNow()});
 // 淺色／深色切換（記在這台裝置，叫貨頁和說明書也會跟著）
 function paintThemeBtn(){const dk=document.documentElement.dataset.theme==='dark';$('themeBtn').textContent=dk?'☀︎':'☾';$('themeBtn').title=$('themeBtn').ariaLabel=dk?'換成淺色':'換成深色'}
 $('themeBtn').addEventListener('click',()=>{const t=document.documentElement.dataset.theme==='dark'?'light':'dark';document.documentElement.dataset.theme=t;try{localStorage.setItem('theme',t)}catch{}paintThemeBtn();$('helpFrame').src&&($('helpFrame').src=$('helpFrame').src)});

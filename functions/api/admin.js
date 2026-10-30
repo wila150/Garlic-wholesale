@@ -14,6 +14,7 @@ import { originOf } from '../lib/http.js';
 import * as report from '../lib/report.js';
 import { resetTestData } from '../lib/reset.js';
 import { applyDraft } from '../lib/aiorder.js';
+import { saveImage } from './img.js';
 
 async function statement(month, storeId) {
   const [all, paid] = await Promise.all([shop.monthAmounts(month), shop.getPaid(month)]);
@@ -218,7 +219,9 @@ export async function POST(request) {
         const s = await store();
         const { rows, total, got } = await statement(b.month, s.id);
         if (!rows.length) throw new UserError('這個月沒有送貨紀錄');
-        await pushToStore(s, [statementMessage(s, b.month, rows, total, got)]);
+        // 附上後台畫好的對帳單圖片（跟列印的一樣），再加對帳單卡片
+        const pics = Array.isArray(b.images) ? await Promise.all(b.images.slice(0, 1).map(async (d) => { const url = await saveImage(d, originOf(request)); return { type: 'image', originalContentUrl: url, previewImageUrl: url }; })) : [];
+        await pushToStore(s, [...pics, statementMessage(s, b.month, rows, total, got)]);
         return json({ ok: true });
       }
       case 'paid': {
@@ -339,7 +342,14 @@ export async function POST(request) {
         const s = await store();
         const ar = (await report.receivables()).find((x) => x.storeId === s.id);
         if (!ar) throw new UserError(`「${s.name}」沒有未收款`);
-        await pushToStore(s, [dunningText(s, ar)]);
+        // 附上還沒收完那幾個月的對帳單（LINE 一次最多 5 則：最多 4 張＋1 則提醒）。
+        // 後台有畫好對帳單圖片（images）就傳圖片，沒有就傳對帳單卡片
+        const months = ar.months.slice(0, 4).reverse();
+        const imgs = Array.isArray(b.images) ? b.images.slice(0, 4) : [];
+        const stmts = imgs.length
+          ? await Promise.all(imgs.map(async (d) => { const url = await saveImage(d, originOf(request)); return { type: 'image', originalContentUrl: url, previewImageUrl: url }; }))
+          : await Promise.all(months.map(async (m) => { const st = await statement(m.month, s.id); return statementMessage(s, m.month, st.rows, st.total, st.got); }));
+        await pushToStore(s, [...stmts, dunningText(s, ar)]);
         return json({ ok: true });
       }
       case 'addUser':

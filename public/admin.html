@@ -592,7 +592,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103002</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103004</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div class="sgrps">
     <div id="rulesBox">
@@ -1387,6 +1387,25 @@ async function choosePalette(k){
 }
 /* ---------- 綁定 QR Code ---------- */
 let INV=null;
+// 對帳單畫成圖片（跟列印的一樣），催款時傳給店家
+function loadH2c(){return window.html2canvas?Promise.resolve():new Promise((ok,no)=>{const sc=document.createElement('script');sc.src='https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';sc.onload=ok;sc.onerror=()=>no(new Error('圖片元件載入失敗'));document.head.appendChild(sc)})}
+async function stmtImages(s,months){
+  await loadH2c();
+  const box=document.createElement('div');box.style.cssText='position:fixed;left:-10000px;top:0;width:620px;background:#fff;color:#111;padding:24px';box.className='paper-img';document.body.appendChild(box);
+  const keep={month:D.month,monthRows:D.monthRows,paid:D.paid};
+  const out=[];
+  try{
+    for(const m of months){
+      // 其他月份要另外讀那個月的明細和收款
+      const j=m===D.month?keep:await api('GET',null,`?month=${m}&date=${D.date}`);
+      Object.assign(D,{month:m,monthRows:j.monthRows,paid:j.paid});
+      box.innerHTML=docStmt(s).replace('<div class="sign"><div>收款人：＿＿＿＿＿＿</div><div>付款日：＿＿＿＿＿＿</div></div>','');
+      const c=await html2canvas(box,{scale:2,backgroundColor:'#ffffff',logging:false});
+      out.push(c.toDataURL('image/jpeg',0.85));
+    }
+  }finally{Object.assign(D,keep);box.remove()}
+  return out;
+}
 function loadQrLib(){return window.QRCode?Promise.resolve():new Promise((ok,no)=>{const sc=document.createElement('script');sc.src='https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';sc.onload=ok;sc.onerror=()=>no(new Error('QR Code 元件載入失敗，請檢查網路'));document.head.appendChild(sc)})}
 const inviteUrl=code=>`https://line.me/R/oaMessage/${encodeURIComponent(D.shop.basicId||'')}/?${encodeURIComponent('綁定 '+code)}`;
 async function openInvite(sid,renew=false){
@@ -1641,7 +1660,9 @@ document.addEventListener('click',async e=>{
   if(b.dataset.send){
     const s=SM()[b.dataset.send];
     if(!confirm(`把 ${+D.month.slice(5)} 月對帳單用 LINE 傳給「${s.name}」？`))return;
-    try{await api('POST',{action:'statement',month:D.month,storeId:s.id});toast(`已傳對帳單給 ${s.name}`)}catch(err){toast(err.message)}
+    b.disabled=true;
+    let images=[];try{images=await stmtImages(s,[D.month])}catch(e){console.warn(e)}
+    try{await api('POST',{action:'statement',month:D.month,storeId:s.id,images});toast(`已傳對帳單給 ${s.name}`)}catch(err){toast(err.message)}finally{b.disabled=false}
   }
   if(b.dataset.print)openPrint(b.dataset.print,b.dataset.store);
   if(b.dataset.paper)setPaper(b.dataset.paper);
@@ -1667,7 +1688,15 @@ document.addEventListener('click',async e=>{
   if(b.id==='saveCosts')saveCosts();
   if(b.id==='ctAdd'){const name=$('ctName').value.trim();if(!name){toast('請填成本項目名稱');$('ctName').focus();return}saveCostTypes([...R.costTypes,{name,period:$('ctPeriod').value}],`已新增「${name}」`)}
   if(b.dataset.ctdel){const t=R.costTypes.find(x=>x.id===b.dataset.ctdel);if(confirm(`刪除成本項目「${t.name}」？已經填的金額不會再算進報表。`))saveCostTypes(R.costTypes.filter(x=>x.id!==t.id),'已刪除')}
-  if(b.dataset.dun){const s=SM()[b.dataset.dun];if(confirm(`用 LINE 傳催款通知給「${s.name}」？`)){try{await api('POST',{action:'dunning',storeId:s.id});toast(`已傳給 ${s.name}`)}catch(err){toast(err.message)}}}
+  if(b.dataset.dun){
+    const s=SM()[b.dataset.dun],ar=R.receivables.find(x=>x.storeId===s.id);
+    const months=(ar?.months||[]).slice(0,4).map(m=>m.month).reverse();
+    if(!confirm(`用 LINE 傳催款通知給「${s.name}」？會附上 ${months.map(m=>+m.slice(5)+' 月').join('、')}的對帳單圖片。`))return;
+    b.disabled=true;toast('正在產生對帳單圖片…');
+    // 圖片做不出來（網路、瀏覽器不支援）就改傳對帳單卡片
+    let images=[];try{images=await stmtImages(s,months)}catch(e){console.warn(e)}
+    try{await api('POST',{action:'dunning',storeId:s.id,images});toast(`已傳給 ${s.name}${images.length?`（含 ${images.length} 張對帳單）`:''}`)}catch(err){toast(err.message)}finally{b.disabled=false}
+  }
   if(b.id==='aiReload')loadAI();
   if(b.dataset.learn)learnAlias(b.dataset.learn);
   if(b.dataset.adel){const i=+b.dataset.adel,k=+b.dataset.k;P[i].alias=aliasArr(P[i]).filter((_,x)=>x!==k);pDirty=true;renderProducts()}

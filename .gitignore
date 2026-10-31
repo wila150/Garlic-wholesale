@@ -8,3 +8,4 @@ node_modules/
 *-debug.log
 .DS_Store
 .fuse_hidden*
+.claude/settings.local.json

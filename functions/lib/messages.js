@@ -111,8 +111,8 @@ export function draftMessage(store, draft, { existing = [], toAddon = false, cho
 }
 
 // 電子收據：實出量 × 單價
-// 付款方式：現結的店每次送貨付清；月結照老闆設定的條件（PAY_TERMS）
-export const payTermsOf = (store) => (store?.pay === 'cash' ? '現結：收貨時請付清本單金額，謝謝。' : SHOP.payTerms);
+// 付款方式：日結的店每次送貨付清；月結照老闆設定的條件（PAY_TERMS）
+export const payTermsOf = (store) => (store?.pay === 'cash' ? '日結：收貨時請付清本單金額，謝謝。' : SHOP.payTerms);
 
 // soFar：月結的店這個月到這天為止的累計金額（含這張）
 export function receiptMessage(store, date, order, billQty, soFar = null) {
@@ -132,7 +132,7 @@ export function receiptMessage(store, date, order, billQty, soFar = null) {
     sep,
     row('合計', money(total), { weight: 'bold', size: 'md', margin: 'md' }),
     ...(store.pay === 'cash'
-      ? [row('本次應付（現結）', money(total), { weight: 'bold', color: C.alert || '#C0392B' })]
+      ? [row('本次應付（日結）', money(total), { weight: 'bold', color: C.alert || '#C0392B' })]
       : soFar != null ? [row(`${+date.slice(5, 7)} 月累計（月結）`, money(soFar), { size: 'sm' })] : []),
     text(`本單兼收據。${payTermsOf(store)}`, { size: 'xxs', color: C.muted }),
   ]));

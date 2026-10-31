@@ -601,13 +601,14 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
 
   <section id="admin" hidden>
     <input id="pSearch" class="psearch" type="search" placeholder="搜尋品項或叫法" aria-label="搜尋品項">
+    <div class="bar erpbar"><label class="pbtn">從 ERP 匯入品項<input type="file" id="erpFile" accept=".txt,text/plain" multiple hidden></label><small style="color:var(--muted)">選 ERP 匯出的「貨品編號名稱對照表」，可以一次選好幾個；不會刪品項、不會動單價</small></div>
     <div id="adminList"></div>
     <div class="addcat"><input id="newCat" placeholder="＋ 新增分類，例如：醬料" maxlength="12" aria-label="新分類名稱"><button id="addCat" type="button">新增分類</button></div>
     <div class="savebar"><button class="ok" id="saveP" disabled>儲存品項</button><span id="pDirty"></span></div>
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103108</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103109</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div class="sgrps">
     <div id="rulesBox">
@@ -838,6 +839,8 @@ function totals(){
   return sortItems(Object.values(m));
 }
 // 包裝換算：1件=10斤
+// ERP 貨品編號：品項本身單位的只寫編號，其他單位寫「公斤=AA1Aa」
+const erpText=p=>p.erp&&typeof p.erp==='object'?Object.entries(p.erp).map(([u,c])=>u===p.unit?c:`${u}=${c}`).join('、'):String(p.erp||'');
 const packText=p=>Array.isArray(p.packs)?p.packs.map(k=>`${k.unit}=${k.n}`).join('、'):String(p.packs||'');
 const packHint=(q,p)=>{const k=Array.isArray(p?.packs)&&p.packs[0];return k&&q>0?`約 ${+(q/k.n).toFixed(1)} ${k.unit}`:''};
 // 採買進度：已買多少（後台填，或老闆在 LINE 記帳「高麗菜20斤 5000」自動加）
@@ -1041,15 +1044,15 @@ function renderBills(){
     const open=openBill===s.id;
     const tag=!total?'':!P.left?['paid','已收清']:P.got?['unpaid','還差 '+money(P.left)]:['unpaid','未收款'];
     return `<div class="bill"><button class="bill-h" data-bill="${s.id}" aria-expanded="${open}">
-      <span><b>${esc(s.name)}</b><small>本月送貨 ${rows.length} 天・${s.pay==='cash'?'現結':'月結'}</small></span>
+      <span><b>${esc(s.name)}</b><small>本月送貨 ${rows.length} 天・${s.pay==='cash'?'日結':'月結'}</small></span>
       <span class="amt">${money(total)}${tag?`<small class="${tag[0]}" style="display:block;font-size:.78rem">${tag[1]}</small>`:''}</span></button>
       ${open?`<div class="bill-d"><div class="scroll">${rows.map(r=>{
-        // 現結的店：每天一筆，司機收了就按「收現金」
-        // 每天都可以單獨收：現結的店每次都收，月結的店偶爾先付某天的也可以；收清了就不用再按
+        // 日結的店：每天一筆，司機收了就按「收現金」
+        // 每天都可以單獨收：日結的店每次都收，月結的店偶爾先付某天的也可以；收清了就不用再按
         const got=P.list.some(p=>p.for===r.date);
         const act=got?'<em class="paid">✓ 已收</em>':!P.left?'':`<button class="pbtn sm" data-payday="${s.id}" data-date="${r.date}" data-amt="${r.amount}">${s.pay==='cash'?'收現金':'收這天'}</button>`;
         return `<div class="row"><span>${dlabel(r.date)}</span><span>${money(r.amount)}${act?' '+act:''}</span></div>`}).join('')||'<div class="row"><span>這個月沒有送貨</span></div>'}</div>
-      <div class="payseg" role="group" aria-label="付款方式"><span>付款方式</span><button data-setpay="${s.id}" data-pay="month" aria-pressed="${s.pay!=='cash'}">月結</button><button data-setpay="${s.id}" data-pay="cash" aria-pressed="${s.pay==='cash'}">現結</button></div>
+      <div class="payseg" role="group" aria-label="付款方式"><span>付款方式</span><button data-setpay="${s.id}" data-pay="month" aria-pressed="${s.pay!=='cash'}">月結</button><button data-setpay="${s.id}" data-pay="cash" aria-pressed="${s.pay==='cash'}">日結</button></div>
       <div class="acts">${rows.length?`<button class="send" data-send="${s.id}">用 LINE 傳對帳單</button><button class="pbtn" data-print="stmt" data-store="${s.id}">列印對帳單</button>`:''}</div>
       ${total||P.list.length?payBox(s,P):''}</div>`:''}</div>`;
   }).join('')||'<div class="empty">這個月沒有送貨紀錄</div>';
@@ -1084,13 +1087,14 @@ function renderProducts(){
     return head+`<div class="plist">`+items.map(({p,i})=>{
       const n=aliasArr(p).length+D.stores.reduce((a,s)=>a+(D.storeAliases?.[s.id]||[]).filter(x=>x.pid===p.id).length,0);
       return `<div class="prow3 ${p.on?'':'off'} ${openP===i?'open':''}">
-      <button class="pmain" data-popen="${i}" aria-expanded="${openP===i}"><span class="pn">${esc(p.name)}</span><span class="pu">${esc(p.unit)}${packText(p)?`・${esc(packText(p))}`:''}</span>${n?`<span class="pa">${n} 個叫法</span>`:''}</button>
+      <button class="pmain" data-popen="${i}" aria-expanded="${openP===i}"><span class="pn">${esc(p.name)}</span><span class="pu">${esc(p.unit)}${packText(p)?`・${esc(packText(p))}`:''}${erpText(p)?`・${esc(erpText(p))}`:''}</span>${n?`<span class="pa">${n} 個叫法</span>`:''}</button>
       <label class="sw" title="上架"><input type="checkbox" data-pf="on" data-i="${i}" ${p.on?'checked':''} aria-label="${esc(p.name)} 上架"><span></span></label>
       ${openP===i?`<div class="ped">
         <div class="pedrow"><label>品名<input type="text" data-pf="name" data-i="${i}" value="${esc(p.name)}"></label>
         <label>單位<select data-pf="unit" data-i="${i}">${D.units.map(u=>`<option ${u===p.unit?'selected':''}>${esc(u)}</option>`).join('')}</select></label>
         <label>分類<select data-pf="cat" data-i="${i}">${D.categories.map(x=>`<option ${x===p.cat?'selected':''}>${esc(x)}</option>`).join('')}</select></label>
         <label>門市價<input type="number" inputmode="decimal" min="0" step="any" data-pf="retail" data-i="${i}" value="${p.retail??''}" placeholder="沒填＝批發價"></label>
+        <label>ERP 編號<input type="text" data-pf="erp" data-i="${i}" value="${esc(erpText(p))}" placeholder="例如 AA1、公斤=AA1Aa"></label>
         <label>包裝換算<input type="text" data-pf="packs" data-i="${i}" value="${esc(packText(p))}" placeholder="例如 件=10、箱=20（1件=10${esc(p.unit)}）"></label>
         ${p.unit==='斤'&&D.rules?.liang!==false?`<label class="chkl"><input type="checkbox" data-pf="liang" data-i="${i}" ${p.liang!==false?'checked':''}> 可以叫到兩（關掉就只能叫整數斤）</label>`:''}</div>
         <div class="alias"><span class="lb">客人常打的寫法</span>${aliasArr(p).map((a,k)=>`<span>${esc(a)}<button data-adel="${i}" data-k="${k}" aria-label="刪除叫法 ${esc(a)}">✕</button></span>`).join('')}${storeAliasChips(p)}
@@ -1166,7 +1170,7 @@ function renderStores(){
     <input type="text" class="wide" data-sf="address" data-i="${i}" value="${esc(s.address)}" placeholder="送貨地址" aria-label="送貨地址" style="grid-column:1/4">
     <div class="mem">LINE：${s.members?.length?s.members.map(m=>`<span>${esc(m.name||'未命名')}<button data-unbind="${m.userId}" aria-label="解除 ${esc(m.name)}">✕</button></span>`).join(''):'還沒綁定'}${s.id&&D.stores.some(x=>x.id===s.id)?`<button class="invbtn" data-invite="${s.id}">＋ 邀請綁定</button>`:''}
       <select data-sf="groupId" data-i="${i}" aria-label="${esc(s.name)} 的報價組"><option value="">基本價</option>${(D.priceGroups||[]).map(g=>`<option value="${g.id}" ${g.id===s.groupId?'selected':''}>${esc(g.name)}</option>`).join('')}</select>
-      <select data-sf="pay" data-i="${i}" aria-label="${esc(s.name)} 付款方式"><option value="month" ${s.pay!=='cash'?'selected':''}>月結</option><option value="cash" ${s.pay==='cash'?'selected':''}>現結</option></select>
+      <select data-sf="pay" data-i="${i}" aria-label="${esc(s.name)} 付款方式"><option value="month" ${s.pay!=='cash'?'selected':''}>月結</option><option value="cash" ${s.pay==='cash'?'selected':''}>日結</option></select>
       <label><input type="checkbox" data-sf="on" data-i="${i}" ${s.on?'checked':''}>合作中</label>
       <button class="x" data-sdel="${i}" aria-label="刪除${esc(s.name)}">刪除</button></div>
 </div>`).join('')||'<div class="empty">還沒有店家。按「新增店家」，或等店家在 LINE 申請後在上面開通。</div>';
@@ -1519,10 +1523,10 @@ const ymdSlash=d=>d.replaceAll('-','/');
 let SIGS={};
 // 紙本給客戶用筆簽；有線上確認的話註明一下（舊的電子簽名也照樣印）
 const signLine=k=>{const g=D.signatures?.[k];const note=g?`<div style="font-size:.9em">${g.by==='店家線上確認'||g.by==='店家線上簽收'?'店家已線上確認':'已確認'} ${hm(g.at)}${g.signer?`（${esc(g.signer)}）`:''}</div>`:'';return SIGS[k]?`<div>簽收：<img class="sigimg" src="${SIGS[k]}" alt="簽名">${note}</div>`:`<div>簽收：＿＿＿＿＿＿${note}</div>`};
-// 付款方式：現結每次付清；月結寫本月累計（到這張為止）
-const termsOf=s=>s?.pay==='cash'?'現結：收貨時請付清本單金額，謝謝。':D.shop.payTerms;
+// 付款方式：日結每次付清；月結寫本月累計（到這張為止）
+const termsOf=s=>s?.pay==='cash'?'日結：收貨時請付清本單金額，謝謝。':D.shop.payTerms;
 function slipPayLine(s,total){
-  if(s.pay==='cash')return `<div class="paybox"><b>本次應付（現結）</b><b>${money(total)}</b></div>`;
+  if(s.pay==='cash')return `<div class="paybox"><b>本次應付（日結）</b><b>${money(total)}</b></div>`;
   if(D.month!==D.date.slice(0,7)||!D.monthRows)return '';
   const soFar=D.monthRows.filter(r=>r.storeId===s.id&&r.date<=D.date).reduce((a,r)=>a+r.amount,0);
   return soFar?`<div class="paybox"><span>${+D.date.slice(5,7)} 月累計（月結，含本單）</span><b>${money(soFar)}</b></div>`:'';
@@ -1635,6 +1639,22 @@ $('rmonth').addEventListener('change',e=>{if(e.target.value){rmonth=e.target.val
 $('month').addEventListener('change',e=>{if(e.target.value){month=e.target.value;openBill=null;load()}});
 $('toOpen').addEventListener('click',()=>{date='';load()});
 $('saveP').addEventListener('click',saveProducts);
+// ERP 匯出的檔案是 Big5；先試 UTF-8，看不懂再用 Big5
+$('erpFile').addEventListener('change',async e=>{
+  const files=[...e.target.files];e.target.value='';if(!files.length)return;
+  if(pDirty){toast('請先按「儲存品項」');return}
+  const dec=b=>{try{return new TextDecoder('utf-8',{fatal:true}).decode(b)}catch{return new TextDecoder('big5').decode(b)}};
+  const text=(await Promise.all(files.map(async f=>dec(await f.arrayBuffer())))).join('\n');
+  try{
+    const r=await api('POST',{action:'erpImport',text,dry:true,offOthers:true});
+    const more=a=>a.length>8?a.slice(0,8).join('、')+` …等 ${a.length} 個`:a.join('、');
+    if(!confirm(`讀到 ${r.count} 筆貨品：\n新增 ${r.added.length} 個品項${r.added.length?`（${more(r.added)}）`:''}\n更新 ${r.updated.length} 個（分類、單位、ERP 編號）${r.newCats.length?`\n新分類：${r.newCats.join('、')}`:''}${r.newUnits.length?`\n新單位：${r.newUnits.join('、')}`:''}\n\n「(公斤)」的編號會併到同名品項，收銀選公斤時用。確定匯入？`))return;
+    const offOthers=r.off.length?confirm(`有 ${r.off.length} 個品項不在 ERP 裡（${more(r.off)}）。\n要一起下架嗎？（按取消就保留上架）`):false;
+    const j=await api('POST',{action:'erpImport',text,dry:false,offOthers});
+    D.products=j.products;D.units=j.units;D.categories=j.categories;P=structuredClone(j.products);pDirty=false;await load();
+    toast(`已匯入：新增 ${j.added.length}、更新 ${j.updated.length}${j.off.length?`、下架 ${j.off.length}`:''}`);
+  }catch(err){toast(err.message)}
+});
 $('pSearch').addEventListener('input',()=>{openP=-1;renderProducts()});
 $('aeFind').addEventListener('input',aeHits);
 $('aeFind').addEventListener('keydown',e=>{if(e.key==='Enter'&&!e.isComposing){e.preventDefault();const p=aeMatches()[0];if(p)aePick(p.id)}});
@@ -1687,7 +1707,7 @@ document.addEventListener('click',async e=>{
   if(b.dataset.proxy||b.id==='aeProxy')openProxy(b.dataset.proxy||AE.d.storeId,b.id==='aeProxy'&&!['confirmed','edited','admin','confirming'].includes(AE.d.status)?AE.id:'');
   if(b.dataset.setpay){
     const sid=b.dataset.setpay,pay=b.dataset.pay;if(SM()[sid].pay===pay||(pay==='month'&&SM()[sid].pay!=='cash'))return;
-    try{const j=await api('POST',{action:'storePay',storeId:sid,pay});D.stores=j.stores;renderBills();toast(`${SM()[sid].name} 改成${pay==='cash'?'現結':'月結'}`)}catch(err){toast(err.message)}
+    try{const j=await api('POST',{action:'storePay',storeId:sid,pay});D.stores=j.stores;renderBills();toast(`${SM()[sid].name} 改成${pay==='cash'?'日結':'月結'}`)}catch(err){toast(err.message)}
   }
   if(b.dataset.payall){
     const sid=b.dataset.payall,f=document.querySelector(`[data-payf="${sid}"]`),total=monthRows(sid).reduce((a,r)=>a+r.amount,0),P=payOf(sid,total);
@@ -1704,7 +1724,7 @@ document.addEventListener('click',async e=>{
   }
   if(b.dataset.payday){
     const sid=b.dataset.payday,date=b.dataset.date,amount=+b.dataset.amt;
-    // 現結一律現金；月結用下面表單選的方式（匯款、支票…）
+    // 日結一律現金；月結用下面表單選的方式（匯款、支票…）
     const method=SM()[sid].pay==='cash'?'現金':document.querySelector(`[data-payf="${sid}"] [name=method]`)?.value||'現金';
     b.disabled=true;
     try{const j=await api('POST',{action:'payment',month:D.month,storeId:sid,amount,method,date:D.today,note:`${md(date)} 貨款`,for:date});D.paid=j.paid;renderBills();toast(`已記 ${SM()[sid].name} ${md(date)} ${method} ${money(amount)}`)}catch(err){toast(err.message);b.disabled=false}

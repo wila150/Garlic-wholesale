@@ -480,8 +480,8 @@ async function paneHist(load){
     <div class="b"><b>${money(x.total)} ${esc(x.method)}</b>${x.payNote?`<small>${esc(x.payNote)}</small>`:''}<button class="btn sm" data-reprint="${x.id}">補印</button>${!x.void&&H.date===D.today?`<button class="btn sm red" data-void="${x.id}">作廢</button>`:''}</div></div>`).join(''):'<p style="color:var(--muted)">沒有交易</p>'}</div>`);
 }
 function histCsv(){
-  const rows=[['收據號','時間','品項','數量','單位','單價','金額','小計','折扣','合計','付款方式','常客','收銀','作廢']];
-  for(const x of H.sales.slice().reverse())x.items.forEach((i,k)=>rows.push([x.no,new Date(x.at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false}),i.name,i.qty,i.unit,i.price,i.amount,k?'':x.subtotal,k?'':x.discount,k?'':x.total,x.method,x.customer?.name||'',x.by,x.void?'作廢':'']));
+  const rows=[['收據號','時間','ERP 編號','品項','數量','單位','單價','金額','小計','折扣','合計','付款方式','常客','收銀','作廢']];
+  for(const x of H.sales.slice().reverse())x.items.forEach((i,k)=>rows.push([x.no,new Date(x.at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false}),PM()[i.pid]?.erp?.[i.unit]||'',i.name,i.qty,i.unit,i.price,i.amount,k?'':x.subtotal,k?'':x.discount,k?'':x.total,x.method+(x.payNote?' '+x.payNote:''),x.customer?.name||'',x.by,x.void?'作廢':'']));
   const csv='﻿'+rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv'}));a.download=`門市交易_${H.date}.csv`;a.click();
 }

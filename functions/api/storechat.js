@@ -58,7 +58,7 @@ export async function storeChat({ e, said, pb, action, store, uid, url, origin }
     const soFar = await shop.monthSoFar(store.id, today());
     const owe = (ar?.months || []).filter((m) => m.month !== month);
     const thisLeft = (ar?.months || []).find((m) => m.month === month)?.amount ?? 0;
-    const lines = [`${store.name} 的帳款（${store.pay === 'cash' ? '現結' : '月結'}）`, '', `📅 ${+month.slice(5)} 月到今天：${money(soFar)}${soFar && store.pay === 'cash' ? `，還沒付 ${money(thisLeft)}` : ''}`];
+    const lines = [`${store.name} 的帳款（${store.pay === 'cash' ? '日結' : '月結'}）`, '', `📅 ${+month.slice(5)} 月到今天：${money(soFar)}${soFar && store.pay === 'cash' ? `，還沒付 ${money(thisLeft)}` : ''}`];
     if (owe.length) lines.push('', '還沒付清：', ...owe.reverse().map((m) => `・${+m.month.slice(5)} 月 ${money(m.amount)}`), `合計 ${money(owe.reduce((a, m) => a + m.amount, 0))}`);
     else lines.push('', '✅ 之前的月份都付清了');
     const prev = addDays(month + '-01', -1).slice(0, 7);

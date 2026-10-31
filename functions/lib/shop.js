@@ -36,6 +36,18 @@ const retailIn = (v) => { if (v === '' || v == null) return null; const n = Math
 
 /* ---------- 包裝換算：1 件＝10 斤、1 箱＝20 斤（數量一律換成品項的單位） ---------- */
 // 輸入「件=10、箱=20」或 [{ unit, n }]，回傳 [{ unit, n }]
+// ERP 貨品編號：{ 斤: 'AA1', 公斤: 'AA1Aa' }；後台打「AA1、公斤=AA1Aa」（沒寫單位的是品項本身的單位）
+export function erpIn(v, unit) {
+  if (v && !Array.isArray(v) && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([u, c]) => [clean(u, 6), clean(c, 20)]).filter(([u, c]) => u && c));
+  const out = {};
+  for (const s of String(v ?? '').split(/[、,，;；\s]+/).filter(Boolean)) {
+    const m = s.match(/^(?:([^\x00-\x7f]+)\s*[=＝])?\s*([\w.\-()]+)$/);
+    if (!m) throw new UserError(`ERP 編號「${s}」看不懂，例如：AA1、公斤=AA1Aa`);
+    out[m[1] || unit] = m[2].slice(0, 20);
+  }
+  return out;
+}
+
 export function packList(v, unit) {
   const arr = Array.isArray(v) ? v : String(v ?? '').split(/[、,，;；\n]/).map((s) => {
     const m = s.trim().match(/^1?\s*([^\d=＝\s]+)\s*[=＝]\s*(\d+(?:\.\d+)?)/);
@@ -209,6 +221,7 @@ export async function saveProducts(input) {
       packs: packList(p.packs === undefined ? old.get(id)?.packs : p.packs, units.includes(p.unit) ? p.unit : units[0]),
       liang: (p.liang === undefined ? old.get(id)?.liang : p.liang) !== false, // 斤的品項可不可以叫到兩
       retail: retailIn(p.retail === undefined ? old.get(id)?.retail : p.retail), // 門市價（POS 用），空白＝用批發單價
+      erp: erpIn(p.erp === undefined ? old.get(id)?.erp : p.erp, units.includes(p.unit) ? p.unit : units[0]), // ERP 貨品編號 { 單位: 編號 }
     };
   });
   for (const p of list) {
@@ -369,7 +382,7 @@ export async function saveStores(input) {
       address: clean(s.address, 80),
       on: s.on !== false,
       groupId: clean(s.groupId, 30),
-      pay: s.pay === 'cash' ? 'cash' : 'month', // 付款方式：month 月結（月底對帳單一次付）、cash 現結（每次送貨付）
+      pay: s.pay === 'cash' ? 'cash' : 'month', // 付款方式：month 月結（月底對帳單一次付）、cash 日結（每次送貨付）
       members: old.get(s.id)?.members || [], // 綁定的 LINE 帳號只能用開通／解除改
       ...(old.get(s.id)?.invite ? { invite: old.get(s.id).invite } : {}), // 綁定 QR Code
     };
@@ -752,7 +765,7 @@ export async function addPayment(month, sid, input, who) {
   const date = input.date ? String(input.date) : today();
   if (!isDate(date)) throw new UserError('收款日期不正確');
   const method = PAY_METHODS.includes(input.method) ? input.method : '現金';
-  const entry = { id: rid('p'), amount, date, method, note: clean(input.note, 40), by: clean(who, 40), at: new Date().toISOString(), ...(isDate(input.for) ? { for: input.for } : {}) }; // for：現結的店付的是哪一天的貨
+  const entry = { id: rid('p'), amount, date, method, note: clean(input.note, 40), by: clean(who, 40), at: new Date().toISOString(), ...(isDate(input.for) ? { for: input.for } : {}) }; // for：日結的店付的是哪一天的貨
   const ref = doc('paid/' + month);
   await db().runTransaction(async (tx) => {
     const rec = (await tx.get(ref)).data()?.stores?.[sid];

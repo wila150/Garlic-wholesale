@@ -7,6 +7,7 @@ import { openDate, today, thisMonth, isDate, isMonth, cutoffLabel, getRulesNow }
 import * as shop from '../lib/shop.js';
 import * as ex from '../lib/expense.js';
 import * as pos from '../lib/pos.js';
+import * as erp from '../lib/erp.js';
 import { signedIn, need, can, ROLES, listUsers, addUser, updateUser, removeUser } from '../lib/auth.js';
 import { remindText, statementMessage, approvedText, dunningText, receiptMessage, slipMessage } from '../lib/messages.js';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -86,7 +87,7 @@ export async function GET(request) {
         me: { email: me.email, name: me.name, roleName: ROLES[me.role] },
         shop: { name: SHOP.name, phone: SHOP.phone, logo: SHOP.logo },
         palette: getRulesNow().palette, today: today(), date: d, pay: pos.PAY,
-        categories, products: products.filter((p) => p.on).map((p) => ({ id: p.id, cat: p.cat, name: p.name, unit: p.unit, price: pos.retailOf(p), liang: p.liang !== false && getRulesNow().liang !== false })),
+        categories, products: products.filter((p) => p.on).map((p) => ({ id: p.id, cat: p.cat, name: p.name, unit: p.unit, price: pos.retailOf(p), erp: p.erp || {}, liang: p.liang !== false && getRulesNow().liang !== false })),
         sales, summary: sum,
       });
     }
@@ -220,6 +221,11 @@ export async function POST(request) {
       case 'units':
         need(me, 'products');
         return json({ units: await shop.saveUnits(b.units) });
+      case 'erpImport': {
+        need(me, 'products');
+        const r = await erp.importErp(b.text, { dry: b.dry !== false, offOthers: !!b.offOthers });
+        return json(r.products ? { ...r, units: await shop.getUnits(), categories: await shop.getCategories() } : r);
+      }
       case 'products':
         need(me, 'products');
         return json({ products: await shop.saveProducts(b.products) });

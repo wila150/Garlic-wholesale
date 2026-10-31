@@ -1,6 +1,6 @@
 // 門市收銀（POS）：不接線上金流，付款方式只是記下來
-//   sales/{id}        { id, no, date, at, items: [{ pid, name, unit, qty, price, amount }], subtotal, discount, total,
-//                       method, paid, change, by, customer: { id, name } | null, void: false | { at, by, reason } }
+//   sales/{id}        { id, no, date, at, items: [{ pid, name, unit, qty, price, amount, sq: 扣庫存的量 }], subtotal, discount, total,
+//                       method, paid, change, payNote: 匯款末碼／支票號碼, by, customer: { id, name } | null, void: false | { at, by, reason } }
 //   posDays/{日期}     { seq, open: { at, by, cash } | null, moves: [{ id, at, by, type: 'in'|'out', amount, note }],
 //                       close: { at, by, counted, expected, diff, note } | null }：收據號、錢櫃、日結
 //   posHolds/{id}     { id, at, by, name, items, discount, customer }：掛單
@@ -19,9 +19,19 @@ const clean = (s, max) => String(s ?? '').trim().slice(0, max);
 const safeId = (id) => clean(id, 40).replace(/[^\w-]/g, '_') || '_';
 const now = () => new Date().toISOString();
 const money = (v) => Math.round(Number(v) || 0);
-export const PAY = ['現金']; // 只收現金；要加其他付款方式（轉帳、刷卡）加在這裡，收銀頁會自動出現選項
+export const PAY = ['現金', '匯款', '支票']; // 只有現金算進錢櫃；要加其他付款方式（刷卡）加在這裡，收銀頁會自動出現選項
 export const retailOf = (p) => (p.retail != null && p.retail !== '' ? Number(p.retail) : Number(p.price) || 0);
 const stockRef = () => db().doc('settings/stock');
+
+export const SELL_UNITS = ['斤', '兩', '公斤', '顆', '個', '散賣'];
+const JIN = { 斤: 1, 兩: 1 / 16, 公斤: 1 / 0.6 }; // 換成台斤（1 台斤 = 0.6 公斤）
+// 這筆要從庫存扣多少（品項的單位）；論顆、散賣換算不了，不扣
+function stockQty(qty, unit, base) {
+  if (unit === base) return qty;
+  if (JIN[unit] && JIN[base]) return roundQty((qty * JIN[unit]) / JIN[base]);
+  return 0;
+}
+const sqOf = (l) => l.sq ?? l.qty; // 舊的單沒有 sq，就是品項單位
 
 function linesOf(items, pm) {
   return (Array.isArray(items) ? items : []).map((i) => {
@@ -29,10 +39,14 @@ function linesOf(items, pm) {
     if (!p) throw new UserError('有品項已經不存在，請重新整理');
     const qty = roundQty(Number(i.qty));
     if (!(qty > 0 && qty < 10000)) throw new UserError(`「${p.name}」數量不正確`);
+    // 賣法可以跟品項單位不一樣：論斤的也能用公斤、論顆、散賣（直接打金額）
+    const unit = i.unit && SELL_UNITS.includes(i.unit) ? i.unit : p.unit;
+    const has = i.price != null && i.price !== '';
+    if (unit !== p.unit && !has) throw new UserError(`「${p.name}」用${unit}賣要打單價`);
     // 單價可以在收銀時改（議價），沒改就用門市價
-    const price = i.price != null && i.price !== '' ? Math.round(Number(i.price) * 100) / 100 : retailOf(p);
+    const price = has ? Math.round(Number(i.price) * 100) / 100 : retailOf(p);
     if (!(price >= 0)) throw new UserError(`「${p.name}」單價不正確`);
-    return { pid: p.id, name: p.name, unit: p.unit, qty, price, amount: Math.round(qty * price) };
+    return { pid: p.id, name: p.name, unit, qty, price, amount: Math.round(qty * price), sq: stockQty(qty, unit, p.unit) };
   });
 }
 
@@ -57,13 +71,13 @@ export async function checkout(input, who) {
     const c = cust?.data();
     const s = { id: ref.id, no: `${date.slice(5).replace('-', '')}-${String(seq).padStart(3, '0')}`, date, month: date.slice(0, 7), at: now(),
       items: lines, subtotal, discount, total, method, paid, change: paid - total, by: clean(who, 40),
-      customer: c ? { id: c.id, name: c.name } : null, void: false };
+      customer: c ? { id: c.id, name: c.name } : null, payNote: method === '現金' ? '' : clean(input.payNote, 40), void: false };
     tx.set(dref, { seq }, { merge: true });
     tx.set(ref, s);
     // 有管庫存的品項，賣出就扣
     const have = stock.data()?.items || {};
     const dec = {};
-    for (const l of lines) if (l.pid in have) dec[l.pid] = FieldValue.increment(-l.qty);
+    for (const l of lines) if (l.pid in have && l.sq) dec[l.pid] = FieldValue.increment(-l.sq);
     if (Object.keys(dec).length) tx.set(stockRef(), { items: dec }, { merge: true });
     if (c) tx.update(cref, { total: FieldValue.increment(total), visits: FieldValue.increment(1), lastAt: s.at });
     return s;
@@ -83,7 +97,7 @@ export async function voidSale(id, who, reason) {
     // 作廢：庫存加回去、常客的消費扣回來
     const have = stock.data()?.items || {};
     const inc = {};
-    for (const l of s.items) if (l.pid in have) inc[l.pid] = FieldValue.increment(l.qty);
+    for (const l of s.items) if (l.pid in have && sqOf(l)) inc[l.pid] = FieldValue.increment(sqOf(l));
     if (Object.keys(inc).length) tx.set(stockRef(), { items: inc }, { merge: true });
     if (s.customer) tx.set(db().doc('customers/' + safeId(s.customer.id)), { total: FieldValue.increment(-s.total), visits: FieldValue.increment(-1) }, { merge: true });
     return { ...s, void: v };

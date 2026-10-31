@@ -98,7 +98,8 @@ export async function monthReport(month) {
     r.revenue += s.total; r.posRevenue += s.total; r.posCount++;
     for (const it of s.items) {
       const c = dayCosts[s.date]?.[it.pid] ?? fallbackCost[it.pid];
-      if (c == null) r.missingCost += it.amount; else r.purchase += it.qty * c;
+      const sq = it.sq ?? it.qty; // 論顆、散賣換算不了斤數，算沒填進價
+      if (c == null || !sq) r.missingCost += it.amount; else r.purchase += sq * c;
       if (KG[it.unit]) r.kg += it.qty * KG[it.unit];
     }
   }

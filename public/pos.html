@@ -213,9 +213,10 @@ input.kpon{border-color:var(--leaf)!important;box-shadow:0 0 0 3px color-mix(in 
 <!-- 數量（論斤的品項、或改數量、改單價） -->
 <div class="modal" id="qtyM" role="dialog" aria-modal="true" aria-labelledby="qtyT"><div class="box">
   <h3 id="qtyT"></h3><p class="sub" id="qtySub"></p>
+  <div class="chips" id="qtyMode"></div>
   <div class="qin" id="qtyIn"></div>
   <div class="chips" id="qtyQuick"></div>
-  <div class="qin"><span>單價 $</span><input id="qtyPrice" class="kp" inputmode="none" style="font-size:1.2rem"><span id="qtyUnit"></span></div>
+  <div class="qin"><span id="qtyPL">單價 $</span><input id="qtyPrice" class="kp" inputmode="none" style="font-size:1.2rem"><span id="qtyUnit"></span></div>
   <div id="qtyKp"></div>
   <div class="acts"><button type="button" id="qtyCancel">取消</button><button type="button" class="go" id="qtyOk">確定</button></div>
 </div></div>
@@ -225,6 +226,7 @@ input.kpon{border-color:var(--leaf)!important;box-shadow:0 0 0 3px color-mix(in 
   <h3 id="payT">結帳</h3>
   <div class="big" id="payTotal"></div>
   <div class="chips" id="methods"></div>
+  <div id="noteBox" hidden><input id="payNote" maxlength="40" placeholder="匯款末五碼／支票號碼、到期日（可以空白）" style="width:100%;border:1px solid var(--line);border-radius:10px;padding:10px;font-size:1rem"></div>
   <div id="cashBox">
     <div class="qin"><span>收</span><input id="paid" class="kp" inputmode="none" data-int="1"><span>元</span></div>
     <div class="chips" id="cashQuick"></div>
@@ -269,8 +271,9 @@ const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const money=n=>'$'+Math.round(n).toLocaleString('en-US');
 const fmtQ=q=>Number.isInteger(q)?q:(+q.toFixed(2));
-function qtyText(q,unit){q=Number(q)||0;if(unit==='斤'&&!Number.isInteger(q)){let j=Math.floor(q),l=Math.round((q-j)*16);if(l===16){j++;l=0}if(Math.abs(j+l/16-q)<0.001)return `${j?j+'斤':''}${l?l+'兩':''}`||'0斤'}return `${Number.isInteger(q)?q:+q.toFixed(2)} ${unit}`}
+function qtyText(q,unit){if(unit==='散賣')return '散賣';q=Number(q)||0;if(unit==='斤'&&!Number.isInteger(q)){let j=Math.floor(q),l=Math.round((q-j)*16);if(l===16){j++;l=0}if(Math.abs(j+l/16-q)<0.001)return `${j?j+'斤':''}${l?l+'兩':''}`||'0斤'}return `${Number.isInteger(q)?q:+q.toFixed(2)} ${unit}`}
 const r4=n=>Math.round(n*10000)/10000;
+const lineText=l=>l.unit==='散賣'?'散賣':`${qtyText(l.qty,l.unit)} × ${money(l.price)}`;
 function toast(t){const el=$('toast');el.textContent=t;el.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>el.classList.remove('show'),2400)}
 
 /* ---------- 登入（跟後台同一套 Google 帳號） ---------- */
@@ -337,7 +340,7 @@ function renderGrid(){
   const q=$('q').value.trim();
   const inCart=Object.fromEntries(cart.map(l=>[l.pid,l]));
   const ps=D.products.filter(p=>(cat==='全部'||p.cat===cat)&&(!q||p.name.includes(q)));
-  $('grid').innerHTML=ps.map(p=>{const st=stockOf(p.id);return `<button class="pbtn" data-p="${p.id}">${inCart[p.id]?`<span class="in">${esc(qtyText(inCart[p.id].qty,p.unit))}</span>`:''}<b>${esc(p.name)}</b><span>${money(p.price)}<small>／${esc(p.unit)}</small>${st!=null?`<br><small class="st ${isLow(p.id)?'low':''}">剩 ${esc(qtyText(st,p.unit))}</small>`:''}</span></button>`}).join('')||'<p style="color:var(--muted)">找不到品項</p>';
+  $('grid').innerHTML=ps.map(p=>{const st=stockOf(p.id);return `<button class="pbtn" data-p="${p.id}">${inCart[p.id]?`<span class="in">${esc(qtyText(inCart[p.id].qty,inCart[p.id].unit))}</span>`:''}<b>${esc(p.name)}</b><span>${money(p.price)}<small>／${esc(p.unit)}</small>${st!=null?`<br><small class="st ${isLow(p.id)?'low':''}">剩 ${esc(qtyText(st,p.unit))}</small>`:''}</span></button>`}).join('')||'<p style="color:var(--muted)">找不到品項</p>';
 }
 const sub=()=>cart.reduce((a,l)=>a+Math.round(l.qty*l.price),0);
 // 常客有專屬折扣：自動算好填進折扣（自己改過就照自己打的）
@@ -348,29 +351,42 @@ function renderCart(){
   if(!discManual)$('disc').value=memberDisc()||'';
   $('discL').textContent=cust?.discount&&!discManual?`會員 ${cust.discount} 折`:'折扣／抹零';
   $('custBar').innerHTML=cust?`<span>常客：<b>${esc(cust.name)}</b>${cust.discount?`（${cust.discount} 折）`:''}</span><button class="btn sm" id="custOff">取消</button>`:`<span style="color:var(--muted)">一般客人</span><button class="btn sm" id="custPick">＋ 選常客</button>`;
-  $('cart').innerHTML=cart.length?cart.map((l,i)=>`<div class="line"><button class="ed" data-ed="${i}"><b>${esc(l.name)}</b><small>${esc(qtyText(l.qty,l.unit))} × ${money(l.price)}</small></button><span class="amt">${money(l.qty*l.price)}</span><button class="x" data-rm="${i}" aria-label="移除${esc(l.name)}">✕</button></div>`).join(''):'<div class="empty">點左邊的品項加入</div>';
+  $('cart').innerHTML=cart.length?cart.map((l,i)=>`<div class="line"><button class="ed" data-ed="${i}"><b>${esc(l.name)}</b><small>${esc(lineText(l))}</small></button><span class="amt">${money(l.qty*l.price)}</span><button class="x" data-rm="${i}" aria-label="移除${esc(l.name)}">✕</button></div>`).join(''):'<div class="empty">點左邊的品項加入</div>';
   $('subtotal').textContent=money(sub());$('total').textContent=money(total());$('payBtn').disabled=!cart.length;
   renderGrid();
 }
 function resetSale(){cart=[];cust=null;discManual=false;$('disc').value='';renderCart()}
 function addProduct(p){
   const l=cart.find(x=>x.pid===p.id);
-  if(p.unit==='斤'||p.unit==='公斤'||p.unit==='兩'){openQty(p,l);return}
-  if(l)l.qty=r4(l.qty+1);else cart.push({pid:p.id,name:p.name,unit:p.unit,qty:1,price:p.price});
+  if(JIN[p.unit]){openQty(p,l);return}
+  if(l&&l.unit===p.unit)l.qty=r4(l.qty+1);else if(!l)cart.push({pid:p.id,name:p.name,unit:p.unit,qty:1,price:p.price});else{openQty(p,l);return}
   renderCart();
 }
+/* 賣法：論斤的可以改用公斤、論顆／個、散賣（直接打金額）；換成公斤時單價自動換算 */
+const JIN={斤:1,兩:1/16,公斤:1/0.6};// 換成台斤（1 台斤 = 0.6 公斤）
+const LP={};// 這次開著收銀頁時，各品項論顆、論個上次打的單價
+const modesOf=p=>[...new Set(JIN[p.unit]?[p.unit,'斤','公斤','顆','個','散賣']:[p.unit,'散賣'])];
 function openQty(p,l){
   editing={p,l};
   $('qtyT').textContent=p.name;$('qtySub').textContent=`${money(p.price)}／${p.unit}${stockOf(p.id)!=null?`　庫存 ${qtyText(stockOf(p.id),p.unit)}`:''}`;
-  const q=l?.qty||0,jin=p.unit==='斤'&&p.liang;
-  $('qtyIn').innerHTML=jin
-    ?`<input id="qJin" class="kp" inputmode="none" data-int="1" value="${q?Math.floor(q):''}" placeholder="0"><span>斤</span><input id="qLiang" class="kp" inputmode="none" data-int="1" data-max="15" value="${q?Math.round((q-Math.floor(q))*16)||'':''}" placeholder="0"><span>兩</span>`
-    :`<input id="qN" class="kp" inputmode="none" value="${q?fmtQ(q):''}" placeholder="0"><span>${esc(p.unit)}</span>`;
-  $('qtyQuick').innerHTML=[0.5,1,2,3,5,10].map(n=>`<button data-qq="${n}">${jin&&n===0.5?'半斤':n+p.unit}</button>`).join('');
-  $('qtyPrice').value=l?l.price:p.price;$('qtyUnit').textContent='／'+p.unit;
-  $('qtyKp').innerHTML=keypad();$('qtyM').classList.add('on');kpTarget($('qJin')||$('qN'));
+  $('qtyMode').innerHTML=modesOf(p).map(u=>`<button type="button" data-qm="${esc(u)}">${u==='斤'&&p.liang?'斤兩':esc(u)}</button>`).join('');
+  $('qtyKp').innerHTML=keypad();$('qtyM').classList.add('on');
+  setMode(l?.unit||p.unit);
 }
-function readQty(){if($('qJin'))return r4((+$('qJin').value||0)+Math.min(15,+$('qLiang').value||0)/16);return r4(+$('qN').value||0)}
+function setMode(u){
+  const {p,l}=editing,same=l?.unit===u,q=same?l.qty:0,jin=u==='斤'&&p.liang,loose=u==='散賣';
+  editing.u=u;
+  document.querySelectorAll('[data-qm]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.qm===u));
+  $('qtyIn').hidden=$('qtyQuick').hidden=loose;
+  $('qtyIn').innerHTML=loose?'':jin
+    ?`<input id="qJin" class="kp" inputmode="none" data-int="1" value="${q?Math.floor(q):''}" placeholder="0"><span>斤</span><input id="qLiang" class="kp" inputmode="none" data-int="1" data-max="15" value="${q?Math.round((q-Math.floor(q))*16)||'':''}" placeholder="0"><span>兩</span>`
+    :`<input id="qN" class="kp" inputmode="none" ${JIN[u]?'':'data-int="1"'} value="${q?fmtQ(q):''}" placeholder="0"><span>${esc(u)}</span>`;
+  $('qtyQuick').innerHTML=loose?'':(JIN[u]?[0.5,1,2,3,5,10]:[1,2,3,5,10,20]).map(n=>`<button data-qq="${n}">${jin&&n===0.5?'半斤':n+u}</button>`).join('');
+  const price=same?l.price:u===p.unit?p.price:JIN[u]&&JIN[p.unit]?Math.round(p.price*JIN[u]/JIN[p.unit]*100)/100:(LP[p.id+u]??'');
+  $('qtyPrice').value=price;$('qtyPL').textContent=loose?'金額 $':'單價 $';$('qtyUnit').textContent=loose?'':'／'+u;
+  kpTarget(loose?$('qtyPrice'):($('qJin')||$('qN')));
+}
+function readQty(){if(editing.u==='散賣')return 1;if($('qJin'))return r4((+$('qJin').value||0)+Math.min(15,+$('qLiang').value||0)/16);return r4(+$('qN').value||0)}
 function setQtyInputs(n){if($('qJin')){$('qJin').value=Math.floor(n);$('qLiang').value=Math.round((n-Math.floor(n))*16)||'';kpTarget($('qJin'))}else{$('qN').value=n;kpTarget($('qN'))}}
 
 /* ---------- 畫面上的數字鍵盤：平板不用跳出系統鍵盤 ---------- */
@@ -393,20 +409,23 @@ function askNum(title,cur='',{sub='',unit='',int=false}={}){
   return new Promise(ok=>numDone=v=>{$('numM').classList.remove('on');kpTarget(null);ok(v)});
 }
 function saveQty(){
-  const {p,l}=editing,q=readQty(),price=Math.max(0,+$('qtyPrice').value||0);
-  if(!(q>0)){if(l)cart.splice(cart.indexOf(l),1)}else if(l){l.qty=q;l.price=price}else cart.push({pid:p.id,name:p.name,unit:p.unit,qty:q,price});
+  const {p,l,u}=editing,q=readQty(),price=Math.max(0,+$('qtyPrice').value||0);
+  // 論顆、散賣沒有預設單價，一定要打
+  if(q>0&&!price&&(u==='散賣'||!(u===p.unit||JIN[u]&&JIN[p.unit]))){toast(u==='散賣'?'請打金額':'請打單價');kpTarget($('qtyPrice'));return}
+  if(u!==p.unit&&!JIN[u])LP[p.id+u]=price;
+  if(!(q>0)){if(l)cart.splice(cart.indexOf(l),1)}else if(l){l.qty=q;l.price=price;l.unit=u}else cart.push({pid:p.id,name:p.name,unit:u,qty:q,price});
   $('qtyM').classList.remove('on');editing=null;renderCart();
 }
 
 /* ---------- 結帳（不接線上金流，付款方式只是記錄） ---------- */
 function openPay(){
   method='現金';$('payTotal').textContent=money(total());$('paid').value='';
-  // 只有現金就不顯示付款方式
+  // 只有一種付款方式就不顯示
   $('methods').hidden=D.pay.length<2;
   $('methods').innerHTML=D.pay.map(m=>`<button data-m="${esc(m)}" aria-pressed="${m===method}">${esc(m)}</button>`).join('');
   const t=total(),q=[...new Set([t,Math.ceil(t/100)*100,Math.ceil(t/500)*500,Math.ceil(t/1000)*1000])].filter(n=>n>=t).slice(0,4);
   $('cashQuick').innerHTML=q.map(n=>`<button data-cash="${n}">${n===t?'剛好 ':''}${money(n)}</button>`).join('');
-  renderChange();$('cashBox').hidden=false;$('payKp').innerHTML=keypad();$('payM').classList.add('on');kpTarget($('paid'));
+  renderChange();$('cashBox').hidden=false;$('noteBox').hidden=true;$('payNote').value='';$('payKp').innerHTML=keypad();$('payM').classList.add('on');kpTarget($('paid'));
 }
 function renderChange(){const t=total(),p=+$('paid').value||0;$('change').className='chg'+(p&&p<t?' neg':'');$('change').textContent=!p?'':p<t?`還差 ${money(t-p)}`:`找零 ${money(p-t)}`}
 async function doPay(){
@@ -414,7 +433,7 @@ async function doPay(){
   if(method==='現金'&&paid<t){toast('收的錢不夠');return}
   $('payOk').disabled=true;
   try{
-    const j=await api('POST',{action:'posCheckout',items:cart.map(l=>({pid:l.pid,qty:l.qty,price:l.price})),discount:disc(),method,paid,customerId:cust?.id||''});
+    const j=await api('POST',{action:'posCheckout',items:cart.map(l=>({pid:l.pid,unit:l.unit,qty:l.qty,price:l.price})),discount:disc(),method,paid,payNote:$('payNote').value.trim(),customerId:cust?.id||''});
     const s=j.sale;$('payM').classList.remove('on');
     toast(`已結帳 ${money(s.total)}${s.change?`，找零 ${money(s.change)}`:''}`);
     resetSale();if($('autoPrint').checked)printReceipt(s);
@@ -428,9 +447,9 @@ function printHtml(h){$('receipt').innerHTML=h;setTimeout(()=>window.print(),50)
 function printReceipt(s){
   const t=new Date(s.at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false});
   printHtml(`<h2>${esc(D.shop.name)}</h2><div class="c">收據 ${esc(s.no)}<br>${esc(t)}${s.customer?`<br>常客：${esc(s.customer.name)}`:''}</div><div class="hr"></div>
-  <table>${s.items.map(i=>`<tr><td>${esc(i.name)}<br>${esc(qtyText(i.qty,i.unit))} × ${money(i.price)}</td><td class="n">${money(i.amount)}</td></tr>`).join('')}</table><div class="hr"></div>
+  <table>${s.items.map(i=>`<tr><td>${esc(i.name)}<br>${esc(lineText(i))}</td><td class="n">${money(i.amount)}</td></tr>`).join('')}</table><div class="hr"></div>
   <table>${s.discount?`<tr><td>小計</td><td class="n">${money(s.subtotal)}</td></tr><tr><td>折扣</td><td class="n">-${money(s.discount)}</td></tr>`:''}
-  <tr class="tot"><td>合計</td><td class="n">${money(s.total)}</td></tr><tr><td>${esc(s.method)}</td><td class="n">${money(s.paid)}</td></tr>${s.change?`<tr><td>找零</td><td class="n">${money(s.change)}</td></tr>`:''}</table>
+  <tr class="tot"><td>合計</td><td class="n">${money(s.total)}</td></tr><tr><td>${esc(s.method)}${s.payNote?` ${esc(s.payNote)}`:''}</td><td class="n">${money(s.paid)}</td></tr>${s.change?`<tr><td>找零</td><td class="n">${money(s.change)}</td></tr>`:''}</table>
   <div class="hr"></div><div class="c">謝謝光臨${D.shop.phone?`<br>${esc(D.shop.phone)}`:''}</div>${s.void?'<h2>＊已作廢＊</h2>':''}`);
 }
 function printDay(d,sum,expected){
@@ -458,7 +477,7 @@ async function paneHist(load){
   P(`<h2>交易紀錄</h2><div class="form card"><input type="date" id="hDate" value="${H.date}"><input type="search" id="hQ" placeholder="收據號、品名、常客" value="${esc(histQ)}"><button class="btn" id="hCsv">匯出 Excel</button></div>
   <div class="card"><b>${s.count} 筆，共 ${money(s.total)}</b>　${Object.entries(s.by).map(([k,v])=>`${esc(k)} ${money(v)}`).join('・')}${s.voided?`　（作廢 ${s.voided} 筆）`:''}</div>
   <div class="card list">${L.length?L.map(x=>`<div class="it ${x.void?'void':''}"><div><b>${esc(x.no)}　${tm(x.at)}</b>${x.customer?`　常客 ${esc(x.customer.name)}`:''}<small>${x.items.map(i=>`${esc(i.name)} ${esc(qtyText(i.qty,i.unit))}`).join('、')}・${esc(x.by)}${x.void?`<br>已作廢：${esc(x.void.reason||'')}（${esc(x.void.by)}）`:''}</small></div>
-    <div class="b"><b>${money(x.total)} ${esc(x.method)}</b><button class="btn sm" data-reprint="${x.id}">補印</button>${!x.void&&H.date===D.today?`<button class="btn sm red" data-void="${x.id}">作廢</button>`:''}</div></div>`).join(''):'<p style="color:var(--muted)">沒有交易</p>'}</div>`);
+    <div class="b"><b>${money(x.total)} ${esc(x.method)}</b>${x.payNote?`<small>${esc(x.payNote)}</small>`:''}<button class="btn sm" data-reprint="${x.id}">補印</button>${!x.void&&H.date===D.today?`<button class="btn sm red" data-void="${x.id}">作廢</button>`:''}</div></div>`).join(''):'<p style="color:var(--muted)">沒有交易</p>'}</div>`);
 }
 function histCsv(){
   const rows=[['收據號','時間','品項','數量','單位','單價','金額','小計','折扣','合計','付款方式','常客','收銀','作廢']];
@@ -526,13 +545,14 @@ document.addEventListener('click',async e=>{
   if(b.dataset.p)addProduct(PM()[b.dataset.p]);
   if(b.dataset.ed){const l=cart[+b.dataset.ed];openQty(PM()[l.pid]||{id:l.pid,name:l.name,unit:l.unit,price:l.price},l)}
   if(b.dataset.rm){cart.splice(+b.dataset.rm,1);renderCart()}
+  if(b.dataset.qm){setMode(b.dataset.qm);return}
   if(b.dataset.qq)setQtyInputs(+b.dataset.qq);
   if(b.id==='qtyOk')saveQty();
   if(b.id==='qtyCancel'){$('qtyM').classList.remove('on');editing=null}
   if(b.id==='payBtn')openPay();
   if(b.id==='payCancel')$('payM').classList.remove('on');
   if(b.id==='payOk')doPay();
-  if(b.dataset.m){method=b.dataset.m;document.querySelectorAll('[data-m]').forEach(x=>x.setAttribute('aria-pressed',x===b));$('cashBox').hidden=method!=='現金'}
+  if(b.dataset.m){method=b.dataset.m;document.querySelectorAll('[data-m]').forEach(x=>x.setAttribute('aria-pressed',x===b));$('cashBox').hidden=method!=='現金';$('noteBox').hidden=method==='現金';if(method==='現金')kpTarget($('paid'))}
   if(b.dataset.cash){$('paid').value=b.dataset.cash;renderChange()}
   if(b.id==='clearBtn'&&cart.length&&confirm('清空這次的品項？'))resetSale();
   if(b.id==='adminBtn')location.href='/admin';
@@ -550,7 +570,7 @@ document.addEventListener('click',async e=>{
   if(b.id==='holdBtn'){
     if(!cart.length){toast('還沒有品項可以掛單');return}
     const name=prompt('這筆掛單叫什麼？（客人名字或特徵，可以空白）',cust?.name||'');if(name===null)return;
-    try{const j=await api('POST',{action:'posHold',name,items:cart.map(l=>({pid:l.pid,qty:l.qty,price:l.price})),discount:discManual?disc():0,customer:cust});D.holds=j.holds;resetSale();renderTop();toast('已掛單，可以結下一位')}catch(err){toast(err.message)}
+    try{const j=await api('POST',{action:'posHold',name,items:cart.map(l=>({pid:l.pid,unit:l.unit,qty:l.qty,price:l.price})),discount:discManual?disc():0,customer:cust});D.holds=j.holds;resetSale();renderTop();toast('已掛單，可以結下一位')}catch(err){toast(err.message)}
   }
   if(b.dataset.unhold){
     const h=D.holds.find(x=>x.id===b.dataset.unhold);if(cart.length&&!confirm('收銀台上還有品項，取回會換掉，確定？'))return;

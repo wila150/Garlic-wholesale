@@ -608,7 +608,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103109</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103110</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div class="sgrps">
     <div id="rulesBox">
@@ -658,6 +658,9 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
     <h2>店家與配送路線</h2>
     <div id="storeList"></div>
     <div class="savebar"><button class="pbtn" id="addS">＋ 新增店家</button><button class="ok" id="saveS" disabled>儲存店家</button><span id="sDirty"></span></div>
+    <details class="card" style="margin-top:12px;padding:12px"><summary style="font-weight:700;cursor:pointer">一次新增多家店</summary>
+      <textarea id="bulkS" rows="8" style="width:100%;margin-top:8px;font-size:16px" placeholder="一行一家，後面可以加月結或日結、電話，例如：&#10;東海排骨 月結&#10;春肉粽 日結 0912345678&#10;熊家湯包"></textarea>
+      <button class="pbtn" id="bulkAdd" type="button">加進店家清單</button> <small style="color:var(--muted)">沒寫的算月結；已經有的店名會跳過。加完記得按「儲存店家」</small></details>
 
     <h2 style="margin-top:28px">報價組</h2>
     <div id="groupList"></div>
@@ -1649,10 +1652,12 @@ $('erpFile').addEventListener('change',async e=>{
     const r=await api('POST',{action:'erpImport',text,dry:true,offOthers:true});
     const more=a=>a.length>8?a.slice(0,8).join('、')+` …等 ${a.length} 個`:a.join('、');
     if(!confirm(`讀到 ${r.count} 筆貨品：\n新增 ${r.added.length} 個品項${r.added.length?`（${more(r.added)}）`:''}\n更新 ${r.updated.length} 個（分類、單位、ERP 編號）${r.newCats.length?`\n新分類：${r.newCats.join('、')}`:''}${r.newUnits.length?`\n新單位：${r.newUnits.join('、')}`:''}\n\n「(公斤)」的編號會併到同名品項，收銀選公斤時用。確定匯入？`))return;
-    const offOthers=r.off.length?confirm(`有 ${r.off.length} 個品項不在 ERP 裡（${more(r.off)}）。\n要一起下架嗎？（按取消就保留上架）`):false;
-    const j=await api('POST',{action:'erpImport',text,dry:false,offOthers});
+    // 原本的分類和 ERP 沒有的品項：刪掉（只留 ERP 的）、下架、或保留
+    const dropOld=(r.oldCats.length||r.others.length)?confirm(`原本的分類${r.oldCats.length?`（${r.oldCats.join('、')}）`:''}${r.others.length?`和 ERP 沒有的 ${r.others.length} 個品項（${more(r.others)}）`:''}要刪掉、只留 ERP 的嗎？\n（以前的訂單紀錄不受影響；按取消就保留）`):false;
+    const offOthers=!dropOld&&r.off.length?confirm(`那 ERP 沒有的 ${r.off.length} 個品項要下架嗎？（按取消就保留上架）`):false;
+    const j=await api('POST',{action:'erpImport',text,dry:false,offOthers,dropOld});
     D.products=j.products;D.units=j.units;D.categories=j.categories;P=structuredClone(j.products);pDirty=false;await load();
-    toast(`已匯入：新增 ${j.added.length}、更新 ${j.updated.length}${j.off.length?`、下架 ${j.off.length}`:''}`);
+    toast(`已匯入：新增 ${j.added.length}、更新 ${j.updated.length}${j.off.length?`、下架 ${j.off.length}`:''}${j.removed.length?`、刪除 ${j.removed.length}`:''}`);
   }catch(err){toast(err.message)}
 });
 $('pSearch').addEventListener('input',()=>{openP=-1;renderProducts()});
@@ -1662,6 +1667,20 @@ $('saveDP').addEventListener('click',saveDayPrices);
 $('saveS').addEventListener('click',saveStores);
 $('saveG').addEventListener('click',saveGroups);
 $('addG').addEventListener('click',()=>{G.push({id:'',name:'',type:'percent',value:90,fixed:{}});gDirty=true;renderGroups();document.querySelector(`[data-gf="name"][data-i="${G.length-1}"]`).focus()});
+// 一次貼上多家店：「店名 月結／日結 電話」，順序不拘
+$('bulkAdd').addEventListener('click',()=>{
+  const have=new Set(S.map(s=>s.name.trim())),skip=[];let n=0,route=Math.max(0,...S.map(s=>s.route||0));
+  for(const line of $('bulkS').value.split('\n')){
+    let t=line.trim();if(!t)continue;
+    const pay=/日結|現結/.test(t)?'cash':'month',phone=(t.match(/0\d[\d-]{6,}/)||[''])[0];
+    const name=t.replace(/月結|日結|現結/g,'').replace(phone,'').replace(/[,，、]/g,' ').replace(/\s+/g,' ').trim().slice(0,30);
+    if(!name)continue;if(have.has(name)){skip.push(name);continue}
+    have.add(name);S.push({id:'',name,route:++route,phone,address:'',on:true,pay,members:[]});n++;
+  }
+  if(!n){toast(skip.length?`都已經有了：${skip.join('、')}`:'請一行打一家店');return}
+  $('bulkS').value='';sDirty=true;renderStores();$('saveS').disabled=false;$('sDirty').textContent='有尚未儲存的修改';
+  toast(`加了 ${n} 家${skip.length?`（跳過已有的 ${skip.length} 家）`:''}，按「儲存店家」才會存`);
+});
 $('addS').addEventListener('click',()=>{S.push({id:'',name:'',route:Math.max(0,...S.map(s=>s.route))+1,phone:'',address:'',on:true,members:[]});sDirty=true;renderStores();document.querySelector(`[data-sf="name"][data-i="${S.length-1}"]`).focus()});
 document.addEventListener('click',async e=>{
   const b=e.target.closest('button');if(!b)return;

@@ -30,8 +30,9 @@ export function parseErp(text) {
   return rows;
 }
 
-// 算出匯入後的品項清單；dry＝只看會改什麼。不刪品項、不動單價；offOthers＝ERP 沒有的品項下架
-export async function importErp(text, { dry = true, offOthers = false } = {}) {
+// 算出匯入後的品項清單；dry＝只看會改什麼。不動單價；offOthers＝ERP 沒有的品項下架；
+// dropOld＝只留 ERP 的：ERP 沒有的品項和原本的分類一起刪掉
+export async function importErp(text, { dry = true, offOthers = false, dropOld = false } = {}) {
   const rows = parseErp(text);
   const [products, units, cats] = await Promise.all([getProducts(), getUnits(), getCategories()]);
   const list = structuredClone(products);
@@ -69,15 +70,20 @@ export async function importErp(text, { dry = true, offOthers = false } = {}) {
     byCode.set(r.code, p);
     mark(p, isNew);
   }
-  const off = offOthers ? list.filter((p) => !touched.has(p.id) && p.on).map((p) => p.name) : [];
+  const others = list.filter((p) => !touched.has(p.id));
+  const erpCats = [...new Set(rows.map((r) => r.cat || r.fileCat).filter(Boolean))];
+  const oldCats = cats.filter((c) => !erpCats.includes(c));
+  const off = !dropOld && offOthers ? others.filter((p) => p.on).map((p) => p.name) : [];
   for (const p of list) if (off.includes(p.name)) p.on = false;
-  const res = { count: rows.length, added, updated, off, newUnits, newCats };
+  const items = dropOld ? list.filter((p) => touched.has(p.id)) : list;
+  const catList = dropOld ? erpCats : [...cats, ...newCats];
+  const res = { count: rows.length, added, updated, off, newUnits, newCats, others: others.map((p) => p.name), oldCats, removed: dropOld ? others.map((p) => p.name) : [] };
   if (dry) return res;
   // 單位、分類一起補上，品項才不會被存成第一個單位或分類
   await db().runTransaction(async (tx) => {
     if (newUnits.length) tx.set(db().doc('settings/units'), { items: [...units, ...newUnits], v: UNITS_VERSION });
-    if (newCats.length) tx.set(db().doc('settings/categories'), { items: [...cats, ...newCats] });
-    tx.set(db().doc('settings/products'), { items: list });
+    if (newCats.length || dropOld) tx.set(db().doc('settings/categories'), { items: catList });
+    tx.set(db().doc('settings/products'), { items });
   });
-  return { ...res, products: list };
+  return { ...res, products: items };
 }

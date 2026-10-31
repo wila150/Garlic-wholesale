@@ -223,7 +223,7 @@ export async function POST(request) {
         return json({ units: await shop.saveUnits(b.units) });
       case 'erpImport': {
         need(me, 'products');
-        const r = await erp.importErp(b.text, { dry: b.dry !== false, offOthers: !!b.offOthers });
+        const r = await erp.importErp(b.text, { dry: b.dry !== false, offOthers: !!b.offOthers, dropOld: !!b.dropOld });
         return json(r.products ? { ...r, units: await shop.getUnits(), categories: await shop.getCategories() } : r);
       }
       case 'products':

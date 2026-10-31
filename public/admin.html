@@ -377,6 +377,17 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .r80 .doc .sign{display:block}
 .r80 .doc .sign div{margin-top:10px}
 .pv-hint{color:#fff;font-size:.82rem;text-align:center;margin:10px 0 0}
+/* 分裝 */
+.pkc{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+.pkc>.h{display:flex;justify-content:space-between;gap:8px;align-items:baseline;flex-wrap:wrap}.pkc>.h b{font-size:1.05rem}.pkc>.h small{color:var(--muted)}
+.pkr{display:grid;grid-template-columns:auto 1fr auto;gap:8px;align-items:center;padding:7px 0;border-top:1px dashed var(--line)}
+.pkr input[type=checkbox]{width:22px;height:22px}.pkr.ok .st{text-decoration:line-through;color:var(--muted)}
+.pkr .st b{font-weight:700}.pkr .st small{color:var(--muted);margin-left:6px}
+.bagl{display:flex;flex-wrap:wrap;gap:4px;margin-top:3px}.bagl span{border:1px solid var(--line);border-radius:6px;padding:1px 7px;font-size:.85rem;background:var(--bg)}.bagl .auto{border-style:dashed}
+.pkraw{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:8px;padding-top:8px;border-top:1px solid var(--line);font-size:.9rem}
+.pkraw select,.pkraw input{border:1px solid var(--line);border-radius:8px;padding:5px 7px;background:var(--bg);color:var(--ink);font-size:16px}.pkraw input{width:6em}
+.pkstat{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;font-size:.88rem;color:var(--muted)}.pkstat b{color:var(--ink)}.pkstat .bad{color:var(--alert)}
+.doc .pkp td{vertical-align:top}.doc .box{display:inline-block;width:12px;height:12px;border:1.5px solid #111;margin-right:4px;vertical-align:-1px}
 @media print{
   body>*:not(#pv){display:none!important}
   #pv{position:static;display:block;background:#fff;padding:0}
@@ -540,6 +551,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   <nav class="tabs" role="tablist">
     <button type="button" id="posLink" data-go="/pos" hidden><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"/><path d="M7 20h10M12 16v4M7 8h4M7 12h2"/></svg><span class="tl">POS</span></button>
     <button role="tab" data-tab="board" aria-selected="true"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M12 11h4M12 16h4M8 11h.01M8 16h.01"/></svg><span class="tl">採買總表</span></button>
+    <button role="tab" data-tab="pack" aria-selected="false"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M16.5 9.4 7.55 4.24"/><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><path d="M3.29 7 12 12l8.71-5M12 22V12"/></svg><span class="tl">分裝</span></button>
     <button role="tab" data-tab="prices" aria-selected="false"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r="1.2"/></svg><span class="tl">單價</span><span class="dot" id="priceDot" hidden></span></button>
     <button role="tab" data-tab="slips" aria-selected="false"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2"/><path d="M15 18H9"/><path d="M19 18h2a1 1 0 0 0 1-1v-3.65a1 1 0 0 0-.22-.624l-3.48-4.35A1 1 0 0 0 17.52 8H14"/><circle cx="17" cy="18" r="2"/><circle cx="7" cy="18" r="2"/></svg><span class="tl">出貨單</span></button>
     <button role="tab" data-tab="bills" aria-selected="false"><svg class="ti" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/></svg><span class="tl">對帳</span></button>
@@ -563,6 +575,12 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
     <div class="bar"><button class="pbtn" data-print="buy">列印採買總表</button></div>
     <div class="board" id="boardBox"></div>
     <div id="missing"></div>
+  </section>
+
+  <section id="pack" hidden>
+    <h2>分裝</h2>
+    <div class="bar"><button class="pbtn" data-print="pack">列印分裝工單</button><span class="sub" id="packSum"></span></div>
+    <div id="packBox"><div class="empty">載入中…</div></div>
   </section>
 
   <section id="prices" hidden>
@@ -608,7 +626,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103111</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 103112</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div class="sgrps">
     <div id="rulesBox">
@@ -786,6 +804,7 @@ async function load(){
   if(!pDirty)P=structuredClone(D.products);
   if(!sDirty)S=structuredClone(D.stores);
   renderAll();
+  if(tab==='pack')loadPacking();
 }
 const PM=()=>Object.fromEntries(D.products.map(p=>[p.id,p]));
 const SM=()=>Object.fromEntries(D.stores.map(s=>[s.id,s]));
@@ -833,6 +852,67 @@ function renderAll(){
   if(may('users')){renderRules();renderPalettes()}
   if(may('users'))renderUsers();
   $('devBox').hidden=!D.me.engineer;
+}
+
+/* ---------- 分裝：照店家交代的一包一包裝，記原料用量算損耗、成本、毛利 ---------- */
+let PK=null;
+async function loadPacking(){
+  try{const j=await api('GET',null,'?packing='+D.date);PK={...j,date:D.date};if(tab==='pack')renderPacking()}catch(e){toast(e.message)}
+}
+// 每包份量：functions/lib/qty.js 有一份一樣的
+const bagsTotal=b=>Math.round((b||[]).reduce((a,x)=>a+x.q*x.n,0)*10000)/10000;
+const bagQ=(q,u)=>u==='斤'&&q===.5?'半斤':qtyText(q,u).replace(' ','');
+const bagsText=(b,u)=>(b||[]).map(x=>`${bagQ(x.q,u)}${x.n>1?`×${x.n}`:''}`).join('+');
+// 這筆怎麼裝：單上有交代用單上的；沒有的話，這家店上次一樣的量怎麼裝就先照那樣（虛線框）
+function bagsFor(o,i){
+  if(i.bags)return {b:i.bags};
+  const st=PK?.styles?.[o.storeId]?.[i.pid];
+  if(st&&Math.abs(bagsTotal(st)-billQty(i))<.001)return {b:st,auto:true};
+  return null;
+}
+const nBags=(o,i)=>{const x=bagsFor(o,i);return x?x.b.reduce((a,y)=>a+y.n,0):1};
+const pkKey=(o,i)=>okey(o)+'|'+i.pid;
+function packGroups(){
+  const sm=SM(),G={};
+  D.orders.map(o=>({o,s:sm[o.storeId]})).sort((a,b)=>(a.s?.route||99)-(b.s?.route||99)).forEach(({o})=>o.items.forEach(i=>{if(billQty(i)>0)(G[i.pid]??={pid:i.pid,name:i.name,unit:i.unit,rows:[]}).rows.push({o,i})}));
+  return sortItems(Object.values(G));
+}
+function packStatOf(g){
+  const pm=PM(),raw=PK?.packing.raw[g.pid],out=g.rows.reduce((a,r)=>a+billQty(r.i),0),revenue=g.rows.reduce((a,r)=>a+billQty(r.i)*r.i.price,0);
+  if(!raw)return {out,revenue};
+  const from=pm[raw.from]||pm[g.pid],J={斤:1,台斤:1,兩:1/16,公斤:1/.6};
+  const used=from?.unit===g.unit?raw.qty:J[from?.unit]&&J[g.unit]?raw.qty*J[from.unit]/J[g.unit]:null;
+  const cost=D.dayCosts?.[raw.from]??from?.cost??null,rawCost=cost==null?null:Math.round(raw.qty*cost);
+  return {out,revenue,raw,from,used,loss:used==null?null:used-out,lossRate:used?(used-out)/used*100:null,rawCost,unitCost:rawCost!=null&&out?rawCost/out:null,gross:rawCost==null?null:revenue-rawCost};
+}
+function renderPacking(){
+  if(!PK||PK.date!==D.date){$('packBox').innerHTML='<div class="empty">載入中…</div>';return}
+  const G=packGroups(),sm=SM(),ed=may('editOrders'),money2=v=>'$'+(Math.round(v*10)/10).toLocaleString('en-US');
+  let all=0,done=0;
+  $('packBox').innerHTML=G.map(g=>{
+    const st=packStatOf(g),gn=g.rows.reduce((a,r)=>a+nBags(r.o,r.i),0),gd=g.rows.filter(r=>PK.packing.done[pkKey(r.o,r.i)]).length;
+    all+=g.rows.length;done+=gd;
+    const raw=st.raw,fromId=raw?.from||g.pid;
+    return `<div class="pkc"><div class="h"><b>${esc(g.name)}　${esc(qtyText(st.out,g.unit))}</b><small>${g.rows.length} 家・${gn} 包・已裝 ${gd}/${g.rows.length}</small></div>
+    ${g.rows.map(({o,i})=>{const k=pkKey(o,i),ok=!!PK.packing.done[k],x=bagsFor(o,i),s=sm[o.storeId];
+      return `<div class="pkr ${ok?'ok':''}"><input type="checkbox" data-pkdone="${esc(k)}" ${ok?'checked':''} ${ed?'':'disabled'} aria-label="${esc(s?.name||'')} ${esc(g.name)} 裝好了">
+      <div class="st"><b>${esc(s?.name||o.storeId)}${(o.seq||1)>1?` 補單#${o.seq}`:''}</b><small>${esc(qtyText(billQty(i),i.unit))}</small>
+        <div class="bagl">${x?x.b.map(y=>`<span class="${x.auto?'auto':''}">${esc(bagQ(y.q,i.unit))}${y.n>1?` ×${y.n}`:''}</span>`).join('')+(x.auto?'<small>照上次</small>':''):`<span>1 包 ${esc(qtyText(billQty(i),i.unit))}</span>`}</div></div>
+      ${ed?`<button class="pbtn" data-pkbags="${esc(k)}">怎麼裝</button>`:'<span></span>'}</div>`}).join('')}
+    <div class="pkraw"><span>原料</span>${ed?`<select data-pkfrom="${g.pid}" aria-label="${esc(g.name)} 用哪個原料">${D.products.map(p=>`<option value="${p.id}" ${p.id===fromId?'selected':''}>${esc(p.name)}</option>`).join('')}</select>
+      <input type="text" inputmode="decimal" data-pkqty="${g.pid}" value="${raw?raw.qty:''}" placeholder="用了多少" aria-label="${esc(g.name)} 原料用量"><span>${esc(PM()[fromId]?.unit||g.unit)}</span><button class="pbtn" data-pkraw="${g.pid}">存</button>`:raw?`${esc(st.from?.name||'')} ${esc(qtyText(raw.qty,st.from?.unit||g.unit))}`:'<small>還沒記</small>'}
+      ${PK.stock[fromId]!=null?`<small>庫存 ${esc(qtyText(PK.stock[fromId],PM()[fromId]?.unit||''))}</small>`:''}</div>
+    ${raw?`<div class="pkstat">${st.loss!=null?`<span>損耗 <b class="${st.lossRate>15?'bad':''}">${esc(qtyText(Math.round(st.loss*10000)/10000,g.unit))}（${st.lossRate.toFixed(1)}%）</b></span>`:'<span>原料和成品單位不同，算不出損耗</span>'}
+      ${hasPrice()?(st.rawCost!=null?`<span>原料成本 <b>${money(st.rawCost)}</b></span><span>每${esc(g.unit)}成本 <b>${money2(st.unitCost)}</b></span><span>營收 <b>${money(st.revenue)}</b></span><span>毛利 <b class="${st.gross<0?'bad':''}">${money(st.gross)}</b></span>`:'<span>原料還沒填進價，算不出成本</span>'):''}</div>`:''}
+    </div>`}).join('')||'<div class="empty">這天沒有訂單</div>';
+  $('packSum').textContent=all?`已裝 ${done}/${all} 筆`:'';
+}
+function docPack(){
+  const G=packGroups(),sm=SM();
+  return `<div class="doc"><h3>${esc(SHOPN())}　分裝工單</h3><div class="meta"><span>配送日：${ymdSlash(D.date)}</span><span>${G.length} 個品項</span></div>
+  <table class="pkp"><thead><tr><th>品項</th><th>店家</th><th class="n">數量</th><th>怎麼裝</th></tr></thead><tbody>
+  ${G.map(g=>g.rows.map(({o,i},k)=>{const x=bagsFor(o,i);return `<tr>${k?'<td></td>':`<td rowspan="1"><b>${esc(g.name)}</b><br><small>共 ${esc(qtyText(g.rows.reduce((a,r)=>a+billQty(r.i),0),g.unit))}</small></td>`}<td><span class="box"></span>${esc(sm[o.storeId]?.name||'')}${(o.seq||1)>1?` 補#${o.seq}`:''}</td><td class="n">${esc(qtyText(billQty(i),i.unit))}</td><td>${x?esc(bagsText(x.b,i.unit)):''}</td></tr>`}).join('')+`<tr><td></td><td colspan="3"><small>原料用量：＿＿＿＿＿＿　損耗：＿＿＿＿＿＿</small></td></tr>`).join('')}
+  </tbody></table></div>`;
 }
 
 /* ---------- 採買總表 ---------- */
@@ -961,7 +1041,8 @@ function xlsReport(){
   const ar=[['店家','月份','金額'],...R.receivables.flatMap(s=>s.months.map(m=>[s.name,m.month,m.amount]))];
   const ex=[['日期','分類','品名','付給','金額','備註','記帳人','來源'],...(R.expenses||[]).map(e=>[e.date,e.cat,e.item,e.payee||'',e.amount,e.note||'',e.by||'',e.source==='line'?'LINE':'後台'])];
   const ps=[['分類','品項','單位','店家叫','已買','多買(+)/少買(-)（有記已買的日子）','記帳數量','記帳金額','平均進價','最低進價','最高進價'],...(R.purchases||[]).filter(r=>r.ordered||r.bought||r.qty).map(r=>[r.cat,r.name,r.unit,r.ordered,r.bought,r.diff,r.qty,r.amount,r.avg??'',r.min??'',r.max??''])];
-  xlsx(`報表_${R.month}.xlsx`,{'每日毛利':days,'記帳明細':ex,'進貨統計':ps,'應收帳款':ar});
+  const pk=[['品項','原料','原料用量','原料單位','出貨','單位','損耗','損耗率%','原料成本','每單位成本','營收','毛利'],...(R.packing||[]).map(r=>[r.name,r.from,r.rawQty,r.rawUnit,r.out,r.unit,r.loss??'',r.lossRate??'',r.gross==null?'':r.rawCost,r.unitCost??'',r.revenue,r.gross??''])];
+  xlsx(`報表_${R.month}.xlsx`,{'每日毛利':days,'記帳明細':ex,'進貨統計':ps,'分裝損耗':pk,'應收帳款':ar});
 }
 
 /* ---------- 出貨單 ---------- */
@@ -1305,7 +1386,7 @@ function renderReport(){
   </div>
   ${miss?`<p class="sub neg">有 ${money(miss)} 的營收沒有填進價，毛利會偏高。到「單價」頁補進價就會更新。</p>`:''}
   ${expHTML()}
-  ${buyStatHTML()}
+  ${packStatHTML()}${buyStatHTML()}
   <h2>成本項目</h2>
   <div class="ctypes">${R.costTypes.map(t=>`<span>${esc(t.name)}・${t.period==='daily'?'每天':'每月'}<button data-ctdel="${t.id}" aria-label="刪除 ${esc(t.name)}">✕</button></span>`).join('')||'<em class="meta">還沒有成本項目</em>'}
     <input id="ctName" placeholder="新項目，例如烘乾費" maxlength="20" aria-label="成本項目名稱"><select id="ctPeriod" aria-label="週期"><option value="daily">每天記</option><option value="monthly">每月記</option></select><button class="pbtn" id="ctAdd">新增</button></div>
@@ -1360,6 +1441,18 @@ function expHTML(){
     <div class="ecats" id="ecats">${cats.map((c,i)=>{const fixed=c.product||c.name==='雜支';return `<label><input data-ecn="${i}" value="${esc(c.name)}" maxlength="12" ${fixed?'readonly':''} aria-label="分類名稱"><input data-ecw="${i}" value="${esc(c.words.join('、'))}" placeholder="關鍵字，用、隔開" aria-label="${esc(c.name)} 關鍵字">${fixed?'<span></span>':`<button type="button" class="x" data-ecdel="${i}" aria-label="刪除分類 ${esc(c.name)}">✕</button>`}</label>`}).join('')}</div>
     <div class="bar" style="margin-top:8px"><button class="pbtn" type="button" id="ecAdd">＋ 新增分類</button><button class="send" type="button" id="ecSave">儲存分類</button></div>
   </details>`;
+}
+// 分裝損耗與利潤：有在分裝頁記原料用量的那幾天加總
+function packStatHTML(){
+  const L=R.packing||[];
+  if(!L.length)return '';
+  const tq=(v,u)=>v==null?'—':esc(qtyText(Math.round(v*10000)/10000,u));
+  const rev=L.reduce((a,r)=>a+r.revenue,0),cost=L.filter(r=>r.gross!=null).reduce((a,r)=>a+r.rawCost,0),gross=L.filter(r=>r.gross!=null).reduce((a,r)=>a+r.gross,0);
+  return `<h2>分裝損耗與利潤</h2>
+  <p class="sub">只算有在「分裝」頁記原料用量的日子。損耗＝原料用量－出貨量；毛利＝營收－原料成本（原料進價照當天單價頁的進價）。</p>
+  <div class="rwrap"><table class="rtable"><thead><tr><th>品項</th><th>原料</th><th>原料用量</th><th>出貨</th><th>損耗</th><th>原料成本</th><th>每單位成本</th><th>營收</th><th>毛利</th></tr></thead><tbody>
+  ${L.map(r=>`<tr><td>${esc(r.name)}<br><small>${r.days} 天</small></td><td>${esc(r.from)}</td><td>${tq(r.rawQty,r.rawUnit)}</td><td>${tq(r.out,r.unit)}</td><td class="${r.lossRate>15?'neg':''}">${r.loss==null?'—':`${tq(r.loss,r.unit)}<br><small>${r.lossRate}%</small>`}</td><td>${r.gross==null?'<small>缺進價</small>':money(r.rawCost)}</td><td>${r.unitCost==null?'—':'$'+r.unitCost+'/'+esc(r.unit)}</td><td>${money(r.revenue)}</td><td class="${r.gross<0?'neg':''}">${r.gross==null?'—':money(r.gross)}</td></tr>`).join('')}
+  </tbody><tfoot><tr><td>合計</td><td></td><td></td><td></td><td></td><td>${L.some(r=>r.gross!=null)?money(cost):'—'}</td><td></td><td>${money(rev)}</td><td>${L.some(r=>r.gross!=null)?money(gross):'—'}</td></tr></tfoot></table></div>`;
 }
 // 進貨統計：這個月每個品項叫了多少、買了多少、平均進價
 function buyStatHTML(){
@@ -1601,8 +1694,9 @@ async function openPrint(kind,sid){
   if(kind==='slip'||kind==='slips'){SIGS={};const ids=kind==='slip'?[sid]:Object.keys(D.signatures||{});await Promise.all(ids.filter(x=>D.signatures?.[x]?.hasPng).map(async x=>SIGS[x]=await sigImg(x)))}
   const withOrder=D.stores.filter(x=>slipsOf(x.id).length).sort((a,b)=>a.route-b.route);
   const allSlips=withOrder.flatMap(x=>slipsOf(x.id).map(okey));
-  if((kind==='slips'||kind==='daily'||kind==='buy')&&!withOrder.length){toast('這天沒有訂單');return}
-  const html={buy:docBuy,daily:docDaily,month:docMonth,slip:()=>docSlip(sid),stmt:()=>docStmt(s),slips:()=>allSlips.map(docSlip).join('')}[kind]();
+  if((kind==='slips'||kind==='daily'||kind==='buy'||kind==='pack')&&!withOrder.length){toast('這天沒有訂單');return}
+  if(kind==='pack'&&PK?.date!==D.date)await loadPacking();
+  const html={pack:docPack,buy:docBuy,daily:docDaily,month:docMonth,slip:()=>docSlip(sid),stmt:()=>docStmt(s),slips:()=>allSlips.map(docSlip).join('')}[kind]();
   $('paper').innerHTML=html;$('pv').classList.add('on');
   let k='a4';try{k=localStorage.getItem('paper')==='r80'?'r80':'a4'}catch{}
   setPaper(k);
@@ -1626,9 +1720,10 @@ function showTab(t){
   tab=t;
   if(t==='report'&&(!R||R.month!==(rmonth||D.month)))loadReport();
   if(t==='ai')loadAI();
+  if(t==='pack')loadPacking();
   document.querySelectorAll('nav.tabs button').forEach(x=>x.setAttribute('aria-selected',x.dataset.tab===t));
   document.querySelectorAll('section').forEach(sec=>sec.hidden=sec.id!==t);
-  $('datebar').hidden=!(t==='board'||t==='slips'||t==='prices');
+  $('datebar').hidden=!(t==='board'||t==='slips'||t==='prices'||t==='pack');
 }
 $('loginBtn').addEventListener('click',login);
 $('addUser').addEventListener('click',()=>{
@@ -1685,6 +1780,20 @@ $('addS').addEventListener('click',()=>{S.push({id:'',name:'',route:Math.max(0,.
 document.addEventListener('click',async e=>{
   const b=e.target.closest('button');if(!b)return;
   if(b.dataset.go){location.href=b.dataset.go;return}
+  // 分裝：改這一筆怎麼裝（打「1斤+4兩+3兩」「半斤×2+1斤×3」，清空就是整包）
+  if(b.dataset.pkbags){
+    const [k,pid]=b.dataset.pkbags.split('|'),o=orderOf(k),i=o?.items.find(x=>x.pid===pid);if(!i)return;
+    const x=bagsFor(o,i),v=prompt(`${SM()[o.storeId]?.name||''} ${i.name} ${qtyText(billQty(i),i.unit)}，怎麼裝？\n例如：1斤+4兩+3兩、半斤×2+1斤×3（清空＝裝一包）`,x?bagsText(x.b,i.unit):'');
+    if(v===null)return;
+    try{const j=await api('POST',{action:'packBags',date:D.date,storeId:o.storeId,seq:o.seq||1,pid,bags:v});const n=D.orders.findIndex(y=>okey(y)===k);if(n>=0)D.orders[n]={...D.orders[n],items:j.order.items};PK.styles=j.styles;renderPacking();toast('已更新怎麼裝，下次這家叫一樣的量會照這樣')}catch(err){toast(err.message)}
+    return;
+  }
+  if(b.dataset.pkraw){
+    const pid=b.dataset.pkraw,from=document.querySelector(`[data-pkfrom="${pid}"]`)?.value||pid,qty=document.querySelector(`[data-pkqty="${pid}"]`)?.value.trim();
+    b.disabled=true;
+    try{const j=await api('POST',{action:'packRaw',date:D.date,pid,from,qty});PK.packing=j.packing;PK.stock=j.stock;renderPacking();toast(qty?'已記原料用量':'已清掉原料用量')}catch(err){toast(err.message);b.disabled=false}
+    return;
+  }
   if(b.dataset.tab)showTab(b.dataset.tab);
   if(b.dataset.day){date=addDays(D.date,+b.dataset.day);openRow=null;load()}
   if(b.dataset.month){month=addMonths(D.month,+b.dataset.month);openBill=null;load()}
@@ -1862,6 +1971,11 @@ document.addEventListener('input',e=>{
   if(t.dataset.sf!=null){const s=S[+t.dataset.i],f=t.dataset.sf;s[f]=f==='on'?t.checked:f==='route'?(+t.value||0):t.value;sDirty=true;$('saveS').disabled=false;$('sDirty').textContent='有尚未儲存的修改'}
 });
 document.addEventListener('change',async e=>{
+  if(e.target.dataset?.pkdone){
+    const k=e.target.dataset.pkdone,done=e.target.checked;
+    try{const j=await api('POST',{action:'packDone',date:D.date,keys:[k],done});PK.packing=j.packing;renderPacking()}catch(err){toast(err.message);e.target.checked=!done}
+    return;
+  }
   if(e.target.dataset?.ascope!=null){aScope[+e.target.dataset.ascope]=e.target.value;return}
   if(e.target.dataset?.aeq!=null){const i=AE.items[+e.target.dataset.aeq],q=parseQty(e.target.value,i.unit);if(q>=0&&!isNaN(q))i.qty=q;else toast('數量看不懂');renderAiEd();return}
   const t=e.target;

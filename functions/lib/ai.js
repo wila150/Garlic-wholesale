@@ -1,6 +1,6 @@
 // AI 辨識叫貨：把店家在 LINE 打的字或手寫單照片，對應到品項清單
 // 用 NVIDIA（build.nvidia.com）的 OpenAI 相容 API；要換模型或服務，改 AI_MODEL／AI_BASE_URL 就好
-import { roundQty } from './qty.js';
+import { roundQty, bagsOf } from './qty.js';
 import { SHOP, PRESET } from './config.js';
 
 const BASE = process.env.AI_BASE_URL || 'https://integrate.api.nvidia.com/v1';
@@ -35,9 +35,10 @@ ${mine.join('\n')}
 - op 表示要怎麼改這次的單：一般叫貨是 "add"（加上去）；客人說「改成」「改為」「只要」某數量是 "set"（qty 是改完的數量）；說「不要了」「取消」「刪掉」是 "remove"（qty 填 0）。
 - 叫貨的數量，斤以下用兩（1/16 斤）為單位，例如 1 公斤換成斤是 1.6875（1斤11兩），不要有很多位小數。
 - 不是叫貨的訊息（例如抱怨品質、問問題、聊天、回報配送單有問題）items 和 unknown 都留空陣列。
+- 客人有交代怎麼分裝（一包裝多少），例如「九層塔1斤+4兩+3兩」「蒜中半斤×2+3包」：qty 填加起來的量，bags 照原樣寫每一包的份量，用 + 連接，同樣份量寫「份量×包數」（例如 "1斤+4兩+3兩"、"半斤×2+1斤×3"；沒寫份量的「3包」就是一包 1 個單位）。沒交代就不要 bags。
 - note 放客人的其他交代（例如送貨時間），沒有就留空字串。
 
-輸出格式：{"lines":["大蒜3","香菜兩把"],"items":[{"pid":"p1","qty":3,"op":"add","raw":"大蒜3"}],"unknown":["香菜兩把"],"note":""}（打字叫貨時 lines 可以是空陣列）`;
+輸出格式：{"lines":["大蒜3","香菜兩把","九層塔1斤+4兩+3兩"],"items":[{"pid":"p1","qty":3,"op":"add","raw":"大蒜3"},{"pid":"p9","qty":1.4375,"op":"add","raw":"九層塔1斤+4兩+3兩","bags":"1斤+4兩+3兩"}],"unknown":["香菜兩把"],"note":""}（打字叫貨時 lines 可以是空陣列）`;
 }
 
 // text 或 image（data:image/jpeg;base64,…）擇一
@@ -85,7 +86,11 @@ export async function parseOrder({ text, image, products, storeAliases = [] }) {
     const same = items.find((x) => x.pid === p.id);
     if (same && same.op === 'add' && op === 'add') same.qty = roundQty(same.qty + qty);
     else if (same) Object.assign(same, { op, qty });
-    else items.push({ pid: p.id, name: p.name, unit: p.unit, qty, op, raw: String(it.raw || '').slice(0, 40) });
+    else {
+      // 分裝方式要加起來剛好是 qty 才留（AI 算錯就當沒交代）
+      const bags = op !== 'remove' && it.bags ? bagsOf(it.bags, p.unit, qty) : null;
+      items.push({ pid: p.id, name: p.name, unit: p.unit, qty, op, raw: String(it.raw || '').slice(0, 40), ...(bags ? { bags } : {}) });
+    }
   }
   const unknown = (Array.isArray(j.unknown) ? j.unknown : []).map((s) => String(s).slice(0, 40)).filter(Boolean).slice(0, 10);
   const lines = (Array.isArray(j.lines) ? j.lines : []).map((s) => String(s).slice(0, 40)).filter(Boolean).slice(0, 30);

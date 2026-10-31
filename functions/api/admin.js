@@ -8,6 +8,7 @@ import * as shop from '../lib/shop.js';
 import * as ex from '../lib/expense.js';
 import * as pos from '../lib/pos.js';
 import * as erp from '../lib/erp.js';
+import * as packing from '../lib/packing.js';
 import { signedIn, need, can, ROLES, listUsers, addUser, updateUser, removeUser } from '../lib/auth.js';
 import { remindText, statementMessage, approvedText, dunningText, receiptMessage, slipMessage } from '../lib/messages.js';
 import { getFirestore } from 'firebase-admin/firestore';
@@ -98,6 +99,12 @@ export async function GET(request) {
       const [sales, day] = await Promise.all([pos.salesOf(d), pos.getDay(d)]);
       const sum = pos.summary(sales);
       return json({ date: d, sales, summary: sum, day, expected: pos.expectedCash(day, sum) });
+    }
+    // 分裝頁：這天勾了哪幾包、原料用量；各店的分裝習慣；原料庫存（有管才有）
+    if (q.get('packing')) {
+      need(me, 'view');
+      const [pk, styles, stock] = await Promise.all([packing.getPacking(q.get('packing')), shop.packStyles(), pos.getStock()]);
+      return json({ packing: pk, styles, stock: stock.items || {} });
     }
     if (q.has('stockmoves')) {
       need(me, 'pos');
@@ -417,6 +424,15 @@ export async function POST(request) {
         const sales = await pos.salesOf(s.date);
         return json({ sales, summary: pos.summary(sales) });
       }
+      case 'packDone':
+        need(me, 'editOrders');
+        return json({ packing: await packing.setDone(b.date, b.keys, !!b.done) });
+      case 'packRaw':
+        need(me, 'editOrders');
+        return json({ packing: await packing.setRaw(b.date, b, me.name || me.email), stock: (await pos.getStock()).items || {} });
+      case 'packBags':
+        need(me, 'editOrders');
+        return json({ order: await shop.setItemBags(String(b.storeId || ''), b.date, b.seq, String(b.pid || ''), b.bags), styles: await shop.packStyles() });
       case 'bought':
         need(me, 'view');
         return json({ bought: await shop.setBought(b.date, String(b.pid || ''), b.qty) });

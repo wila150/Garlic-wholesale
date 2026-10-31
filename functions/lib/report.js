@@ -7,6 +7,7 @@ import { addDays, thisMonth } from './dates.js';
 import * as shop from './shop.js';
 import * as ex from './expense.js';
 import * as pos from './pos.js';
+import { packStat } from './packing.js';
 
 const db = () => getFirestore();
 const clean = (s, max) => String(s ?? '').trim().slice(0, max);
@@ -65,7 +66,8 @@ export async function monthReport(month) {
     ex.getCats(),
   ]);
   const posSales = await pos.salesOfMonth(month);
-  const boughtSnap = await db().collection('bought').where(FieldPath.documentId(), '>=', days[0]).where(FieldPath.documentId(), '<=', days.at(-1)).get();
+  const range = (c) => db().collection(c).where(FieldPath.documentId(), '>=', days[0]).where(FieldPath.documentId(), '<=', days.at(-1)).get();
+  const [boughtSnap, packSnap] = await Promise.all([range('bought'), range('packing')]);
   // 記帳的支出算進當天的其他成本；進貨的錢另外記，那天沒填進價才拿來當進貨成本（不重複扣）
   const spent = {}, bought = {};
   for (const e of expenses) {
@@ -110,7 +112,38 @@ export async function monthReport(month) {
     const gross = r.revenue - r.purchase;
     return { ...r, spent: spent[d] || 0, bought: bought[d] || 0, purchase: Math.round(r.purchase), kg: Math.round(r.kg * 10) / 10, other: Math.round(other), gross: Math.round(gross), net: Math.round(gross - other), missingCost: Math.round(r.missingCost) };
   });
-  return { month, days: out, costTypes, costs, expenses, expenseCats, purchases: purchaseStats(ordersSnap, boughtSnap, expenses, products) };
+  return { month, days: out, costTypes, costs, expenses, expenseCats, purchases: purchaseStats(ordersSnap, boughtSnap, expenses, products),
+    packing: packingStats(ordersSnap, packSnap, dayCosts, fallbackCost, products) };
+}
+
+// 分裝：有記原料用量的那幾天，每個品項用了多少原料、出了多少、損耗、原料成本、營收、毛利
+function packingStats(ordersSnap, packSnap, dayCosts, fallbackCost, products) {
+  const pm = Object.fromEntries(products.map((p, i) => [p.id, { ...p, i }]));
+  const byDay = {};
+  for (const d of ordersSnap.docs) {
+    const o = d.data();
+    for (const it of o.items) ((byDay[o.date] ??= {})[it.pid] ??= []).push({ qty: shop.billQty(it), price: it.price, unit: it.unit, name: it.name });
+  }
+  const S = {};
+  for (const d of packSnap.docs) {
+    for (const [pid, raw] of Object.entries(d.data().raw || {})) {
+      const items = byDay[d.id]?.[pid] || [];
+      const unit = pm[pid]?.unit || items[0]?.unit || '';
+      const from = pm[raw.from];
+      const cost = dayCosts[d.id]?.[raw.from] ?? fallbackCost[raw.from] ?? null;
+      const r = packStat({ unit, items, raw, rawUnit: from?.unit || unit, cost });
+      const a = (S[pid] ??= { pid, name: pm[pid]?.name || items[0]?.name || '', unit, from: from?.name || '', rawUnit: from?.unit || unit, days: 0, out: 0, rawQty: 0, used: 0, revenue: 0, rawCost: 0, noCost: 0, noUsed: false });
+      a.days++; a.out += r.out; a.rawQty += r.rawQty; a.revenue += r.revenue;
+      if (r.used == null) a.noUsed = true; else a.used += r.used;
+      if (r.rawCost == null) a.noCost += r.revenue; else a.rawCost += r.rawCost;
+    }
+  }
+  const q = (v) => Math.round(v * 10000) / 10000;
+  return Object.values(S).map((a) => {
+    const used = a.noUsed ? null : q(a.used), out = q(a.out);
+    return { ...a, out, rawQty: q(a.rawQty), used, loss: used == null ? null : q(used - out), lossRate: used ? Math.round(((used - out) / used) * 1000) / 10 : null,
+      gross: a.noCost ? null : a.revenue - a.rawCost, unitCost: !a.noCost && out ? Math.round((a.rawCost / out) * 10) / 10 : null };
+  }).sort((x, y) => (pm[x.pid]?.i ?? 999) - (pm[y.pid]?.i ?? 999));
 }
 
 // 進貨統計：每個品項這個月叫了多少、買了多少（採買總表的已買）、記帳花多少（有寫數量的才算得出單價）

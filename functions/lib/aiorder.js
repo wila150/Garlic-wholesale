@@ -97,13 +97,16 @@ export async function processJob(job, jobId) {
 
 // AI 整理的品項套到現有的單上：add 加上去、set 改成、remove 不要了
 export function applyOps(oldItems, ops) {
-  const items = (oldItems || []).map((i) => ({ pid: i.pid, qty: i.qty }));
+  const items = (oldItems || []).map((i) => ({ pid: i.pid, qty: i.qty, ...(i.bags ? { bags: i.bags } : {}) }));
+  // 一包一包的份量：沒交代的那部分當成一整包
+  const asBags = (x) => x.bags || [{ q: x.qty, n: 1 }];
   for (const it of ops) {
     const same = items.find((x) => x.pid === it.pid);
     const op = it.op || 'add';
     if (op === 'remove') { if (same) items.splice(items.indexOf(same), 1); }
-    else if (op === 'set') { if (same) same.qty = it.qty; else items.push({ pid: it.pid, qty: it.qty }); }
-    else if (same) same.qty = roundQty(same.qty + it.qty); else items.push({ pid: it.pid, qty: it.qty });
+    else if (op === 'set') { if (same) Object.assign(same, { qty: it.qty, bags: it.bags || null }); else items.push({ pid: it.pid, qty: it.qty, bags: it.bags || null }); }
+    else if (same) { if (same.bags || it.bags) same.bags = [...asBags(same), ...asBags(it)]; same.qty = roundQty(same.qty + it.qty); }
+    else items.push({ pid: it.pid, qty: it.qty, bags: it.bags || null });
   }
   return items;
 }

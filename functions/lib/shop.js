@@ -15,7 +15,7 @@
 import crypto from 'node:crypto';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { PRESET, DEFAULT_PRODUCTS, CATEGORIES, DEFAULT_UNITS, UNITS_VERSION, UNITS_ADDED } from './config.js';
-import { qtyText, roundQty } from './qty.js';
+import { qtyText, roundQty, parseBags, bagsTotal, bagsOf } from './qty.js';
 import { UserError } from './http.js';
 import { openDate, isDate, today, addonDate, getRulesNow, cutoffLabel, addonUntilLabel } from './dates.js';
 
@@ -580,6 +580,31 @@ export async function monthAmounts(month) {
 // 整張訂單覆蓋。by：'店家' 或 '後台'；who：後台是誰改的
 // items 可以是陣列，或 (舊訂單) => 陣列：要「在舊的單上加減」時用函式，才不會跟同時間的修改互相蓋掉
 // 用 transaction：同一張單同時有人改（店家改單、理貨填實出量、AI 確認），Firestore 會自動重跑，不會遺失修改
+// 分裝頁改某一家店某一項怎麼裝（不改數量、金額，確認過的單也能改）；順便記成這家店這個品項的習慣
+//   packStyle/{店}  { items: { 品項: [{ q, n }] } }：下次叫一樣的量，分裝頁先照這個裝
+export async function setItemBags(sid, date, seq, pid, text) {
+  if (!isDate(date)) throw new UserError('配送日不正確');
+  const ref = orderDoc(date, sid, Math.max(1, Math.floor(Number(seq)) || 1));
+  return db().runTransaction(async (tx) => {
+    const o = (await tx.get(ref)).data();
+    const it = o?.items.find((i) => i.pid === pid);
+    if (!it) throw new UserError('找不到這筆品項，請重新整理', 404);
+    const empty = !String(text ?? '').trim();
+    const b = empty ? null : parseBags(text, it.unit);
+    if (!empty && !b) throw new UserError('看不懂，例如：1斤+4兩+3兩、半斤×2+1斤×3');
+    const qty = it.ship ?? it.qty;
+    if (b && Math.abs(bagsTotal(b) - qty) > 0.001) throw new UserError(`加起來是 ${qtyText(bagsTotal(b), it.unit)}，跟這家叫的 ${qtyText(qty, it.unit)} 不一樣`);
+    if (b) it.bags = b; else delete it.bags;
+    tx.update(ref, { items: o.items });
+    if (b) tx.set(doc('packStyle/' + sid), { items: { [pid]: b } }, { merge: true });
+    return { ...o, id: ref.id };
+  });
+}
+export async function packStyles() {
+  const snap = await db().collection('packStyle').get();
+  return Object.fromEntries(snap.docs.map((d) => [d.id, d.data().items || {}]));
+}
+
 export async function saveOrder(sid, date, items, by, who = '', seq = 1, opts = {}) {
   if (!isDate(date)) throw new UserError('配送日不正確');
   if (by === '店家' && date !== openDate()) throw new UserError('這一天已經截單了，請重新整理後再叫貨', 409);
@@ -615,8 +640,10 @@ export async function saveOrder(sid, date, items, by, who = '', seq = 1, opts = 
     const src = p || was;
     // 叫貨量沒變的話，保留理貨已經秤好的實出量
     const keepShip = was && was.qty === qty && was.ship != null ? { ship: was.ship } : {};
+    // 分裝方式（一包裝多少）：這次有交代就用這次的；沒交代、數量也沒變就保留原本的
+    const bags = it.bags !== undefined ? bagsOf(it.bags, src.unit, qty) : was?.qty === qty ? was.bags : null;
     const base = p ? dayPrices[it.pid] ?? p.price : was.base ?? was.price;
-    next.push({ pid: it.pid, name: src.name, unit: src.unit, base, price: p ? priceFor(base, it.pid, group) : was.price, qty, ...keepShip });
+    next.push({ pid: it.pid, name: src.name, unit: src.unit, base, price: p ? priceFor(base, it.pid, group) : was.price, qty, ...keepShip, ...(bags ? { bags } : {}) });
   }
   if (!next.length && !old?.items.length) throw new UserError('還沒選任何品項');
   const idx = (pid) => { const i = products.findIndex((p) => p.id === pid); return i < 0 ? 1e9 : i; };

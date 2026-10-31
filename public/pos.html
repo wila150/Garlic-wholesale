@@ -510,7 +510,7 @@ async function paneStock(){
   P(`<h2>庫存</h2>${lowN?`<div class="warnbar">有 ${lowN} 樣快沒貨了</div>`:''}<p style="color:var(--muted)">按「開始管」才會記這個品項的庫存。門市賣出自動扣、作廢加回；進貨按「＋進貨」，盤點直接改成實際數量。批發出貨不會扣。</p>
   <div class="card" style="overflow-x:auto"><table class="stk"><thead><tr><th>品項</th><th class="n">庫存</th><th class="n">低於提醒</th><th class="n"></th></tr></thead><tbody>${rows}</tbody></table></div>
   <h2>最近異動</h2><div class="card list" id="moves"><p>載入中…</p></div>`);
-  try{const j=await api('GET',null,'?stockmoves=1');$('moves').innerHTML=j.moves.length?j.moves.map(m=>`<div class="it"><div><b>${esc(m.name)}</b>　${m.type==='in'?'進貨':'盤點'}<small>${new Date(m.at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false})}・${esc(m.by)}${m.note?'・'+esc(m.note):''}</small></div><div class="b"><b>${m.delta>0?'+':''}${esc(qtyText(m.delta,m.unit))}</b><small>→ ${esc(qtyText(m.after,m.unit))}</small></div></div>`).join(''):'<p style="color:var(--muted)">還沒有紀錄</p>'}catch{}
+  try{const j=await api('GET',null,'?stockmoves=1');$('moves').innerHTML=j.moves.length?j.moves.map(m=>`<div class="it"><div><b>${esc(m.name)}</b>　${m.type==='in'?'進貨':m.type==='pack'?'分裝用掉':'盤點'}<small>${new Date(m.at).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',hour12:false})}・${esc(m.by)}${m.note?'・'+esc(m.note):''}</small></div><div class="b"><b>${m.delta>0?'+':''}${esc(qtyText(m.delta,m.unit))}</b><small>→ ${esc(qtyText(m.after,m.unit))}</small></div></div>`).join(''):'<p style="color:var(--muted)">還沒有紀錄</p>'}catch{}
 }
 async function stockApi(body,msg){try{const j=await api('POST',{action:'posStock',...body});D.stock=j.stock;renderGrid();paneStock();toast(msg)}catch(e){toast(e.message)}}
 // 常客

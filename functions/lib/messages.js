@@ -1,7 +1,7 @@
 // LINE 訊息（Flex Message）。給店家的叫貨訊息不放價格，只有對帳單有金額。
 import { SHOP } from './config.js';
 import { label, cutoffLabel, md, cutoffTime, addonUntilLabel } from './dates.js';
-import { qtyText } from './qty.js';
+import { qtyText, bagsText } from './qty.js';
 
 const C = { head: '#1F3A2C', headText: '#EEF3EA', sub: '#A9BFAE', tag: '#F5D547', text: '#1B2A21', muted: '#5B6B60', green: '#06C755' };
 export const money = (n) => '$' + Math.round(n).toLocaleString('en-US');
@@ -91,8 +91,8 @@ export function draftMessage(store, draft, { existing = [], toAddon = false, cho
     const b = before.get(i.pid) || 0;
     const after = op === 'remove' ? 0 : op === 'set' ? i.qty : b + i.qty;
     const right = after === 0 ? (b ? '不要了' : '—') : b ? `${qtyText(b, i.unit)} → ${qtyText(after, i.unit)}` : qtyText(after, i.unit);
-    return row(i.name, right, { weight: 'bold' });
-  });
+    return i.bags ? [row(i.name, right, { weight: 'bold' }), text(`分裝：${bagsText(i.bags, i.unit)}`, { size: 'xxs', color: C.muted })] : row(i.name, right, { weight: 'bold' });
+  }).flat();
   if (draft.unknown.length) {
     body.push(sep, text('看不懂、沒有加進來的：', { size: 'xs', color: C.muted, margin: 'md' }), text(draft.unknown.join('、'), { size: 'sm', color: '#B23A2E' }));
   }

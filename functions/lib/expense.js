@@ -88,6 +88,14 @@ export async function learnWord(item, cat) {
 // 金額＝最後一個數字（可以有 $、逗號、元、塊）；@ 後面是付給誰；其他字是品名
 export function parseExpenseText(raw, now = today()) {
   let s = String(raw || '').replace(/^(記帳|支出|花費?|付款?)\s*[:：]?\s*/, '').trim();
+  // 加法：「56+1590」「300 + 200 + 50」記成加起來的金額（後面跟著「=1646」也吃掉），算式留在備註；
+  // 帶單位的（56斤+3斤）是數量，不算
+  let sum = '';
+  s = s.replace(/(?<![\d.\/])\d[\d,]*(?:\.\d+)?(?:\s*[+＋]\s*\d[\d,]*(?:\.\d+)?)+(?:\s*[=＝]\s*\d[\d,]*(?:\.\d+)?)?(?![\d.]|\s*(?:個|包|箱|斤|兩|袋|支|瓶|桶|公斤|kg|台|件|張|次|天|小時|顆|盒|捆|把|人|籃|簍|紮|綑))/i, (m) => {
+    const expr = m.replace(/\s+/g, '').replace(/[=＝].*$/, '');
+    sum = expr;
+    return String(Math.round(expr.split(/[+＋]/).reduce((a, x) => a + Number(x.replace(/,/g, '')), 0) * 100) / 100);
+  });
   let date = now;
   const rel = s.match(/^(今天|昨天|前天)\s*/);
   if (rel) { date = addDays(now, { 今天: 0, 昨天: -1, 前天: -2 }[rel[1]]); s = s.slice(rel[0].length); }
@@ -117,7 +125,7 @@ export function parseExpenseText(raw, now = today()) {
   let after = s.slice(hit.index + hit[0].length).trim();
   if (!item) [item, after] = [clean(after, 30), '']; // 「$300 便當」
   if (!item) return null;
-  return { date, amount, item, payee: clean(payee, 20), note: clean(after, 40) };
+  return { date, amount, item, payee: clean(payee, 20), note: clean([after, sum].filter(Boolean).join(' '), 40) };
 }
 
 function normalize(input, cats) {

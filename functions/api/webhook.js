@@ -295,7 +295,7 @@ async function expenseChat({ said, pb, action, store, uid, pick }) {
   const p = ex.parseExpenseText(said) || (pick && /^[$＄]?\s*\d[\d,]*(?:\.\d+)?(?:\s*[+＋]\s*\d[\d,]*(?:\.\d+)?)*(?:\s*[=＝]\s*\d[\d,]*)?\s*(元|塊)?$/.test(said) ? ex.parseExpenseText(`${pick} ${said}`) : null);
   if (!p) return prefixed || pick ? { type: 'text', text: `看不懂金額。${HOWTO}` } : null;
   if (pick) { p.cat = pick; await modeRef(uid).set({ pick: null }, { merge: true }); }
-  const e = await ex.addExpense(p, { by: (await displayName(uid)) || '老闆 LINE', source: 'line' });
+  const e = await ex.addExpense({ ...p, raw: said }, { by: (await displayName(uid)) || '老闆 LINE', source: 'line' });
   const r = savedReply(e, await ex.getCats());
   // 有數量的進貨（高麗菜20斤）：順便回這樣還要買多少
   if (e.buy) {

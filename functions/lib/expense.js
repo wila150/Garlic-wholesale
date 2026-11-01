@@ -171,7 +171,8 @@ async function syncCost(date, pid) {
 
 export async function addExpense(input, { by = '', source = 'admin' } = {}) {
   const cats = await getCats();
-  const e = { id: rid(), ...normalize(input, cats), by: clean(by, 40), source, at: new Date().toISOString() };
+  // raw：LINE 傳來的原始訊息，帳記錯時可以對照（後台記帳明細、廠商總帳看得到）
+  const e = { id: rid(), ...normalize(input, cats), by: clean(by, 40), source, ...(input.raw ? { raw: clean(input.raw, 200) } : {}), at: new Date().toISOString() };
   // 今天記的進貨：算進現在正在採買的那個配送日
   if (isPurchase(e.cat, cats) && e.date === today()) {
     const m = matchBuy(e.item, await getProducts());

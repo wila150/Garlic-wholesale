@@ -633,7 +633,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 110101</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 110102</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div class="sgrps">
     <div id="rulesBox">
@@ -818,11 +818,14 @@ async function load(){
   renderAll();
   if(tab==='pack')loadPacking();
 }
-const PM=()=>Object.fromEntries(D.products.map(p=>[p.id,p]));
-const SM=()=>Object.fromEntries(D.stores.map(s=>[s.id,s]));
+// 品項、店家對照表：每次載入資料（D.products／D.stores 換成新陣列）才重建一次。
+// 以前每次排序比較都重建一份整個品項的表，品項多的時候首頁要卡好幾秒
+let _pmOf=null,_pm={},_pi=new Map(),_smOf=null,_sm={};
+const PM=()=>{if(_pmOf!==D.products){_pmOf=D.products;_pm=Object.fromEntries(D.products.map(p=>[p.id,p]));_pi=new Map(D.products.map((p,i)=>[p.id,i]))}return _pm};
+const SM=()=>{if(_smOf!==D.stores){_smOf=D.stores;_sm=Object.fromEntries(D.stores.map(s=>[s.id,s]))}return _sm};
 const activeStores=()=>D.stores.filter(s=>s.on);
 const catIdx=pid=>{const p=PM()[pid];return p?D.categories.indexOf(p.cat):99};
-const prodIdx=pid=>D.products.findIndex(p=>p.id===pid);
+const prodIdx=pid=>{PM();return _pi.get(pid)??-1};
 const sortItems=items=>[...items].sort((a,b)=>catIdx(a.pid)-catIdx(b.pid)||prodIdx(a.pid)-prodIdx(b.pid));
 // 出貨單的代號：原本的單是店家 id，配送單確認後開的補單是「店家id-2」「-3」…
 const okey=o=>o.storeId+((o.seq||1)>1?'-'+o.seq:'');

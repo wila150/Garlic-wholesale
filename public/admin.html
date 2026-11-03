@@ -125,6 +125,11 @@ h2{font-size:1.15rem;margin:0 0 4px;font-weight:900}
 .add input{width:84px;border:1px solid var(--line);background:var(--bg);border-radius:6px;padding:4px 6px;font-size:.88rem}
 .add button{border:0;background:var(--leaf);color:#fff;border-radius:6px;padding:4px 10px;font-weight:700;font-size:.88rem}
 .empty{color:var(--muted);font-size:.9rem;padding:6px 0}
+.ibsub{font-size:.85rem;color:var(--muted);font-weight:400}.ibnote{font-size:.85rem;color:var(--muted);margin:2px 0 8px}
+.ibt{width:100%;border-collapse:collapse;font-size:.88rem;margin-bottom:18px}.ibt td,.ibt th{border-bottom:1px solid var(--line);padding:6px 4px;text-align:left;vertical-align:top}.ibt tr.off{opacity:.55}
+.ibt .uid{color:var(--muted);font-size:.72rem;word-break:break-all}.ibcopy{border:0;background:none;color:var(--leaf);font-size:.75rem;text-decoration:underline;padding:0}
+.ibmsgs{display:flex;flex-direction:column;gap:6px;max-height:420px;overflow:auto;background:var(--leaf-soft);border-radius:8px;padding:8px}.ibm small{color:var(--muted);margin-right:6px}.ibm span{white-space:pre-wrap}.ibm img{max-width:180px;border-radius:6px;cursor:zoom-in;vertical-align:top}
+
 .slip .pbtn{margin-top:10px;width:100%}
 .log{margin-top:18px;background:var(--surface);border:1px solid var(--line);border-radius:8px;padding:12px 14px}
 .log h3{margin:0 0 6px;font-size:1rem}
@@ -633,7 +638,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="users" hidden>
-    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 110301</small></div>
+    <div class="mebox"><span id="meInfo"></span><small class="ver">版本 110302</small></div>
     <a class="manual" href="/manual" onclick="event.preventDefault();$('helpBtn').click()"><b>📖 使用說明書</b></a>
     <div class="sgrps">
     <div id="rulesBox">
@@ -684,6 +689,7 @@ input[type=checkbox],input[type=radio]{accent-color:var(--leaf)}
   </section>
 
   <section id="stores" hidden>
+    <div id="inboxBox"></div>
     <div id="pendBox"></div>
     <h2>店家與配送路線</h2>
     <div id="storeList"></div>
@@ -1748,11 +1754,48 @@ function fitPage(){
 }
 
 /* ---------- 事件 ---------- */
+// LINE 收集模式：新的官方帳號先不開放叫貨，只記下客人的 userId 和他們怎麼叫貨（後端 lib/inbox.js）
+let IB=null,ibOpen='';
+const ibTime=a=>new Date(a).toLocaleString('zh-TW',{timeZone:'Asia/Taipei',month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false});
+async function loadInbox(){
+  try{IB=await api('GET',null,'?inbox=1')}catch(e){IB=null}
+  renderInbox();
+}
+function renderInbox(){
+  const box=$('inboxBox');
+  if(!IB||(!IB.on&&!IB.contacts.length)){box.innerHTML='';return}
+  box.innerHTML=`<h2>LINE 收集${IB.on?'中':''} <small class="ibsub">${IB.contacts.length} 位客人</small></h2>
+  <p class="ibnote">${IB.on?'目前 LINE 只記錄、不自動回覆，也沒有叫貨選單；客人的訊息請到 LINE 官方帳號後台（chat.line.biz）手動回。':'收集模式已經關掉，下面是之前收集到的。'}</p>
+  <div class="bar"><button class="pbtn" type="button" id="ibCsv">下載名單（Excel 可開）</button><button class="pbtn" type="button" id="ibReload">重新整理</button></div>
+  ${IB.contacts.length?`<table class="ibt"><thead><tr><th>LINE 名稱</th><th>最近</th><th>則數</th><th>最後一則</th><th></th></tr></thead><tbody>${IB.contacts.map(c=>`<tr class="${c.followed===false?'off':''}"><td><b>${esc(c.name||'（沒有名稱）')}</b>${c.followed===false?' <small>已封鎖</small>':''}<br><small class="uid">${esc(c.userId)}</small> <button class="ibcopy" data-ibcopy="${esc(c.userId)}">複製 ID</button></td><td>${ibTime(c.lastAt)}</td><td>${c.count||0}</td><td>${esc(c.last||'')}</td><td><button class="pbtn" data-ib="${esc(c.userId)}">${ibOpen===c.userId?'收起':'看訊息'}</button></td></tr>${ibOpen===c.userId?`<tr><td colspan="5"><div class="ibmsgs" id="ibMsgs">讀取中…</div></td></tr>`:''}`).join('')}</tbody></table>`:'<div class="empty">還沒有人傳訊息。客人加好友、傳訊息後就會出現在這裡。</div>'}`;
+  if(ibOpen)loadInboxMsgs(ibOpen);
+}
+async function loadInboxMsgs(uid){
+  try{
+    const j=await api('GET',null,'?inbox='+encodeURIComponent(uid));
+    const el=$('ibMsgs');if(!el)return;
+    el.innerHTML=j.messages.length?j.messages.map(m=>`<div class="ibm"><small>${ibTime(m.at)}</small> ${m.img?`<img data-ibimg="${esc(m.img)}" alt="客人傳的照片" loading="lazy">`:`<span>${esc(m.text)}</span>`}</div>`).join(''):'<div class="empty">沒有訊息</div>';
+    for(const im of el.querySelectorAll('img[data-ibimg]'))api('GET',null,'?inboxImg='+encodeURIComponent(im.dataset.ibimg)).then(r=>{if(r.data)im.src='data:image/jpeg;base64,'+r.data}).catch(()=>{});
+  }catch(e){const el=$('ibMsgs');if(el)el.textContent=e.message}
+}
+$('inboxBox').addEventListener('click',e=>{
+  const b=e.target.closest('button,img');if(!b)return;
+  if(b.dataset.ib){ibOpen=ibOpen===b.dataset.ib?'':b.dataset.ib;renderInbox()}
+  else if(b.dataset.ibcopy){navigator.clipboard.writeText(b.dataset.ibcopy).then(()=>toast('已複製 userId'))}
+  else if(b.id==='ibReload')loadInbox();
+  else if(b.id==='ibCsv'){
+    const q=v=>`"${String(v??'').replace(/"/g,'""')}"`;
+    const rows=[['LINE 名稱','userId','第一次','最近','訊息數','最後一則','狀態'],...IB.contacts.map(c=>[c.name,c.userId,ibTime(c.firstAt),ibTime(c.lastAt),c.count||0,c.last,c.followed===false?'已封鎖':'好友'])];
+    const a=document.createElement('a');a.href=URL.createObjectURL(new Blob(['\ufeff'+rows.map(r=>r.map(q).join(',')).join('\r\n')],{type:'text/csv'}));a.download=`LINE客人名單_${new Date().toLocaleDateString("sv",{timeZone:"Asia/Taipei"})}.csv`;a.click();
+  }
+  else if(b.dataset.ibimg&&b.src)window.open().document.write(`<img src="${b.src}" style="max-width:100%">`);
+});
 function showTab(t){
   tab=t;
   if(t==='report'&&(!R||R.month!==(rmonth||D.month)))loadReport();
   if(t==='ai')loadAI();
   if(t==='pack')loadPacking();
+  if(t==='stores')loadInbox();
   document.querySelectorAll('nav.tabs button').forEach(x=>x.setAttribute('aria-selected',x.dataset.tab===t));
   document.querySelectorAll('section').forEach(sec=>sec.hidden=sec.id!==t);
   $('datebar').hidden=!(t==='board'||t==='slips'||t==='prices'||t==='pack');

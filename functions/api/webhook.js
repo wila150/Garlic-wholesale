@@ -13,6 +13,7 @@ import { looksLikeOrder } from '../lib/ai.js';
 import { queue, confirmDraft, aiQuotaOk } from '../lib/aiorder.js';
 import { storeChat } from './storechat.js';
 import { bossInfo } from './bosschat.js';
+import * as inbox from '../lib/inbox.js';
 
 export async function POST(request) {
   const raw = await request.text();
@@ -27,6 +28,13 @@ export async function POST(request) {
 
 async function handle(e, origin) {
   const uid = e.source?.userId;
+  // 收集模式：只記下誰傳了什麼，不回覆、不換選單（「我的ID」例外，回覆不算額度，老闆拿來設通知）
+  if (inbox.collecting()) {
+    if (!uid || e.source.type !== 'user') return;
+    await inbox.collect(e);
+    if (e.replyToken && e.type === 'message' && /^我的\s*id$/i.test(e.message.text?.trim() || '')) await reply(e.replyToken, [{ type: 'text', text: `您的 LINE userId：\n${uid}` }]);
+    return;
+  }
   if (!uid || !e.replyToken || e.source.type !== 'user') return;
   const store = await shop.storeOfUser(uid);
   const url = orderLink(origin, uid);

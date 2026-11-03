@@ -5,6 +5,7 @@ import { json, fail, readJSON, UserError } from '../lib/http.js';
 import { push } from '../lib/line.js';
 import { openDate, today, thisMonth, isDate, isMonth, cutoffLabel, getRulesNow } from '../lib/dates.js';
 import * as shop from '../lib/shop.js';
+import * as inbox from '../lib/inbox.js';
 import * as ex from '../lib/expense.js';
 import * as pos from '../lib/pos.js';
 import * as erp from '../lib/erp.js';
@@ -62,6 +63,17 @@ export async function GET(request) {
     const me = await signedIn(request);
     need(me, 'view');
     const q = new URL(request.url).searchParams;
+    // LINE 收集模式：客人名單、某位客人的訊息、照片
+    if (q.get('inbox')) {
+      need(me, 'stores');
+      const v = q.get('inbox');
+      if (v === '1') return json({ on: inbox.collecting(), contacts: await inbox.listContacts() });
+      return json({ messages: await inbox.messagesOf(v.replace(/[^\w]/g, '')) });
+    }
+    if (q.get('inboxImg')) {
+      need(me, 'stores');
+      return json({ data: await inbox.imageOf(q.get('inboxImg').replace(/[^\w]/g, '')) });
+    }
     // 簽名圖另外載（列印、查看時才需要）
     if (q.get('sig')) {
       need(me, 'view');

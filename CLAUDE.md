@@ -2,7 +2,7 @@
 
 這份是**蒜頭行**專用版本：Firebase 專案 `garlic-wholesale`，網址 https://garlic-wholesale.web.app ，GitHub wila150/Garlic-wholesale。
 菜行的版本在 `../Caihang order`，兩份程式已分開（2026-10-31），各改各的；兩家都要的修正要兩邊都改。
-目前還沒接上蒜頭行自己的 LINE 官方帳號（之前的測試帳號已改接菜行）。
+2026-11-03 接上蒜頭行自己的 LINE 官方帳號（Channel ID 2012348191），先用**收集模式**（`functions/.env.garlic-wholesale` 的 `LINE_COLLECT=on`，`lib/inbox.js`）：只記客人的 userId 和訊息，不回覆、不推叫貨選單、不要跑 `npm run richmenu`；開放叫貨時拿掉這行重新部署。
 
 ## 系統是什麼
 LINE 叫貨＋後台管理系統：店家在 LINE 官方帳號叫貨（打字、拍照由 AI 整理後確認，或用叫貨單選），老闆和員工在網頁後台處理採買、單價、出貨單、對帳收款、記帳、報表。
